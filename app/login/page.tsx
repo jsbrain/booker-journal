@@ -41,8 +41,8 @@ export default function LoginPage() {
         })
       }
       router.push("/dashboard")
-    } catch (err: any) {
-      setError(err.message || "Authentication failed")
+    } catch (err) {
+      setError((err as Error).message || "Authentication failed")
     } finally {
       setLoading(false)
     }
@@ -119,7 +119,7 @@ export default function LoginPage() {
               </>
             ) : (
               <>
-                Don't have an account?{" "}
+                Don&apos;t have an account?{" "}
                 <button
                   type="button"
                   onClick={() => setIsSignUp(true)}

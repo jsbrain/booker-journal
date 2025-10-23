@@ -53,7 +53,7 @@ export default function DashboardPage() {
                 <User className="h-5 w-5" />
                 Welcome Back!
               </CardTitle>
-              <CardDescription>You're logged in to your dashboard</CardDescription>
+              <CardDescription>You&apos;re logged in to your dashboard</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
