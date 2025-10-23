@@ -42,7 +42,7 @@ export default function LoginPage() {
       }
       router.push("/dashboard")
     } catch (err) {
-      setError((err as Error).message || "Authentication failed")
+      setError(err instanceof Error ? err.message : "Authentication failed")
     } finally {
       setLoading(false)
     }
