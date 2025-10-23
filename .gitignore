@@ -38,6 +38,9 @@ auth.db
 auth.db-shm
 auth.db-wal
 
+# drizzle
+drizzle
+
 # vercel
 .vercel
 
