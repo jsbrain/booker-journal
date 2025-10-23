@@ -41,13 +41,14 @@ export function ShareProjectDialog({ open, onOpenChange, projectId }: ShareProje
     if (open) {
       loadSharedLinks()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, projectId])
 
   const loadSharedLinks = async () => {
     try {
       const links = await getSharedLinks(projectId)
       setSharedLinks(links)
-    } catch (err) {
+    } catch {
       setError("Failed to load shared links")
     }
   }
@@ -77,7 +78,7 @@ export function ShareProjectDialog({ open, onOpenChange, projectId }: ShareProje
     try {
       await deleteSharedLink(linkId, projectId)
       await loadSharedLinks()
-    } catch (err) {
+    } catch {
       setError("Failed to delete link")
     }
   }

@@ -16,7 +16,10 @@ type Project = {
   createdAt: Date
   updatedAt: Date
   userId: string
-  entries: any[]
+  entries: {
+    id: number
+    timestamp: Date
+  }[]
 }
 
 export default function DashboardPage() {

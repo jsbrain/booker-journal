@@ -57,7 +57,7 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
       if (types.length > 0) {
         setTypeId(types[0].id.toString())
       }
-    } catch (err) {
+    } catch {
       setError("Failed to load entry types")
     }
   }

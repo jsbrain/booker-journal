@@ -59,6 +59,7 @@ export default function ProjectDetailPage() {
     if (session) {
       loadProjectData()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, projectId])
 
   const loadProjectData = async () => {
