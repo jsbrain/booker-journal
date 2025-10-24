@@ -135,6 +135,7 @@ export async function getProjectBySharedLink(token: string) {
     where: eq(journalEntries.projectId, link.projectId),
     orderBy: [desc(journalEntries.timestamp)],
     with: {
+      type: true,
       product: true,
     },
   });

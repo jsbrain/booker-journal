@@ -20,6 +20,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { updateEntry } from "@/lib/actions/entries"
+import { getEntryTypes } from "@/lib/actions/entry-types"
 import { getProducts } from "@/lib/actions/products"
 
 interface EditEntryDialogProps {
@@ -30,10 +31,17 @@ interface EditEntryDialogProps {
     id: string
     amount: string
     price: string
+    typeId: string
     productId: string
     note: string | null
   }
   onSuccess: () => void
+}
+
+type EntryType = {
+  id: string
+  key: string
+  name: string
 }
 
 type Product = {
@@ -45,28 +53,35 @@ type Product = {
 export function EditEntryDialog({ open, onOpenChange, projectId, entry, onSuccess }: EditEntryDialogProps) {
   const [amount, setAmount] = useState("")
   const [price, setPrice] = useState("")
+  const [typeId, setTypeId] = useState("")
   const [productId, setProductId] = useState("")
   const [note, setNote] = useState("")
+  const [entryTypes, setEntryTypes] = useState<EntryType[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
   useEffect(() => {
     if (open) {
-      loadProducts()
+      loadData()
       setAmount(entry.amount)
       setPrice(entry.price)
+      setTypeId(entry.typeId)
       setProductId(entry.productId)
       setNote(entry.note || "")
     }
   }, [open, entry])
 
-  const loadProducts = async () => {
+  const loadData = async () => {
     try {
-      const allProducts = await getProducts()
-      setProducts(allProducts)
+      const [types, prods] = await Promise.all([
+        getEntryTypes(),
+        getProducts(),
+      ])
+      setEntryTypes(types)
+      setProducts(prods)
     } catch {
-      setError("Failed to load products")
+      setError("Failed to load data")
     }
   }
 
@@ -87,6 +102,7 @@ export function EditEntryDialog({ open, onOpenChange, projectId, entry, onSucces
       await updateEntry(entry.id, projectId, {
         amount: amountNum,
         price: priceNum,
+        typeId,
         productId,
         note: note || undefined,
       })
@@ -111,6 +127,21 @@ export function EditEntryDialog({ open, onOpenChange, projectId, entry, onSucces
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="edit-type">Type</Label>
+              <Select value={typeId} onValueChange={setTypeId} required>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {entryTypes.map((type) => (
+                    <SelectItem key={type.id} value={type.id}>
+                      {type.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="grid gap-2">
               <Label htmlFor="edit-product">Product</Label>
               <Select value={productId} onValueChange={setProductId} required>

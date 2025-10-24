@@ -19,6 +19,7 @@ interface JournalEntryUpdateData {
   editHistory: EditHistoryEntry[];
   amount?: string;
   price?: string;
+  typeId?: string;
   productId?: string;
   note?: string;
 }
@@ -56,11 +57,12 @@ export async function createEntry(
   projectId: string,
   amount: number,
   price: number,
+  typeId: string,
   productId: string,
   note?: string
 ) {
   // Validate input
-  validate(createEntryInputSchema, { projectId, amount, price, productId, note });
+  validate(createEntryInputSchema, { projectId, amount, price, typeId, productId, note });
   
   const user = await getCurrentUser();
   await verifyProjectOwnership(projectId, user.id);
@@ -69,6 +71,7 @@ export async function createEntry(
     projectId,
     amount: amount.toString(),
     price: price.toString(),
+    typeId,
     productId,
     note,
   }).returning();
@@ -82,6 +85,7 @@ export async function updateEntry(
   updates: {
     amount?: number;
     price?: number;
+    typeId?: string;
     productId?: string;
     note?: string;
   }
@@ -120,6 +124,14 @@ export async function updateEntry(
       field: "price",
       oldValue: parseFloat(currentEntry.price),
       newValue: updates.price,
+    });
+  }
+  
+  if (updates.typeId !== undefined && updates.typeId !== currentEntry.typeId) {
+    changes.push({
+      field: "typeId",
+      oldValue: currentEntry.typeId,
+      newValue: updates.typeId,
     });
   }
   
@@ -167,6 +179,9 @@ export async function updateEntry(
   if (updates.price !== undefined) {
     updateData.price = updates.price.toString();
   }
+  if (updates.typeId !== undefined) {
+    updateData.typeId = updates.typeId;
+  }
   if (updates.productId !== undefined) {
     updateData.productId = updates.productId;
   }
@@ -196,6 +211,7 @@ export async function getEntries(projectId: string) {
     where: eq(journalEntries.projectId, projectId),
     orderBy: [desc(journalEntries.timestamp)],
     with: {
+      type: true,
       product: true,
     },
   });

@@ -20,6 +20,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { createEntry } from "@/lib/actions/entries"
+import { getEntryTypes } from "@/lib/actions/entry-types"
 import { getProducts } from "@/lib/actions/products"
 
 interface CreateEntryDialogProps {
@@ -27,6 +28,12 @@ interface CreateEntryDialogProps {
   onOpenChange: (open: boolean) => void
   projectId: string
   onSuccess: () => void
+}
+
+type EntryType = {
+  id: string
+  key: string
+  name: string
 }
 
 type Product = {
@@ -38,27 +45,36 @@ type Product = {
 export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: CreateEntryDialogProps) {
   const [amount, setAmount] = useState("")
   const [price, setPrice] = useState("")
+  const [typeId, setTypeId] = useState("")
   const [productId, setProductId] = useState("")
   const [note, setNote] = useState("")
+  const [entryTypes, setEntryTypes] = useState<EntryType[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
   useEffect(() => {
     if (open) {
-      loadProducts()
+      loadData()
     }
   }, [open])
 
-  const loadProducts = async () => {
+  const loadData = async () => {
     try {
-      const allProducts = await getProducts()
-      setProducts(allProducts)
-      if (allProducts.length > 0) {
-        setProductId(allProducts[0].id)
+      const [types, prods] = await Promise.all([
+        getEntryTypes(),
+        getProducts(),
+      ])
+      setEntryTypes(types)
+      setProducts(prods)
+      if (types.length > 0) {
+        setTypeId(types[0].id)
+      }
+      if (prods.length > 0) {
+        setProductId(prods[0].id)
       }
     } catch {
-      setError("Failed to load products")
+      setError("Failed to load data")
     }
   }
 
@@ -76,12 +92,15 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
         return
       }
 
-      await createEntry(projectId, amountNum, priceNum, productId, note || undefined)
+      await createEntry(projectId, amountNum, priceNum, typeId, productId, note || undefined)
       
       // Reset form
       setAmount("")
       setPrice("")
       setNote("")
+      if (entryTypes.length > 0) {
+        setTypeId(entryTypes[0].id)
+      }
       if (products.length > 0) {
         setProductId(products[0].id)
       }
@@ -105,6 +124,21 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="type">Type</Label>
+              <Select value={typeId} onValueChange={setTypeId} required>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {entryTypes.map((type) => (
+                    <SelectItem key={type.id} value={type.id}>
+                      {type.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="grid gap-2">
               <Label htmlFor="product">Product</Label>
               <Select value={productId} onValueChange={setProductId} required>

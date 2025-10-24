@@ -26,12 +26,18 @@ type Entry = {
   projectId: string
   amount: string
   price: string
+  typeId: string
   productId: string
   note: string | null
   timestamp: Date
   createdAt: Date
   updatedAt: Date
   editHistory: EditHistoryEntry[] | null
+  type: {
+    id: string
+    key: string
+    name: string
+  }
   product: {
     id: string
     key: string
@@ -281,7 +287,9 @@ export default function ProjectDetailPage() {
                   <CardContent className="flex items-center justify-between p-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium">{entry.product.name}</span>
+                        <span className="font-medium">{entry.type.name}</span>
+                        <span className="text-sm text-muted-foreground">•</span>
+                        <span className="text-sm text-muted-foreground">{entry.product.name}</span>
                         {hasEditHistory && (
                           <Button
                             variant="outline"

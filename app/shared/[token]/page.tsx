@@ -11,10 +11,16 @@ type Entry = {
   projectId: string
   amount: string
   price: string
+  typeId: string
   productId: string
   note: string | null
   timestamp: Date
   createdAt: Date
+  type: {
+    id: string
+    key: string
+    name: string
+  }
   product: {
     id: string
     key: string
@@ -182,7 +188,9 @@ export default function SharedProjectPage() {
                   <CardContent className="flex items-center justify-between p-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium">{entry.product.name}</span>
+                        <span className="font-medium">{entry.type.name}</span>
+                        <span className="text-sm text-muted-foreground">•</span>
+                        <span className="text-sm text-muted-foreground">{entry.product.name}</span>
                         <span className="text-sm text-muted-foreground">
                           {formatDateTime(entry.timestamp)}
                         </span>

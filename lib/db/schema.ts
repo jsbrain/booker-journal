@@ -63,10 +63,19 @@ export const verification = pgTable("verification", {
     .notNull(),
 });
 
-// Products table - for categorizing journal entries
+// Entry types table - for type of entry (Purchase, Payment, etc.)
+export const entryTypes = pgTable("entry_types", {
+  id: text("id").primaryKey().$defaultFn(() => nanoid()),
+  key: text("key").notNull().unique(), // Internal key like 'purchase', 'payment'
+  name: text("name").notNull(), // Display name that can be edited
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Products table - for product assignment to journal entries
 export const products = pgTable("products", {
   id: text("id").primaryKey().$defaultFn(() => nanoid()),
-  key: text("key").notNull().unique(), // Internal key like 'purchase', 'payment', 'cash'
+  key: text("key").notNull().unique(), // Internal key like 'cash', 'materials', etc.
   name: text("name").notNull(), // Display name that can be edited
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -87,7 +96,8 @@ export const journalEntries = pgTable("journal_entries", {
   projectId: text("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   amount: numeric("amount", { precision: 10, scale: 2 }).notNull(), // e.g., quantity of items
   price: numeric("price", { precision: 10, scale: 2 }).notNull(), // Price per unit (can be negative or positive)
-  productId: text("product_id").notNull().references(() => products.id),
+  typeId: text("type_id").notNull().references(() => entryTypes.id), // Entry type (Purchase, Payment, etc.)
+  productId: text("product_id").notNull().references(() => products.id), // Product assignment (Cash, etc.)
   note: text("note"), // Optional note
   timestamp: timestamp("timestamp").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -126,6 +136,10 @@ export const journalEntriesRelations = relations(journalEntries, ({ one }) => ({
     fields: [journalEntries.projectId],
     references: [projects.id],
   }),
+  type: one(entryTypes, {
+    fields: [journalEntries.typeId],
+    references: [entryTypes.id],
+  }),
   product: one(products, {
     fields: [journalEntries.productId],
     references: [products.id],
@@ -137,6 +151,10 @@ export const sharedLinksRelations = relations(sharedLinks, ({ one }) => ({
     fields: [sharedLinks.projectId],
     references: [projects.id],
   }),
+}));
+
+export const entryTypesRelations = relations(entryTypes, ({ many }) => ({
+  entries: many(journalEntries),
 }));
 
 export const productsRelations = relations(products, ({ many }) => ({
