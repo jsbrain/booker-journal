@@ -1,5 +1,6 @@
-import { pgTable, text, serial, timestamp, numeric, integer, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, numeric, boolean, jsonb } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
+import { nanoid } from "nanoid";
 
 // Better-auth tables
 export const user = pgTable("user", {
@@ -62,10 +63,19 @@ export const verification = pgTable("verification", {
     .notNull(),
 });
 
-// Entry types table - for enum-like behavior with editable names
+// Entry types table - for type of entry (Purchase, Payment, etc.)
 export const entryTypes = pgTable("entry_types", {
-  id: serial("id").primaryKey(),
+  id: text("id").primaryKey().$defaultFn(() => nanoid()),
   key: text("key").notNull().unique(), // Internal key like 'purchase', 'payment'
+  name: text("name").notNull(), // Display name that can be edited
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Products table - for product assignment to journal entries
+export const products = pgTable("products", {
+  id: text("id").primaryKey().$defaultFn(() => nanoid()),
+  key: text("key").notNull().unique(), // Internal key like 'cash', 'materials', etc.
   name: text("name").notNull(), // Display name that can be edited
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -73,7 +83,7 @@ export const entryTypes = pgTable("entry_types", {
 
 // Projects table
 export const projects = pgTable("projects", {
-  id: serial("id").primaryKey(),
+  id: text("id").primaryKey().$defaultFn(() => nanoid()),
   name: text("name").notNull(),
   userId: text("user_id").notNull(), // Reference to better-auth user
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -82,20 +92,34 @@ export const projects = pgTable("projects", {
 
 // Journal entries table
 export const journalEntries = pgTable("journal_entries", {
-  id: serial("id").primaryKey(),
-  projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  id: text("id").primaryKey().$defaultFn(() => nanoid()),
+  projectId: text("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   amount: numeric("amount", { precision: 10, scale: 2 }).notNull(), // e.g., quantity of items
   price: numeric("price", { precision: 10, scale: 2 }).notNull(), // Price per unit (can be negative or positive)
-  typeId: integer("type_id").notNull().references(() => entryTypes.id),
+  typeId: text("type_id").notNull().references(() => entryTypes.id), // Entry type (Purchase, Payment, etc.)
+  productId: text("product_id").notNull().references(() => products.id), // Product assignment (Cash, etc.)
   note: text("note"), // Optional note
   timestamp: timestamp("timestamp").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  editHistory: jsonb("edit_history").$type<EditHistoryEntry[]>(), // Track edits
 });
+
+// Edit history entry type
+export type EditHistoryEntry = {
+  editedAt: string;
+  editedBy: string;
+  changes: {
+    field: string;
+    oldValue: string | number;
+    newValue: string | number;
+  }[];
+};
 
 // Shared links table for read-only access
 export const sharedLinks = pgTable("shared_links", {
-  id: serial("id").primaryKey(),
-  projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  id: text("id").primaryKey().$defaultFn(() => nanoid()),
+  projectId: text("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   token: text("token").notNull().unique(),
   expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -116,6 +140,10 @@ export const journalEntriesRelations = relations(journalEntries, ({ one }) => ({
     fields: [journalEntries.typeId],
     references: [entryTypes.id],
   }),
+  product: one(products, {
+    fields: [journalEntries.productId],
+    references: [products.id],
+  }),
 }));
 
 export const sharedLinksRelations = relations(sharedLinks, ({ one }) => ({
@@ -126,5 +154,9 @@ export const sharedLinksRelations = relations(sharedLinks, ({ one }) => ({
 }));
 
 export const entryTypesRelations = relations(entryTypes, ({ many }) => ({
+  entries: many(journalEntries),
+}));
+
+export const productsRelations = relations(products, ({ many }) => ({
   entries: many(journalEntries),
 }));

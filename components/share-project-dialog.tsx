@@ -19,12 +19,12 @@ import { Copy, Trash2, Check } from "lucide-react"
 interface ShareProjectDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  projectId: number
+  projectId: string
 }
 
 type SharedLink = {
-  id: number
-  projectId: number
+  id: string
+  projectId: string
   token: string
   expiresAt: Date
   createdAt: Date
@@ -74,7 +74,7 @@ export function ShareProjectDialog({ open, onOpenChange, projectId }: ShareProje
     }
   }
 
-  const handleDeleteLink = async (linkId: number) => {
+  const handleDeleteLink = async (linkId: string) => {
     try {
       await deleteSharedLink(linkId, projectId)
       await loadSharedLinks()

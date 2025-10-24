@@ -19,14 +19,22 @@ import {
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { createEntry } from "@/lib/actions/entries"
+import { updateEntry } from "@/lib/actions/entries"
 import { getEntryTypes } from "@/lib/actions/entry-types"
 import { getProducts } from "@/lib/actions/products"
 
-interface CreateEntryDialogProps {
+interface EditEntryDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   projectId: string
+  entry: {
+    id: string
+    amount: string
+    price: string
+    typeId: string
+    productId: string
+    note: string | null
+  }
   onSuccess: () => void
 }
 
@@ -42,7 +50,7 @@ type Product = {
   name: string
 }
 
-export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: CreateEntryDialogProps) {
+export function EditEntryDialog({ open, onOpenChange, projectId, entry, onSuccess }: EditEntryDialogProps) {
   const [amount, setAmount] = useState("")
   const [price, setPrice] = useState("")
   const [typeId, setTypeId] = useState("")
@@ -56,8 +64,13 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
   useEffect(() => {
     if (open) {
       loadData()
+      setAmount(entry.amount)
+      setPrice(entry.price)
+      setTypeId(entry.typeId)
+      setProductId(entry.productId)
+      setNote(entry.note || "")
     }
-  }, [open])
+  }, [open, entry])
 
   const loadData = async () => {
     try {
@@ -67,12 +80,6 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
       ])
       setEntryTypes(types)
       setProducts(prods)
-      if (types.length > 0) {
-        setTypeId(types[0].id)
-      }
-      if (prods.length > 0) {
-        setProductId(prods[0].id)
-      }
     } catch {
       setError("Failed to load data")
     }
@@ -92,22 +99,18 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
         return
       }
 
-      await createEntry(projectId, amountNum, priceNum, typeId, productId, note || undefined)
-      
-      // Reset form
-      setAmount("")
-      setPrice("")
-      setNote("")
-      if (entryTypes.length > 0) {
-        setTypeId(entryTypes[0].id)
-      }
-      if (products.length > 0) {
-        setProductId(products[0].id)
-      }
+      await updateEntry(entry.id, projectId, {
+        amount: amountNum,
+        price: priceNum,
+        typeId,
+        productId,
+        note: note || undefined,
+      })
       
       onSuccess()
+      onOpenChange(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create entry")
+      setError(err instanceof Error ? err.message : "Failed to update entry")
     } finally {
       setLoading(false)
     }
@@ -118,14 +121,14 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Create Journal Entry</DialogTitle>
+            <DialogTitle>Edit Journal Entry</DialogTitle>
             <DialogDescription>
-              Add a new entry to the project journal
+              Make changes to the journal entry
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="type">Type</Label>
+              <Label htmlFor="edit-type">Type</Label>
               <Select value={typeId} onValueChange={setTypeId} required>
                 <SelectTrigger>
                   <SelectValue placeholder="Select type" />
@@ -140,7 +143,7 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="product">Product</Label>
+              <Label htmlFor="edit-product">Product</Label>
               <Select value={productId} onValueChange={setProductId} required>
                 <SelectTrigger>
                   <SelectValue placeholder="Select product" />
@@ -155,9 +158,9 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="amount">Amount/Quantity</Label>
+              <Label htmlFor="edit-amount">Amount/Quantity</Label>
               <Input
-                id="amount"
+                id="edit-amount"
                 type="number"
                 step="0.01"
                 placeholder="e.g., 5"
@@ -167,9 +170,9 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="price">Price (€)</Label>
+              <Label htmlFor="edit-price">Price (€)</Label>
               <Input
-                id="price"
+                id="edit-price"
                 type="number"
                 step="0.01"
                 placeholder="e.g., -20"
@@ -182,9 +185,9 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
               </p>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="note">Note (optional)</Label>
+              <Label htmlFor="edit-note">Note (optional)</Label>
               <Input
-                id="note"
+                id="edit-note"
                 placeholder="Add a note..."
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
@@ -199,7 +202,7 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Creating..." : "Create Entry"}
+              {loading ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
         </form>

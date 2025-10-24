@@ -9,6 +9,7 @@ import { validate } from "@/lib/db/validate";
 import {
   createEntryTypeInputSchema,
   updateEntryTypeInputSchema,
+  deleteEntryTypeInputSchema,
 } from "@/lib/db/validation";
 
 // Get current user session (only admin can manage types)
@@ -32,7 +33,7 @@ export async function getEntryTypes() {
   return types;
 }
 
-export async function updateEntryTypeName(typeId: number, newName: string) {
+export async function updateEntryTypeName(typeId: string, newName: string) {
   // Validate input
   validate(updateEntryTypeInputSchema, { typeId, newName });
   
@@ -62,4 +63,16 @@ export async function createEntryType(key: string, name: string) {
   }).returning();
   
   return type;
+}
+
+export async function deleteEntryType(typeId: string) {
+  // Validate input
+  validate(deleteEntryTypeInputSchema, { typeId });
+  
+  // Only admin can delete types
+  await getCurrentUser();
+  
+  await db.delete(entryTypes).where(eq(entryTypes.id, typeId));
+  
+  return { success: true };
 }

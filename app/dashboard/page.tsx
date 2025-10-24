@@ -5,19 +5,19 @@ import { useRouter } from "next/navigation"
 import { useSession, signOut } from "@/lib/auth-client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { LogOut, Plus, FolderOpen } from "lucide-react"
+import { LogOut, Plus, FolderOpen, Settings } from "lucide-react"
 import { getProjects } from "@/lib/actions/projects"
 import { CreateProjectDialog } from "@/components/create-project-dialog"
 import Link from "next/link"
 
 type Project = {
-  id: number
+  id: string
   name: string
   createdAt: Date
   updatedAt: Date
   userId: string
   entries: {
-    id: number
+    id: string
     timestamp: Date
   }[]
 }
@@ -79,10 +79,18 @@ export default function DashboardPage() {
       <header className="border-b">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <h1 className="text-xl font-bold">Booker Journal</h1>
-          <Button onClick={handleSignOut} variant="outline" size="sm">
-            <LogOut className="mr-2 h-4 w-4" />
-            Sign Out
-          </Button>
+          <div className="flex gap-2">
+            <Link href="/dashboard/admin">
+              <Button variant="outline" size="sm">
+                <Settings className="mr-2 h-4 w-4" />
+                Admin
+              </Button>
+            </Link>
+            <Button onClick={handleSignOut} variant="outline" size="sm">
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign Out
+            </Button>
+          </div>
         </div>
       </header>
       <main className="container mx-auto p-4 md:p-8">

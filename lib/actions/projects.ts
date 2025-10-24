@@ -5,7 +5,7 @@ import { projects, journalEntries } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { eq, desc, and } from "drizzle-orm";
-import { seedEntryTypes } from "@/lib/db/seed";
+import { seedEntryTypes, seedProducts } from "@/lib/db/seed";
 import { validate } from "@/lib/db/validate";
 import {
   createProjectInputSchema,
@@ -26,11 +26,16 @@ async function getCurrentUser() {
   return session.user;
 }
 
-// Initialize entry types if they don't exist
-async function initializeEntryTypes() {
+// Initialize entry types and products if they don't exist
+async function initializeData() {
   const existingTypes = await db.query.entryTypes.findMany();
   if (existingTypes.length === 0) {
     await seedEntryTypes();
+  }
+  
+  const existingProducts = await db.query.products.findMany();
+  if (existingProducts.length === 0) {
+    await seedProducts();
   }
 }
 
@@ -40,7 +45,7 @@ export async function createProject(name: string, initialAmount: number) {
   validate(createProjectInputSchema, { name, initialAmount });
   
   const user = await getCurrentUser();
-  await initializeEntryTypes();
+  await initializeData();
   
   // Create project
   const [project] = await db.insert(projects).values({
@@ -56,12 +61,21 @@ export async function createProject(name: string, initialAmount: number) {
     throw new Error("No entry types found");
   }
   
+  // Get the first product (e.g., "Cash" or whatever is first)
+  const productsList = await db.query.products.findMany();
+  const defaultProduct = productsList[0];
+  
+  if (!defaultProduct) {
+    throw new Error("No products found");
+  }
+  
   // Create initial journal entry
   await db.insert(journalEntries).values({
     projectId: project.id,
     amount: "1",
     price: initialAmount.toString(),
     typeId: defaultType.id,
+    productId: defaultProduct.id,
     note: "Initial entry",
   });
   
@@ -85,7 +99,7 @@ export async function getProjects() {
   return userProjects;
 }
 
-export async function getProject(projectId: number) {
+export async function getProject(projectId: string) {
   // Validate input
   validate(getProjectInputSchema, { projectId });
   
@@ -105,7 +119,7 @@ export async function getProject(projectId: number) {
   return project;
 }
 
-export async function deleteProject(projectId: number) {
+export async function deleteProject(projectId: string) {
   // Validate input
   validate(deleteProjectInputSchema, { projectId });
   

@@ -7,23 +7,29 @@ import { Lock } from "lucide-react"
 import { getProjectBySharedLink } from "@/lib/actions/shared-links"
 
 type Entry = {
-  id: number
-  projectId: number
+  id: string
+  projectId: string
   amount: string
   price: string
-  typeId: number
+  typeId: string
+  productId: string
   note: string | null
   timestamp: Date
   createdAt: Date
   type: {
-    id: number
+    id: string
+    key: string
+    name: string
+  }
+  product: {
+    id: string
     key: string
     name: string
   }
 }
 
 type Project = {
-  id: number
+  id: string
   name: string
   userId: string
   createdAt: Date
@@ -183,6 +189,8 @@ export default function SharedProjectPage() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{entry.type.name}</span>
+                        <span className="text-sm text-muted-foreground">•</span>
+                        <span className="text-sm text-muted-foreground">{entry.product.name}</span>
                         <span className="text-sm text-muted-foreground">
                           {formatDateTime(entry.timestamp)}
                         </span>
