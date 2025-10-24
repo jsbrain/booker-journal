@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { DateRangePicker } from "@/components/ui/date-range-picker"
+import type { DateRange } from "react-day-picker"
 import { getProjectMetrics, getGlobalMetrics, getCurrentMonthRange, type ProjectMetrics } from "@/lib/actions/metrics"
 import { TrendingUp, TrendingDown, DollarSign, Package, ShoppingCart } from "lucide-react"
 
@@ -14,40 +14,45 @@ interface MetricsDashboardProps {
 export function MetricsDashboard({ projectId }: MetricsDashboardProps) {
   const [metrics, setMetrics] = useState<ProjectMetrics | null>(null)
   const [loading, setLoading] = useState(true)
-  const [startDate, setStartDate] = useState("")
-  const [endDate, setEndDate] = useState("")
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
 
   useEffect(() => {
     // Set default to current month
     const loadDefaultDates = async () => {
       const { startDate: start, endDate: end } = await getCurrentMonthRange()
-      setStartDate(new Date(start).toISOString().split("T")[0])
-      setEndDate(new Date(end).toISOString().split("T")[0])
+      setDateRange({
+        from: new Date(start),
+        to: new Date(end),
+      })
     }
     loadDefaultDates()
   }, [])
 
   useEffect(() => {
-    if (startDate && endDate) {
+    if (dateRange?.from && dateRange?.to) {
       loadMetrics()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startDate, endDate, projectId])
+  }, [dateRange, projectId])
 
   const loadMetrics = async () => {
-    if (!startDate || !endDate) return
+    if (!dateRange?.from || !dateRange?.to) return
     
     setLoading(true)
     try {
+      // Create a copy of the end date and set time to end of day
+      const endOfDay = new Date(dateRange.to)
+      endOfDay.setHours(23, 59, 59, 999)
+      
       const data = projectId
         ? await getProjectMetrics(
             projectId,
-            new Date(startDate).toISOString(),
-            new Date(endDate + "T23:59:59").toISOString()
+            dateRange.from.toISOString(),
+            endOfDay.toISOString()
           )
         : await getGlobalMetrics(
-            new Date(startDate).toISOString(),
-            new Date(endDate + "T23:59:59").toISOString()
+            dateRange.from.toISOString(),
+            endOfDay.toISOString()
           )
       setMetrics(data)
     } catch (error) {
@@ -87,26 +92,7 @@ export function MetricsDashboard({ projectId }: MetricsDashboardProps) {
           <CardDescription>Choose the date range for metrics</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4">
-            <div className="flex-1 space-y-2">
-              <Label htmlFor="startDate">Start Date</Label>
-              <Input
-                id="startDate"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-            </div>
-            <div className="flex-1 space-y-2">
-              <Label htmlFor="endDate">End Date</Label>
-              <Input
-                id="endDate"
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
-            </div>
-          </div>
+          <DateRangePicker dateRange={dateRange} setDateRange={setDateRange} />
         </CardContent>
       </Card>
 
