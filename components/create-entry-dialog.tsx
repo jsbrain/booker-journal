@@ -11,6 +11,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -19,7 +29,8 @@ import {
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { createEntry } from "@/lib/actions/entries"
+import { Checkbox } from "@/components/ui/checkbox"
+import { createEntry, createEntryWithPayment } from "@/lib/actions/entries"
 import { getEntryTypes } from "@/lib/actions/entry-types"
 import { getProducts } from "@/lib/actions/products"
 
@@ -49,10 +60,12 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
   const [productId, setProductId] = useState("")
   const [note, setNote] = useState("")
   const [timestamp, setTimestamp] = useState("")
+  const [paidImmediately, setPaidImmediately] = useState(false)
   const [entryTypes, setEntryTypes] = useState<EntryType[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
 
   useEffect(() => {
     if (open) {
@@ -87,6 +100,21 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Check if this is a Purchase entry with "Paid Immediately" checked
+    const selectedType = entryTypes.find(t => t.id === typeId)
+    const isPurchaseWithPayment = selectedType?.key === 'purchase' && paidImmediately
+    
+    if (isPurchaseWithPayment) {
+      // Show confirmation dialog
+      setShowConfirmDialog(true)
+    } else {
+      // Proceed with normal entry creation
+      await createEntryInternal()
+    }
+  }
+  
+  const createEntryInternal = async () => {
     setError("")
     setLoading(true)
 
@@ -102,12 +130,23 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
       // Convert local datetime to ISO string
       const timestampISO = timestamp ? new Date(timestamp).toISOString() : undefined
 
-      await createEntry(projectId, amountNum, priceNum, typeId, productId, note || undefined, timestampISO)
+      // Check if this is a Purchase entry with "Paid Immediately" checked
+      const selectedType = entryTypes.find(t => t.id === typeId)
+      const isPurchaseWithPayment = selectedType?.key === 'purchase' && paidImmediately
+      
+      if (isPurchaseWithPayment) {
+        // Create both purchase and payment entries
+        await createEntryWithPayment(projectId, amountNum, priceNum, typeId, productId, note || undefined, timestampISO)
+      } else {
+        // Create single entry
+        await createEntry(projectId, amountNum, priceNum, typeId, productId, note || undefined, timestampISO)
+      }
       
       // Reset form
       setAmount("")
       setPrice("")
       setNote("")
+      setPaidImmediately(false)
       const now = new Date()
       const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
         .toISOString()
@@ -120,6 +159,7 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
         setProductId(products[0].id)
       }
       
+      setShowConfirmDialog(false)
       onSuccess()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create entry")
@@ -129,109 +169,148 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
-        <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle>Create Journal Entry</DialogTitle>
-            <DialogDescription>
-              Add a new entry to the project journal
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="type">Type</Label>
-              <Select value={typeId} onValueChange={setTypeId} required>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {entryTypes.map((type) => (
-                    <SelectItem key={type.id} value={type.id}>
-                      {type.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[425px]">
+          <form onSubmit={handleSubmit}>
+            <DialogHeader>
+              <DialogTitle>Create Journal Entry</DialogTitle>
+              <DialogDescription>
+                Add a new entry to the project journal
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="type">Type</Label>
+                <Select value={typeId} onValueChange={setTypeId} required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {entryTypes.map((type) => (
+                      <SelectItem key={type.id} value={type.id}>
+                        {type.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="product">Product</Label>
+                <Select value={productId} onValueChange={setProductId} required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select product" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {products.map((product) => (
+                      <SelectItem key={product.id} value={product.id}>
+                        {product.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="amount">Amount/Quantity</Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  step="0.01"
+                  placeholder="e.g., 5"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="price">Price (€)</Label>
+                <Input
+                  id="price"
+                  type="number"
+                  step="0.01"
+                  placeholder="e.g., -20"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Negative for expenses/debt, positive for payments/income
+                </p>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="timestamp">Date & Time</Label>
+                <Input
+                  id="timestamp"
+                  type="datetime-local"
+                  value={timestamp}
+                  onChange={(e) => setTimestamp(e.target.value)}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  When this transaction occurred (defaults to now)
+                </p>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="note">Note (optional)</Label>
+                <Input
+                  id="note"
+                  placeholder="Add a note..."
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                />
+              </div>
+              {entryTypes.find(t => t.id === typeId)?.key === 'purchase' && (
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="paidImmediately"
+                    checked={paidImmediately}
+                    onCheckedChange={(checked) => setPaidImmediately(checked === true)}
+                  />
+                  <Label 
+                    htmlFor="paidImmediately"
+                    className="text-sm font-normal cursor-pointer"
+                  >
+                    Paid immediately (creates automatic payment entry)
+                  </Label>
+                </div>
+              )}
+              {error && (
+                <p className="text-sm text-destructive">{error}</p>
+              )}
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="product">Product</Label>
-              <Select value={productId} onValueChange={setProductId} required>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select product" />
-                </SelectTrigger>
-                <SelectContent>
-                  {products.map((product) => (
-                    <SelectItem key={product.id} value={product.id}>
-                      {product.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="amount">Amount/Quantity</Label>
-              <Input
-                id="amount"
-                type="number"
-                step="0.01"
-                placeholder="e.g., 5"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                required
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="price">Price (€)</Label>
-              <Input
-                id="price"
-                type="number"
-                step="0.01"
-                placeholder="e.g., -20"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                required
-              />
-              <p className="text-xs text-muted-foreground">
-                Negative for expenses/debt, positive for payments/income
-              </p>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="timestamp">Date & Time</Label>
-              <Input
-                id="timestamp"
-                type="datetime-local"
-                value={timestamp}
-                onChange={(e) => setTimestamp(e.target.value)}
-                required
-              />
-              <p className="text-xs text-muted-foreground">
-                When this transaction occurred (defaults to now)
-              </p>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="note">Note (optional)</Label>
-              <Input
-                id="note"
-                placeholder="Add a note..."
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-              />
-            </div>
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? "Creating..." : "Create Entry"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? "Creating..." : "Create Entry"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Immediate Payment</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will create two entries:
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>A purchase entry with the specified amount and price</li>
+                <li>An automatic payment entry to offset the purchase</li>
+              </ul>
+              Are you sure you want to proceed?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={createEntryInternal} disabled={loading}>
+              {loading ? "Creating..." : "Confirm"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }
