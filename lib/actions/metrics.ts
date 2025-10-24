@@ -187,7 +187,7 @@ export async function getProjectMetrics(
 }
 
 // Helper to get current month date range
-export function getCurrentMonthRange(): { startDate: string; endDate: string } {
+export async function getCurrentMonthRange(): Promise<{ startDate: string; endDate: string }> {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);

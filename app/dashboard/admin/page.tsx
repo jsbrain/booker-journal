@@ -6,7 +6,7 @@ import { useSession, signOut } from "@/lib/auth-client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { ArrowLeft, LogOut, Plus, Trash2, Edit2 } from "lucide-react"
-import { getProducts, createProduct, updateProductName, deleteProduct } from "@/lib/actions/products"
+import { getProducts, createProduct, updateProductName, updateProductBuyingPrice, deleteProduct } from "@/lib/actions/products"
 import Link from "next/link"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -23,6 +23,7 @@ type Product = {
   id: string
   key: string
   name: string
+  defaultBuyingPrice: string | null
   createdAt: Date
   updatedAt: Date
 }
@@ -35,11 +36,13 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
+  const [showEditPriceDialog, setShowEditPriceDialog] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   
   const [newProductKey, setNewProductKey] = useState("")
   const [newProductName, setNewProductName] = useState("")
   const [editProductName, setEditProductName] = useState("")
+  const [editProductBuyingPrice, setEditProductBuyingPrice] = useState("")
   const [error, setError] = useState("")
 
   useEffect(() => {
@@ -122,6 +125,37 @@ export default function AdminPage() {
     setShowEditDialog(true)
   }
 
+  const openEditPriceDialog = (product: Product) => {
+    setEditingProduct(product)
+    setEditProductBuyingPrice(product.defaultBuyingPrice || "")
+    setShowEditPriceDialog(true)
+  }
+
+  const handleUpdateBuyingPrice = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError("")
+    
+    if (!editingProduct) return
+    
+    try {
+      await updateProductBuyingPrice(editingProduct.id, parseFloat(editProductBuyingPrice))
+      setShowEditPriceDialog(false)
+      setEditingProduct(null)
+      setEditProductBuyingPrice("")
+      loadProducts()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update buying price")
+    }
+  }
+
+  const formatCurrency = (value: string | null) => {
+    if (!value) return "Not set"
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "EUR",
+    }).format(parseFloat(value))
+  }
+
   if (isPending || loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -175,9 +209,11 @@ export default function AdminPage() {
                     <span className="font-medium">{product.name}</span>
                     <span className="text-sm text-muted-foreground">({product.key})</span>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    Created {new Date(product.createdAt).toLocaleDateString()}
-                  </p>
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <span>Created {new Date(product.createdAt).toLocaleDateString()}</span>
+                    <span>•</span>
+                    <span>Default buying price: {formatCurrency(product.defaultBuyingPrice)}</span>
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <Button
@@ -185,7 +221,16 @@ export default function AdminPage() {
                     size="sm"
                     onClick={() => openEditDialog(product)}
                   >
-                    <Edit2 className="h-4 w-4" />
+                    <Edit2 className="mr-1 h-3 w-3" />
+                    Name
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openEditPriceDialog(product)}
+                  >
+                    <Edit2 className="mr-1 h-3 w-3" />
+                    Price
                   </Button>
                   <Button
                     variant="outline"
@@ -281,6 +326,46 @@ export default function AdminPage() {
                 Cancel
               </Button>
               <Button type="submit">Save Changes</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Buying Price Dialog */}
+      <Dialog open={showEditPriceDialog} onOpenChange={setShowEditPriceDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <form onSubmit={handleUpdateBuyingPrice}>
+            <DialogHeader>
+              <DialogTitle>Edit Default Buying Price</DialogTitle>
+              <DialogDescription>
+                Set the default buying price for this product (used as default in inventory purchases)
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-price">Default Buying Price</Label>
+                <Input
+                  id="edit-price"
+                  type="number"
+                  step="0.01"
+                  placeholder="e.g., 10.50"
+                  value={editProductBuyingPrice}
+                  onChange={(e) => setEditProductBuyingPrice(e.target.value)}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  This price will be used as the default when adding inventory purchases
+                </p>
+              </div>
+              {error && (
+                <p className="text-sm text-destructive">{error}</p>
+              )}
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowEditPriceDialog(false)}>
+                Cancel
+              </Button>
+              <Button type="submit">Save Price</Button>
             </DialogFooter>
           </form>
         </DialogContent>

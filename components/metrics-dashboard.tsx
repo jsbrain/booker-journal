@@ -19,9 +19,12 @@ export function MetricsDashboard({ projectId }: MetricsDashboardProps) {
 
   useEffect(() => {
     // Set default to current month
-    const { startDate: start, endDate: end } = getCurrentMonthRange()
-    setStartDate(new Date(start).toISOString().split("T")[0])
-    setEndDate(new Date(end).toISOString().split("T")[0])
+    const loadDefaultDates = async () => {
+      const { startDate: start, endDate: end } = await getCurrentMonthRange()
+      setStartDate(new Date(start).toISOString().split("T")[0])
+      setEndDate(new Date(end).toISOString().split("T")[0])
+    }
+    loadDefaultDates()
   }, [])
 
   useEffect(() => {
