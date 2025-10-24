@@ -55,6 +55,7 @@ export const createEntryInputSchema = Type.Object({
   typeId: Type.String({ minLength: 1 }),
   productId: Type.String({ minLength: 1 }),
   note: Type.Optional(Type.String({ maxLength: 1000 })),
+  timestamp: Type.Optional(Type.String()), // ISO date string
 });
 
 // Journal entry update input validation

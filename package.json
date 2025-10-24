@@ -15,7 +15,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:setup": "bun db:generate && bun db:migrate"
+    "db:setup": "bun db:generate && bun db:migrate",
+    "db:seed": "bun run lib/db/seed-data.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",

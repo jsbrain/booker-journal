@@ -46,15 +46,19 @@ export function CreateInventoryPurchaseDialog({
   const [quantity, setQuantity] = useState("")
   const [buyingPrice, setBuyingPrice] = useState("")
   const [note, setNote] = useState("")
-  const [purchaseDate, setPurchaseDate] = useState(
-    new Date().toISOString().split("T")[0]
-  )
+  const [purchaseDate, setPurchaseDate] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
   useEffect(() => {
     if (open) {
       loadProducts()
+      // Set default timestamp to current date/time
+      const now = new Date()
+      const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+        .toISOString()
+        .slice(0, 16)
+      setPurchaseDate(localDateTime)
     }
   }, [open])
 
@@ -81,13 +85,16 @@ export function CreateInventoryPurchaseDialog({
     setLoading(true)
 
     try {
+      // Convert local datetime to ISO string
+      const purchaseDateISO = purchaseDate ? new Date(purchaseDate).toISOString() : undefined
+
       await createInventoryPurchase(
         projectId,
         productId,
         parseFloat(quantity),
         parseFloat(buyingPrice),
         note || undefined,
-        purchaseDate
+        purchaseDateISO
       )
       
       // Reset form
@@ -95,7 +102,11 @@ export function CreateInventoryPurchaseDialog({
       setQuantity("")
       setBuyingPrice("")
       setNote("")
-      setPurchaseDate(new Date().toISOString().split("T")[0])
+      const now = new Date()
+      const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+        .toISOString()
+        .slice(0, 16)
+      setPurchaseDate(localDateTime)
       
       onSuccess()
     } catch (error) {
@@ -158,14 +169,17 @@ export function CreateInventoryPurchaseDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="purchaseDate">Purchase Date</Label>
+            <Label htmlFor="purchaseDate">Purchase Date & Time</Label>
             <Input
               id="purchaseDate"
-              type="date"
+              type="datetime-local"
               value={purchaseDate}
               onChange={(e) => setPurchaseDate(e.target.value)}
               required
             />
+            <p className="text-xs text-muted-foreground">
+              When this purchase occurred (defaults to now)
+            </p>
           </div>
 
           <div className="space-y-2">
