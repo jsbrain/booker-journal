@@ -2,7 +2,7 @@
  * Seed data script for Booker Journal
  * 
  * Creates:
- * - Default user: Admin (manuel.maute@bradbit.com, pw: example)
+ * - Default user: Admin (manuel.maute@bradbit.com, pw: examplepassword)
  * - 3 products: c (Blumen, 40€), p (Schokolade, 2€), g (Pfanne, 4.50€)
  * - 3 initial inventory purchases with specific dates
  * - 3 projects with different starting balances
