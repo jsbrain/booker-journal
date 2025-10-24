@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useRouter, useParams } from "next/navigation"
+import { useEffect, useState, Suspense } from "react"
+import { useRouter, useParams, useSearchParams } from "next/navigation"
 import { useSession, signOut } from "@/lib/auth-client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -56,9 +56,20 @@ type Project = {
 }
 
 export default function ProjectDetailPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center">
+      <div className="text-muted-foreground">Loading...</div>
+    </div>}>
+      <ProjectDetailContent />
+    </Suspense>
+  )
+}
+
+function ProjectDetailContent() {
   const { data: session, isPending } = useSession()
   const router = useRouter()
   const params = useParams()
+  const searchParams = useSearchParams()
   const projectId = params.id as string
   
   const [project, setProject] = useState<Project | null>(null)
@@ -71,7 +82,9 @@ export default function ProjectDetailPage() {
   const [showHistoryDialog, setShowHistoryDialog] = useState(false)
   const [editingEntry, setEditingEntry] = useState<Entry | null>(null)
   const [viewingHistory, setViewingHistory] = useState<EditHistoryEntry[] | null>(null)
-  const [activeTab, setActiveTab] = useState<"entries" | "metrics" | "inventory">("entries")
+  
+  // Get active tab from URL search params, default to "entries"
+  const activeTab = (searchParams.get("tab") as "entries" | "metrics" | "inventory") || "entries"
 
   useEffect(() => {
     if (!isPending && !session) {
@@ -154,6 +167,10 @@ export default function ProjectDetailPage() {
   const handleViewHistory = (history: EditHistoryEntry[] | null) => {
     setViewingHistory(history)
     setShowHistoryDialog(true)
+  }
+
+  const setActiveTab = (tab: "entries" | "metrics" | "inventory") => {
+    router.push(`/dashboard/projects/${projectId}?tab=${tab}`)
   }
 
   const formatCurrency = (value: number) => {
