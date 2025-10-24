@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { journalEntries, inventoryPurchases, projects } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { eq, and, gte, lte } from "drizzle-orm";
+import { eq, and, gte, lte, inArray } from "drizzle-orm";
 import { validate } from "@/lib/db/validate";
 import { getMetricsInputSchema } from "@/lib/db/validation";
 
@@ -67,7 +67,7 @@ export async function getProjectMetrics(
   const start = new Date(startDate);
   const end = new Date(endDate);
   
-  // Get all journal entries in the period
+  // Get all journal entries in the period for this project
   const entries = await db.query.journalEntries.findMany({
     where: and(
       eq(journalEntries.projectId, projectId),
@@ -80,16 +80,36 @@ export async function getProjectMetrics(
     },
   });
   
-  // Get all inventory purchases in the period
+  // Get ALL inventory purchases across ALL user's projects (GLOBAL inventory)
+  // First, get all user's projects
+  const userProjects = await db.query.projects.findMany({
+    where: eq(projects.userId, user.id),
+  });
+  const userProjectIds = userProjects.map(p => p.id);
+  
+  if (userProjectIds.length === 0) {
+    return {
+      revenue: 0,
+      cost: 0,
+      profit: 0,
+      totalEntries: 0,
+      totalPurchases: 0,
+      productBreakdown: [],
+    };
+  }
+  
+  // Get all inventory purchases for all user's projects using database-level filtering
   const purchases = await db.query.inventoryPurchases.findMany({
-    where: and(
-      eq(inventoryPurchases.projectId, projectId),
-      gte(inventoryPurchases.purchaseDate, start),
-      lte(inventoryPurchases.purchaseDate, end)
-    ),
+    where: inArray(inventoryPurchases.projectId, userProjectIds),
     with: {
       product: true,
     },
+  });
+  
+  // Count purchases in the date range for the totalPurchases metric (project-specific)
+  const purchasesInPeriod = purchases.filter(p => {
+    const purchaseDate = new Date(p.purchaseDate);
+    return purchaseDate >= start && purchaseDate <= end && p.projectId === projectId;
   });
   
   // Calculate metrics per product
@@ -181,7 +201,7 @@ export async function getProjectMetrics(
     cost: totalCost,
     profit: totalProfit,
     totalEntries: entries.length,
-    totalPurchases: purchases.length,
+    totalPurchases: purchasesInPeriod.length,
     productBreakdown,
   };
 }
@@ -226,9 +246,10 @@ export async function getGlobalMetrics(
     };
   }
   
-  // Get all journal entries for all user's projects
-  const allEntries = await db.query.journalEntries.findMany({
+  // Get all journal entries for all user's projects in the date range
+  const entries = await db.query.journalEntries.findMany({
     where: and(
+      inArray(journalEntries.projectId, projectIds),
       gte(journalEntries.timestamp, start),
       lte(journalEntries.timestamp, end)
     ),
@@ -238,22 +259,20 @@ export async function getGlobalMetrics(
     },
   });
   
-  // Filter to only user's projects
-  const entries = allEntries.filter(e => projectIds.includes(e.projectId));
-  
-  // Get all inventory purchases for all user's projects
-  const allPurchases = await db.query.inventoryPurchases.findMany({
-    where: and(
-      gte(inventoryPurchases.purchaseDate, start),
-      lte(inventoryPurchases.purchaseDate, end)
-    ),
+  // Get ALL inventory purchases for all user's projects (not just in date range)
+  // This is needed to calculate accurate average buying prices for COGS
+  const purchases = await db.query.inventoryPurchases.findMany({
+    where: inArray(inventoryPurchases.projectId, projectIds),
     with: {
       product: true,
     },
   });
   
-  // Filter to only user's projects
-  const purchases = allPurchases.filter(p => projectIds.includes(p.projectId));
+  // Count purchases in the date range for the totalPurchases metric
+  const purchasesInPeriod = purchases.filter(p => {
+    const purchaseDate = new Date(p.purchaseDate);
+    return purchaseDate >= start && purchaseDate <= end;
+  });
   
   // Calculate metrics per product
   const productMap = new Map<string, {
@@ -344,7 +363,7 @@ export async function getGlobalMetrics(
     cost: totalCost,
     profit: totalProfit,
     totalEntries: entries.length,
-    totalPurchases: purchases.length,
+    totalPurchases: purchasesInPeriod.length,
     productBreakdown,
   };
 }
