@@ -39,11 +39,6 @@ yarn-error.log*
 !.env.example
 !.env.local.example
 
-# auth database
-auth.db
-auth.db-shm
-auth.db-wal
-
 # vercel
 .vercel
 
