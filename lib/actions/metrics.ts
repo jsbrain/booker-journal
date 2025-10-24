@@ -125,6 +125,9 @@ export async function getProjectMetrics(
   // Process journal entries (sales)
   for (const entry of entries) {
     const productId = entry.productId;
+    // Skip entries without products (non-purchase types)
+    if (!productId || !entry.product) continue;
+
     const amount = parseFloat(entry.amount);
     const price = parseFloat(entry.price);
     const total = amount * price;
@@ -287,6 +290,9 @@ export async function getGlobalMetrics(
   // Process journal entries (sales)
   for (const entry of entries) {
     const productId = entry.productId;
+    // Skip entries without products (non-purchase types)
+    if (!productId || !entry.product) continue;
+
     const amount = parseFloat(entry.amount);
     const price = parseFloat(entry.price);
     const total = amount * price;
