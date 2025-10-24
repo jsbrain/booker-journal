@@ -95,7 +95,7 @@ export function DateRangePicker({ dateRange, setDateRange }: DateRangePickerProp
   }
 
   const handleYearChange = (year: string) => {
-    setDisplayMonth(new Date(Number.parseInt(year), currentMonth, 1))
+    setDisplayMonth(new Date(parseInt(year), currentMonth, 1))
   }
 
   const handleMonthChange = (direction: "prev" | "next") => {
