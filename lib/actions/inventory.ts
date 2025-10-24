@@ -219,3 +219,105 @@ export async function getProductInventory(projectId: string, productId: string) 
     totalCost,
   };
 }
+
+// Get global inventory across all user's projects
+export async function getGlobalInventory() {
+  const user = await getCurrentUser();
+  
+  // Get all projects for the user
+  const userProjects = await db.query.projects.findMany({
+    where: eq(projects.userId, user.id),
+  });
+  
+  const projectIds = userProjects.map(p => p.id);
+  
+  if (projectIds.length === 0) {
+    return [];
+  }
+  
+  // Get all inventory purchases for all user's projects
+  const purchases = await db.query.inventoryPurchases.findMany({
+    where: eq(inventoryPurchases.projectId, projectIds[0]), // We'll need to use SQL for multiple projects
+    orderBy: [desc(inventoryPurchases.purchaseDate)],
+    with: {
+      product: true,
+      project: true,
+    },
+  });
+  
+  // Actually, let's get all purchases without project filter and filter in memory
+  const allPurchases = await db.query.inventoryPurchases.findMany({
+    orderBy: [desc(inventoryPurchases.purchaseDate)],
+    with: {
+      product: true,
+      project: true,
+    },
+  });
+  
+  // Filter to only user's projects
+  const userPurchases = allPurchases.filter(p => projectIds.includes(p.projectId));
+  
+  return userPurchases;
+}
+
+// Get global inventory summary by product
+export async function getGlobalInventorySummary() {
+  const user = await getCurrentUser();
+  
+  // Get all projects for the user
+  const userProjects = await db.query.projects.findMany({
+    where: eq(projects.userId, user.id),
+  });
+  
+  const projectIds = userProjects.map(p => p.id);
+  
+  if (projectIds.length === 0) {
+    return [];
+  }
+  
+  // Get all inventory purchases
+  const allPurchases = await db.query.inventoryPurchases.findMany({
+    with: {
+      product: true,
+    },
+  });
+  
+  // Filter to only user's projects and group by product
+  const userPurchases = allPurchases.filter(p => projectIds.includes(p.projectId));
+  
+  const productMap = new Map<string, {
+    productId: string;
+    productName: string;
+    totalQuantity: number;
+    totalCost: number;
+    averageBuyingPrice: number;
+  }>();
+  
+  for (const purchase of userPurchases) {
+    const productId = purchase.productId;
+    const quantity = parseFloat(purchase.quantity);
+    const totalCost = parseFloat(purchase.totalCost);
+    
+    if (!productMap.has(productId)) {
+      productMap.set(productId, {
+        productId,
+        productName: purchase.product.name,
+        totalQuantity: 0,
+        totalCost: 0,
+        averageBuyingPrice: 0,
+      });
+    }
+    
+    const productData = productMap.get(productId)!;
+    productData.totalQuantity += quantity;
+    productData.totalCost += totalCost;
+  }
+  
+  // Calculate average buying prices
+  const summary = Array.from(productMap.values()).map(product => ({
+    ...product,
+    averageBuyingPrice: product.totalQuantity > 0 ? product.totalCost / product.totalQuantity : 0,
+  }));
+  
+  return summary;
+}

@@ -4,11 +4,11 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { getProjectMetrics, getCurrentMonthRange, type ProjectMetrics } from "@/lib/actions/metrics"
+import { getProjectMetrics, getGlobalMetrics, getCurrentMonthRange, type ProjectMetrics } from "@/lib/actions/metrics"
 import { TrendingUp, TrendingDown, DollarSign, Package, ShoppingCart } from "lucide-react"
 
 interface MetricsDashboardProps {
-  projectId: string
+  projectId: string | null  // null means global metrics
 }
 
 export function MetricsDashboard({ projectId }: MetricsDashboardProps) {
@@ -39,11 +39,16 @@ export function MetricsDashboard({ projectId }: MetricsDashboardProps) {
     
     setLoading(true)
     try {
-      const data = await getProjectMetrics(
-        projectId,
-        new Date(startDate).toISOString(),
-        new Date(endDate + "T23:59:59").toISOString()
-      )
+      const data = projectId
+        ? await getProjectMetrics(
+            projectId,
+            new Date(startDate).toISOString(),
+            new Date(endDate + "T23:59:59").toISOString()
+          )
+        : await getGlobalMetrics(
+            new Date(startDate).toISOString(),
+            new Date(endDate + "T23:59:59").toISOString()
+          )
       setMetrics(data)
     } catch (error) {
       console.error("Failed to load metrics:", error)

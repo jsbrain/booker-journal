@@ -59,10 +59,11 @@ export async function createEntry(
   price: number,
   typeId: string,
   productId: string,
-  note?: string
+  note?: string,
+  timestamp?: string
 ) {
   // Validate input
-  validate(createEntryInputSchema, { projectId, amount, price, typeId, productId, note });
+  validate(createEntryInputSchema, { projectId, amount, price, typeId, productId, note, timestamp });
   
   const user = await getCurrentUser();
   await verifyProjectOwnership(projectId, user.id);
@@ -74,6 +75,7 @@ export async function createEntry(
     typeId,
     productId,
     note,
+    timestamp: timestamp ? new Date(timestamp) : new Date(),
   }).returning();
   
   return entry;

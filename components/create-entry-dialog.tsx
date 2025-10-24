@@ -48,6 +48,7 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
   const [typeId, setTypeId] = useState("")
   const [productId, setProductId] = useState("")
   const [note, setNote] = useState("")
+  const [timestamp, setTimestamp] = useState("")
   const [entryTypes, setEntryTypes] = useState<EntryType[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(false)
@@ -56,6 +57,12 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
   useEffect(() => {
     if (open) {
       loadData()
+      // Set default timestamp to current date/time
+      const now = new Date()
+      const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+        .toISOString()
+        .slice(0, 16)
+      setTimestamp(localDateTime)
     }
   }, [open])
 
@@ -92,12 +99,20 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
         return
       }
 
-      await createEntry(projectId, amountNum, priceNum, typeId, productId, note || undefined)
+      // Convert local datetime to ISO string
+      const timestampISO = timestamp ? new Date(timestamp).toISOString() : undefined
+
+      await createEntry(projectId, amountNum, priceNum, typeId, productId, note || undefined, timestampISO)
       
       // Reset form
       setAmount("")
       setPrice("")
       setNote("")
+      const now = new Date()
+      const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+        .toISOString()
+        .slice(0, 16)
+      setTimestamp(localDateTime)
       if (entryTypes.length > 0) {
         setTypeId(entryTypes[0].id)
       }
@@ -179,6 +194,19 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
               />
               <p className="text-xs text-muted-foreground">
                 Negative for expenses/debt, positive for payments/income
+              </p>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="timestamp">Date & Time</Label>
+              <Input
+                id="timestamp"
+                type="datetime-local"
+                value={timestamp}
+                onChange={(e) => setTimestamp(e.target.value)}
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                When this transaction occurred (defaults to now)
               </p>
             </div>
             <div className="grid gap-2">
