@@ -5,6 +5,12 @@ import { journalEntries, projects } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { eq, desc, and } from "drizzle-orm";
+import { validate } from "@/lib/db/validate";
+import {
+  createEntryInputSchema,
+  deleteEntryInputSchema,
+  getProjectInputSchema,
+} from "@/lib/db/validation";
 
 // Get current user session
 async function getCurrentUser() {
@@ -42,6 +48,9 @@ export async function createEntry(
   typeId: number,
   note?: string
 ) {
+  // Validate input
+  validate(createEntryInputSchema, { projectId, amount, price, typeId, note });
+  
   const user = await getCurrentUser();
   await verifyProjectOwnership(projectId, user.id);
   
@@ -57,6 +66,9 @@ export async function createEntry(
 }
 
 export async function getEntries(projectId: number) {
+  // Validate input
+  validate(getProjectInputSchema, { projectId });
+  
   const user = await getCurrentUser();
   await verifyProjectOwnership(projectId, user.id);
   
@@ -72,6 +84,9 @@ export async function getEntries(projectId: number) {
 }
 
 export async function getProjectBalance(projectId: number) {
+  // Validate input
+  validate(getProjectInputSchema, { projectId });
+  
   const user = await getCurrentUser();
   await verifyProjectOwnership(projectId, user.id);
   
@@ -90,6 +105,9 @@ export async function getProjectBalance(projectId: number) {
 }
 
 export async function deleteEntry(entryId: number, projectId: number) {
+  // Validate input
+  validate(deleteEntryInputSchema, { entryId, projectId });
+  
   const user = await getCurrentUser();
   await verifyProjectOwnership(projectId, user.id);
   

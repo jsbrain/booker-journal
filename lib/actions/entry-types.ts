@@ -5,6 +5,11 @@ import { entryTypes } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { eq } from "drizzle-orm";
+import { validate } from "@/lib/db/validate";
+import {
+  createEntryTypeInputSchema,
+  updateEntryTypeInputSchema,
+} from "@/lib/db/validation";
 
 // Get current user session (only admin can manage types)
 async function getCurrentUser() {
@@ -28,6 +33,9 @@ export async function getEntryTypes() {
 }
 
 export async function updateEntryTypeName(typeId: number, newName: string) {
+  // Validate input
+  validate(updateEntryTypeInputSchema, { typeId, newName });
+  
   // Only admin can update type names
   await getCurrentUser();
   
@@ -42,6 +50,9 @@ export async function updateEntryTypeName(typeId: number, newName: string) {
 }
 
 export async function createEntryType(key: string, name: string) {
+  // Validate input
+  validate(createEntryTypeInputSchema, { key, name });
+  
   // Only admin can create new types
   await getCurrentUser();
   

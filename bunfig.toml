@@ -1,0 +1,16 @@
+# Bun configuration file
+# This ensures Bun is properly configured for this Next.js project
+
+[install]
+# Peer dependencies are automatically installed
+auto = "auto"
+
+# Use global cache directory
+cache = true
+
+[install.scopes]
+# Optional: Configure scoped registries if needed
+
+[test]
+# Test configuration
+preload = []
