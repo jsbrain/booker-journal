@@ -1,15 +1,33 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useSession, signOut } from "@/lib/auth-client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { LogOut, User } from "lucide-react"
+import { LogOut, Plus, FolderOpen } from "lucide-react"
+import { getProjects } from "@/lib/actions/projects"
+import { CreateProjectDialog } from "@/components/create-project-dialog"
+import Link from "next/link"
+
+type Project = {
+  id: number
+  name: string
+  createdAt: Date
+  updatedAt: Date
+  userId: string
+  entries: {
+    id: number
+    timestamp: Date
+  }[]
+}
 
 export default function DashboardPage() {
   const { data: session, isPending } = useSession()
   const router = useRouter()
+  const [projects, setProjects] = useState<Project[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
 
   useEffect(() => {
     if (!isPending && !session) {
@@ -17,12 +35,34 @@ export default function DashboardPage() {
     }
   }, [session, isPending, router])
 
+  useEffect(() => {
+    if (session) {
+      loadProjects()
+    }
+  }, [session])
+
+  const loadProjects = async () => {
+    try {
+      const data = await getProjects()
+      setProjects(data)
+    } catch (error) {
+      console.error("Failed to load projects:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleSignOut = async () => {
     await signOut()
     router.push("/login")
   }
 
-  if (isPending) {
+  const handleProjectCreated = () => {
+    setShowCreateDialog(false)
+    loadProjects()
+  }
+
+  if (isPending || loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-muted-foreground">Loading...</div>
@@ -46,68 +86,63 @@ export default function DashboardPage() {
         </div>
       </header>
       <main className="container mx-auto p-4 md:p-8">
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5" />
-                Welcome Back!
-              </CardTitle>
-              <CardDescription>You&apos;re logged in to your dashboard</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div>
-                  <span className="text-sm font-medium">Name:</span>
-                  <p className="text-sm text-muted-foreground">
-                    {session.user?.name || "N/A"}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium">Email:</span>
-                  <p className="text-sm text-muted-foreground">
-                    {session.user?.email || "N/A"}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Statistics</CardTitle>
-              <CardDescription>Your activity overview</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Total Sessions</span>
-                  <span className="text-2xl font-bold">12</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Last Login</span>
-                  <span className="text-sm text-muted-foreground">Today</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-              <CardDescription>Common tasks</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Button className="w-full" variant="outline">
-                View Profile
-              </Button>
-              <Button className="w-full" variant="outline">
-                Settings
-              </Button>
-            </CardContent>
-          </Card>
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold">Projects</h2>
+            <p className="text-sm text-muted-foreground">
+              Manage your project journals
+            </p>
+          </div>
+          <Button onClick={() => setShowCreateDialog(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            New Project
+          </Button>
         </div>
+
+        {projects.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <FolderOpen className="mb-4 h-12 w-12 text-muted-foreground" />
+              <h3 className="mb-2 text-lg font-semibold">No projects yet</h3>
+              <p className="mb-4 text-sm text-muted-foreground">
+                Create your first project to start tracking entries
+              </p>
+              <Button onClick={() => setShowCreateDialog(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Project
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {projects.map((project) => (
+              <Link key={project.id} href={`/dashboard/projects/${project.id}`}>
+                <Card className="cursor-pointer transition-colors hover:bg-accent">
+                  <CardHeader>
+                    <CardTitle>{project.name}</CardTitle>
+                    <CardDescription>
+                      Created {new Date(project.createdAt).toLocaleDateString()}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-sm text-muted-foreground">
+                      {project.entries.length > 0
+                        ? `Last entry: ${new Date(project.entries[0].timestamp).toLocaleDateString()}`
+                        : "No entries yet"}
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        )}
       </main>
+
+      <CreateProjectDialog
+        open={showCreateDialog}
+        onOpenChange={setShowCreateDialog}
+        onSuccess={handleProjectCreated}
+      />
     </div>
   )
 }
