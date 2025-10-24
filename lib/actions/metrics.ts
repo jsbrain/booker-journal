@@ -67,7 +67,7 @@ export async function getProjectMetrics(
   const start = new Date(startDate);
   const end = new Date(endDate);
   
-  // Get all journal entries in the period
+  // Get all journal entries in the period for this project
   const entries = await db.query.journalEntries.findMany({
     where: and(
       eq(journalEntries.projectId, projectId),
@@ -80,19 +80,27 @@ export async function getProjectMetrics(
     },
   });
   
-  // Get ALL inventory purchases for this project (not just in date range)
-  // This is needed to calculate accurate average buying prices for COGS
-  const purchases = await db.query.inventoryPurchases.findMany({
-    where: eq(inventoryPurchases.projectId, projectId),
+  // Get ALL inventory purchases across ALL user's projects (GLOBAL inventory)
+  // First, get all user's projects
+  const userProjects = await db.query.projects.findMany({
+    where: eq(projects.userId, user.id),
+  });
+  const userProjectIds = userProjects.map(p => p.id);
+  
+  // Get all inventory purchases for all user's projects
+  const allPurchases = await db.query.inventoryPurchases.findMany({
     with: {
       product: true,
     },
   });
   
-  // Count purchases in the date range for the totalPurchases metric
+  // Filter to only user's projects
+  const purchases = allPurchases.filter(p => userProjectIds.includes(p.projectId));
+  
+  // Count purchases in the date range for the totalPurchases metric (project-specific)
   const purchasesInPeriod = purchases.filter(p => {
     const purchaseDate = new Date(p.purchaseDate);
-    return purchaseDate >= start && purchaseDate <= end;
+    return purchaseDate >= start && purchaseDate <= end && p.projectId === projectId;
   });
   
   // Calculate metrics per product

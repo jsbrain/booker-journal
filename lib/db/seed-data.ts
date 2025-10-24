@@ -11,7 +11,7 @@
 
 import { db } from "./index";
 import { user, account, products, entryTypes, projects, inventoryPurchases, journalEntries } from "./schema";
-import bcrypt from "bcryptjs";
+import { hashPassword } from "better-auth/crypto";
 import { nanoid } from "nanoid";
 
 // Seed data configuration
@@ -49,7 +49,7 @@ export async function seedDatabase() {
       console.log("   User already exists, skipping creation");
       userId = existingUser.id;
     } else {
-      const hashedPassword = await bcrypt.hash(SEED_USER.password, 10);
+      const hashedPassword = await hashPassword(SEED_USER.password);
       const newUserId = nanoid();
       
       await db.insert(user).values({
