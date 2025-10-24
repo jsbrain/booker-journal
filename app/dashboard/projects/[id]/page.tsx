@@ -5,12 +5,14 @@ import { useRouter, useParams } from "next/navigation"
 import { useSession, signOut } from "@/lib/auth-client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, LogOut, Plus, Share2, Trash2, Edit2, History } from "lucide-react"
+import { ArrowLeft, LogOut, Plus, Share2, Trash2, Edit2, History, TrendingUp, Package } from "lucide-react"
 import { getProject, deleteProject } from "@/lib/actions/projects"
 import { getEntries, getProjectBalance, deleteEntry } from "@/lib/actions/entries"
 import { CreateEntryDialog } from "@/components/create-entry-dialog"
 import { EditEntryDialog } from "@/components/edit-entry-dialog"
 import { ShareProjectDialog } from "@/components/share-project-dialog"
+import { MetricsDashboard } from "@/components/metrics-dashboard"
+import { InventoryList } from "@/components/inventory-list"
 import Link from "next/link"
 import {
   Dialog,
@@ -69,6 +71,7 @@ export default function ProjectDetailPage() {
   const [showHistoryDialog, setShowHistoryDialog] = useState(false)
   const [editingEntry, setEditingEntry] = useState<Entry | null>(null)
   const [viewingHistory, setViewingHistory] = useState<EditHistoryEntry[] | null>(null)
+  const [activeTab, setActiveTab] = useState<"entries" | "metrics" | "inventory">("entries")
 
   useEffect(() => {
     if (!isPending && !session) {
@@ -254,90 +257,139 @@ export default function ProjectDetailPage() {
           </Card>
         </div>
 
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Journal Entries</h3>
-          <Button onClick={() => setShowCreateDialog(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            New Entry
-          </Button>
+        {/* Tab Navigation */}
+        <div className="mb-6 flex gap-2 border-b">
+          <button
+            onClick={() => setActiveTab("entries")}
+            className={`px-4 py-2 font-medium transition-colors ${
+              activeTab === "entries"
+                ? "border-b-2 border-primary text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Journal Entries
+          </button>
+          <button
+            onClick={() => setActiveTab("metrics")}
+            className={`flex items-center gap-2 px-4 py-2 font-medium transition-colors ${
+              activeTab === "metrics"
+                ? "border-b-2 border-primary text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <TrendingUp className="h-4 w-4" />
+            Metrics
+          </button>
+          <button
+            onClick={() => setActiveTab("inventory")}
+            className={`flex items-center gap-2 px-4 py-2 font-medium transition-colors ${
+              activeTab === "inventory"
+                ? "border-b-2 border-primary text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Package className="h-4 w-4" />
+            Inventory
+          </button>
         </div>
 
-        {entries.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <p className="mb-4 text-sm text-muted-foreground">
-                No entries yet
-              </p>
+        {/* Tab Content */}
+        {activeTab === "entries" && (
+          <>
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Journal Entries</h3>
               <Button onClick={() => setShowCreateDialog(true)}>
                 <Plus className="mr-2 h-4 w-4" />
-                Create Entry
+                New Entry
               </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-2">
-            {entries.map((entry) => {
-              const amount = parseFloat(entry.amount)
-              const price = parseFloat(entry.price)
-              const total = amount * price
-              const hasEditHistory = entry.editHistory && entry.editHistory.length > 0
-              
-              return (
-                <Card key={entry.id}>
-                  <CardContent className="flex items-center justify-between p-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{entry.type.name}</span>
-                        <span className="text-sm text-muted-foreground">•</span>
-                        <span className="text-sm text-muted-foreground">{entry.product.name}</span>
-                        {hasEditHistory && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleViewHistory(entry.editHistory)}
-                            className="h-6 px-2 text-xs"
-                          >
-                            <History className="mr-1 h-3 w-3" />
-                            Edited ({entry.editHistory!.length})
-                          </Button>
-                        )}
-                        <span className="text-sm text-muted-foreground">
-                          {formatDateTime(entry.timestamp)}
-                        </span>
-                      </div>
-                      {entry.note && (
-                        <p className="text-sm text-muted-foreground">{entry.note}</p>
-                      )}
-                      <div className="mt-1 text-sm text-muted-foreground">
-                        Amount: {amount} × {formatCurrency(price)}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className={`text-xl font-bold ${total >= 0 ? "text-green-600" : "text-red-600"}`}>
-                        {total >= 0 ? "+" : ""}{formatCurrency(total)}
-                      </div>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEditEntry(entry)}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDeleteEntry(entry.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })}
-          </div>
+            </div>
+
+            {entries.length === 0 ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <p className="mb-4 text-sm text-muted-foreground">
+                    No entries yet
+                  </p>
+                  <Button onClick={() => setShowCreateDialog(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create Entry
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-2">
+                {entries.map((entry) => {
+                  const amount = parseFloat(entry.amount)
+                  const price = parseFloat(entry.price)
+                  const total = amount * price
+                  const hasEditHistory = entry.editHistory && entry.editHistory.length > 0
+                  
+                  return (
+                    <Card key={entry.id}>
+                      <CardContent className="flex items-center justify-between p-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{entry.type.name}</span>
+                            <span className="text-sm text-muted-foreground">•</span>
+                            <span className="text-sm text-muted-foreground">{entry.product.name}</span>
+                            {hasEditHistory && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleViewHistory(entry.editHistory)}
+                                className="h-6 px-2 text-xs"
+                              >
+                                <History className="mr-1 h-3 w-3" />
+                                Edited ({entry.editHistory!.length})
+                              </Button>
+                            )}
+                            <span className="text-sm text-muted-foreground">
+                              {formatDateTime(entry.timestamp)}
+                            </span>
+                          </div>
+                          {entry.note && (
+                            <p className="text-sm text-muted-foreground">{entry.note}</p>
+                          )}
+                          <div className="mt-1 text-sm text-muted-foreground">
+                            Amount: {amount} × {formatCurrency(price)}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className={`text-xl font-bold ${total >= 0 ? "text-green-600" : "text-red-600"}`}>
+                            {total >= 0 ? "+" : ""}{formatCurrency(total)}
+                          </div>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEditEntry(entry)}
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDeleteEntry(entry.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )
+                })}
+              </div>
+            )}
+          </>
+        )}
+
+        {activeTab === "metrics" && (
+          <MetricsDashboard projectId={projectId} />
+        )}
+
+        {activeTab === "inventory" && (
+          <InventoryList projectId={projectId} />
         )}
       </main>
 
