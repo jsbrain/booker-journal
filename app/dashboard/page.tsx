@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useEffect, useState, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useSession, signOut } from "@/lib/auth-client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -25,12 +25,25 @@ type Project = {
 }
 
 export default function DashboardPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center">
+      <div className="text-muted-foreground">Loading...</div>
+    </div>}>
+      <DashboardContent />
+    </Suspense>
+  )
+}
+
+function DashboardContent() {
   const { data: session, isPending } = useSession()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
-  const [activeTab, setActiveTab] = useState<"projects" | "metrics" | "inventory">("projects")
+  
+  // Get active tab from URL search params, default to "projects"
+  const activeTab = (searchParams.get("tab") as "projects" | "metrics" | "inventory") || "projects"
 
   useEffect(() => {
     if (!isPending && !session) {
@@ -63,6 +76,10 @@ export default function DashboardPage() {
   const handleProjectCreated = () => {
     setShowCreateDialog(false)
     loadProjects()
+  }
+
+  const setActiveTab = (tab: "projects" | "metrics" | "inventory") => {
+    router.push(`/dashboard?tab=${tab}`)
   }
 
   if (isPending || loading) {
