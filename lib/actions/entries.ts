@@ -20,7 +20,7 @@ interface JournalEntryUpdateData {
   amount?: string;
   price?: string;
   typeId?: string;
-  productId?: string;
+  productId?: string | null;
   note?: string;
 }
 
@@ -114,10 +114,26 @@ export async function updateEntry(
       eq(journalEntries.id, entryId),
       eq(journalEntries.projectId, projectId)
     ),
+    with: {
+      type: true,
+    },
   });
   
   if (!currentEntry) {
     throw new Error("Entry not found");
+  }
+  
+  // If updating to purchase type, productId is required
+  if (updates.typeId) {
+    const newType = await db.query.entryTypes.findFirst({
+      where: eq(entryTypes.id, updates.typeId),
+    });
+    if (newType?.key === "purchase" && !updates.productId) {
+      throw new Error("Product is required for purchase entries");
+    }
+  } else if (currentEntry.type.key === "purchase" && updates.productId === undefined && !currentEntry.productId) {
+    // If it's already a purchase and productId wasn't provided and there isn't one already
+    throw new Error("Product is required for purchase entries");
   }
   
   // Build edit history entry
@@ -150,7 +166,7 @@ export async function updateEntry(
   if (updates.productId !== undefined && updates.productId !== currentEntry.productId) {
     changes.push({
       field: "productId",
-      oldValue: currentEntry.productId,
+      oldValue: currentEntry.productId || "",
       newValue: updates.productId,
     });
   }
@@ -195,7 +211,7 @@ export async function updateEntry(
     updateData.typeId = updates.typeId;
   }
   if (updates.productId !== undefined) {
-    updateData.productId = updates.productId;
+    updateData.productId = updates.productId || null;
   }
   if (updates.note !== undefined) {
     updateData.note = updates.note;
