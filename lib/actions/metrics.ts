@@ -80,16 +80,19 @@ export async function getProjectMetrics(
     },
   });
   
-  // Get all inventory purchases in the period
+  // Get ALL inventory purchases for this project (not just in date range)
+  // This is needed to calculate accurate average buying prices for COGS
   const purchases = await db.query.inventoryPurchases.findMany({
-    where: and(
-      eq(inventoryPurchases.projectId, projectId),
-      gte(inventoryPurchases.purchaseDate, start),
-      lte(inventoryPurchases.purchaseDate, end)
-    ),
+    where: eq(inventoryPurchases.projectId, projectId),
     with: {
       product: true,
     },
+  });
+  
+  // Count purchases in the date range for the totalPurchases metric
+  const purchasesInPeriod = purchases.filter(p => {
+    const purchaseDate = new Date(p.purchaseDate);
+    return purchaseDate >= start && purchaseDate <= end;
   });
   
   // Calculate metrics per product
@@ -181,7 +184,7 @@ export async function getProjectMetrics(
     cost: totalCost,
     profit: totalProfit,
     totalEntries: entries.length,
-    totalPurchases: purchases.length,
+    totalPurchases: purchasesInPeriod.length,
     productBreakdown,
   };
 }
@@ -226,7 +229,7 @@ export async function getGlobalMetrics(
     };
   }
   
-  // Get all journal entries for all user's projects
+  // Get all journal entries for all user's projects in the date range
   const allEntries = await db.query.journalEntries.findMany({
     where: and(
       gte(journalEntries.timestamp, start),
@@ -241,12 +244,9 @@ export async function getGlobalMetrics(
   // Filter to only user's projects
   const entries = allEntries.filter(e => projectIds.includes(e.projectId));
   
-  // Get all inventory purchases for all user's projects
+  // Get ALL inventory purchases for all user's projects (not just in date range)
+  // This is needed to calculate accurate average buying prices for COGS
   const allPurchases = await db.query.inventoryPurchases.findMany({
-    where: and(
-      gte(inventoryPurchases.purchaseDate, start),
-      lte(inventoryPurchases.purchaseDate, end)
-    ),
     with: {
       product: true,
     },
@@ -254,6 +254,12 @@ export async function getGlobalMetrics(
   
   // Filter to only user's projects
   const purchases = allPurchases.filter(p => projectIds.includes(p.projectId));
+  
+  // Count purchases in the date range for the totalPurchases metric
+  const purchasesInPeriod = purchases.filter(p => {
+    const purchaseDate = new Date(p.purchaseDate);
+    return purchaseDate >= start && purchaseDate <= end;
+  });
   
   // Calculate metrics per product
   const productMap = new Map<string, {
@@ -344,7 +350,7 @@ export async function getGlobalMetrics(
     cost: totalCost,
     profit: totalProfit,
     totalEntries: entries.length,
-    totalPurchases: purchases.length,
+    totalPurchases: purchasesInPeriod.length,
     productBreakdown,
   };
 }
