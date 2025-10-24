@@ -6,6 +6,13 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { eq, and, gt, desc } from "drizzle-orm";
 import crypto from "crypto";
+import { validate } from "@/lib/db/validate";
+import {
+  createSharedLinkInputSchema,
+  deleteSharedLinkInputSchema,
+  sharedLinkTokenSchema,
+  getProjectInputSchema,
+} from "@/lib/db/validation";
 
 // Get current user session
 async function getCurrentUser() {
@@ -37,6 +44,9 @@ async function verifyProjectOwnership(projectId: number, userId: string) {
 }
 
 export async function createSharedLink(projectId: number, expiresInDays: number) {
+  // Validate input
+  validate(createSharedLinkInputSchema, { projectId, expiresInDays });
+  
   const user = await getCurrentUser();
   await verifyProjectOwnership(projectId, user.id);
   
@@ -57,6 +67,9 @@ export async function createSharedLink(projectId: number, expiresInDays: number)
 }
 
 export async function getSharedLinks(projectId: number) {
+  // Validate input
+  validate(getProjectInputSchema, { projectId });
+  
   const user = await getCurrentUser();
   await verifyProjectOwnership(projectId, user.id);
   
@@ -69,6 +82,9 @@ export async function getSharedLinks(projectId: number) {
 }
 
 export async function deleteSharedLink(linkId: number, projectId: number) {
+  // Validate input
+  validate(deleteSharedLinkInputSchema, { linkId, projectId });
+  
   const user = await getCurrentUser();
   await verifyProjectOwnership(projectId, user.id);
   
@@ -84,6 +100,9 @@ export async function deleteSharedLink(linkId: number, projectId: number) {
 
 // Validate shared link (no auth required)
 export async function validateSharedLink(token: string) {
+  // Validate input
+  validate(sharedLinkTokenSchema, { token });
+  
   const link = await db.query.sharedLinks.findFirst({
     where: and(
       eq(sharedLinks.token, token),
@@ -103,6 +122,9 @@ export async function validateSharedLink(token: string) {
 
 // Get project data via shared link (no auth required)
 export async function getProjectBySharedLink(token: string) {
+  // Validate input
+  validate(sharedLinkTokenSchema, { token });
+  
   const link = await validateSharedLink(token);
   
   if (!link) {

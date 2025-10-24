@@ -6,6 +6,12 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { eq, desc, and } from "drizzle-orm";
 import { seedEntryTypes } from "@/lib/db/seed";
+import { validate } from "@/lib/db/validate";
+import {
+  createProjectInputSchema,
+  deleteProjectInputSchema,
+  getProjectInputSchema,
+} from "@/lib/db/validation";
 
 // Get current user session
 async function getCurrentUser() {
@@ -30,6 +36,9 @@ async function initializeEntryTypes() {
 
 // Project actions
 export async function createProject(name: string, initialAmount: number) {
+  // Validate input
+  validate(createProjectInputSchema, { name, initialAmount });
+  
   const user = await getCurrentUser();
   await initializeEntryTypes();
   
@@ -77,6 +86,9 @@ export async function getProjects() {
 }
 
 export async function getProject(projectId: number) {
+  // Validate input
+  validate(getProjectInputSchema, { projectId });
+  
   const user = await getCurrentUser();
   
   const project = await db.query.projects.findFirst({
@@ -94,6 +106,9 @@ export async function getProject(projectId: number) {
 }
 
 export async function deleteProject(projectId: number) {
+  // Validate input
+  validate(deleteProjectInputSchema, { projectId });
+  
   const user = await getCurrentUser();
   
   // Verify ownership

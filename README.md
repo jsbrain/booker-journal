@@ -21,16 +21,17 @@ A modern journal management system with project-based accounting built with Next
 - **UI Library:** shadcn-ui (Radix UI primitives)
 - **Authentication:** better-auth 1.3.29
 - **Database:** PostgreSQL with Drizzle ORM
+- **Validation:** TypeBox with Drizzle-TypeBox integration
 - **Styling:** Tailwind CSS v4
 - **Language:** TypeScript
+- **Package Manager:** Bun 1.3+
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 18+ installed
+- Bun 1.3+ installed ([Install Bun](https://bun.sh))
 - PostgreSQL database (local or hosted)
-- npm or yarn package manager
 
 ### Installation
 
@@ -42,7 +43,7 @@ cd booker-journal
 
 2. Install dependencies:
 ```bash
-npm install
+bun install
 ```
 
 3. Create a `.env.local` file in the root directory:
@@ -57,12 +58,12 @@ DATABASE_URL=postgresql://username:password@localhost:5432/booker_journal
 
 4. Run database migrations:
 ```bash
-npm run db:push
+bun run db:push
 ```
 
 5. Start the development server:
 ```bash
-npm run dev
+bun run dev
 ```
 
 6. Open [http://localhost:3000](http://localhost:3000) in your browser.
@@ -128,18 +129,21 @@ booker-journal/
 │   ├── create-entry-dialog.tsx
 │   └── share-project-dialog.tsx
 ├── lib/
-│   ├── actions/                # Server actions
+│   ├── actions/                # Server actions with validation
 │   │   ├── projects.ts
 │   │   ├── entries.ts
 │   │   ├── entry-types.ts
 │   │   └── shared-links.ts
 │   ├── db/                     # Database configuration
 │   │   ├── index.ts
-│   │   ├── schema.ts
+│   │   ├── schema.ts           # Drizzle schemas (source of truth)
+│   │   ├── validation.ts       # TypeBox schemas derived from Drizzle
+│   │   ├── validate.ts         # Validation utilities
 │   │   └── seed.ts
 │   ├── auth.ts                 # Better-auth configuration
 │   ├── auth-client.ts          # Auth client for frontend
 │   └── utils.ts                # Utility functions
+├── bunfig.toml                 # Bun configuration
 └── drizzle.config.ts           # Drizzle ORM configuration
 ```
 
@@ -173,19 +177,32 @@ booker-journal/
 
 ## Available Scripts
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm start` - Start production server
-- `npm run lint` - Run ESLint
-- `npm run db:generate` - Generate database migrations
-- `npm run db:push` - Push schema changes to database
-- `npm run db:migrate` - Run database migrations
-- `npm run db:studio` - Open Drizzle Studio
+- `bun run dev` - Start development server
+- `bun run build` - Build for production
+- `bun run start` - Start production server
+- `bun run lint` - Run ESLint
+- `bun run db:generate` - Generate database migrations
+- `bun run db:push` - Push schema changes to database
+- `bun run db:migrate` - Run database migrations
+- `bun run db:studio` - Open Drizzle Studio
+
+## Validation Architecture
+
+This project follows a strict validation flow to ensure data integrity:
+
+1. **Source of Truth**: Drizzle schemas (`lib/db/schema.ts`) define the database structure
+2. **TypeBox Derivation**: TypeBox schemas are automatically derived from Drizzle schemas using `drizzle-typebox`
+3. **Extended Schemas**: Base schemas are extended or merged for specific API validation needs
+4. **Type Inference**: TypeScript types are inferred from TypeBox schemas using `Static<typeof schema>`
+5. **Validation**: All server actions validate inputs using TypeBox before processing
+
+This flow ensures consistency between database schema, validation rules, and TypeScript types.
 
 ## Security
 
 - Passwords are securely hashed using better-auth
 - Session tokens are stored securely
+- **Input validation on all server actions using TypeBox schemas**
 - Environment variables for sensitive configuration
 - Database credentials excluded from version control
 - Shared links use cryptographically secure random tokens
@@ -200,6 +217,8 @@ To learn more about the technologies used:
 - [shadcn-ui Documentation](https://ui.shadcn.com)
 - [better-auth Documentation](https://www.better-auth.com)
 - [Drizzle ORM Documentation](https://orm.drizzle.team)
+- [TypeBox Documentation](https://github.com/sinclairzx81/typebox)
+- [Bun Documentation](https://bun.sh/docs)
 - [Tailwind CSS Documentation](https://tailwindcss.com/docs)
 
 ## Deploy on Vercel
@@ -209,7 +228,7 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 Remember to:
 1. Add your environment variables in the Vercel dashboard
 2. Configure your PostgreSQL database (e.g., Vercel Postgres, Supabase, etc.)
-3. Run migrations: `npm run db:push`
+3. Run migrations: `bun run db:push`
 
 Check out the [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 
