@@ -58,7 +58,7 @@ export async function createEntry(
   amount: number,
   price: number,
   typeId: string,
-  productId: string,
+  productId: string | undefined,
   note?: string,
   timestamp?: string
 ) {
@@ -68,12 +68,22 @@ export async function createEntry(
   const user = await getCurrentUser();
   await verifyProjectOwnership(projectId, user.id);
   
+  // Get the entry type to check if it's a purchase
+  const entryType = await db.query.entryTypes.findFirst({
+    where: eq(entryTypes.id, typeId),
+  });
+  
+  // If it's a purchase type, productId is required
+  if (entryType?.key === "purchase" && !productId) {
+    throw new Error("Product is required for purchase entries");
+  }
+  
   const [entry] = await db.insert(journalEntries).values({
     projectId,
     amount: amount.toString(),
     price: price.toString(),
     typeId,
-    productId,
+    productId: productId || null,
     note,
     timestamp: timestamp ? new Date(timestamp) : new Date(),
   }).returning();

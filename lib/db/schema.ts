@@ -98,7 +98,7 @@ export const journalEntries = pgTable("journal_entries", {
   amount: numeric("amount", { precision: 10, scale: 2 }).notNull(), // e.g., quantity of items
   price: numeric("price", { precision: 10, scale: 2 }).notNull(), // Price per unit (can be negative or positive)
   typeId: text("type_id").notNull().references(() => entryTypes.id), // Entry type (Purchase, Payment, etc.)
-  productId: text("product_id").notNull().references(() => products.id), // Product assignment (Cash, etc.)
+  productId: text("product_id").references(() => products.id), // Product assignment - only required for Purchase type
   note: text("note"), // Optional note
   timestamp: timestamp("timestamp").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),

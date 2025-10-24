@@ -5,14 +5,13 @@ import { useRouter, useParams } from "next/navigation"
 import { useSession, signOut } from "@/lib/auth-client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, LogOut, Plus, Share2, Trash2, Edit2, History, TrendingUp, Package } from "lucide-react"
+import { ArrowLeft, LogOut, Plus, Share2, Trash2, Edit2, History, TrendingUp } from "lucide-react"
 import { getProject, deleteProject } from "@/lib/actions/projects"
 import { getEntries, getProjectBalance, deleteEntry } from "@/lib/actions/entries"
 import { CreateEntryDialog } from "@/components/create-entry-dialog"
 import { EditEntryDialog } from "@/components/edit-entry-dialog"
 import { ShareProjectDialog } from "@/components/share-project-dialog"
 import { MetricsDashboard } from "@/components/metrics-dashboard"
-import { InventoryList } from "@/components/inventory-list"
 import Link from "next/link"
 import {
   Dialog,
@@ -71,7 +70,7 @@ export default function ProjectDetailPage() {
   const [showHistoryDialog, setShowHistoryDialog] = useState(false)
   const [editingEntry, setEditingEntry] = useState<Entry | null>(null)
   const [viewingHistory, setViewingHistory] = useState<EditHistoryEntry[] | null>(null)
-  const [activeTab, setActiveTab] = useState<"entries" | "metrics" | "inventory">("entries")
+  const [activeTab, setActiveTab] = useState<"entries" | "metrics">("entries")
 
   useEffect(() => {
     if (!isPending && !session) {
@@ -280,17 +279,6 @@ export default function ProjectDetailPage() {
             <TrendingUp className="h-4 w-4" />
             Metrics
           </button>
-          <button
-            onClick={() => setActiveTab("inventory")}
-            className={`flex items-center gap-2 px-4 py-2 font-medium transition-colors ${
-              activeTab === "inventory"
-                ? "border-b-2 border-primary text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Package className="h-4 w-4" />
-            Inventory
-          </button>
         </div>
 
         {/* Tab Content */}
@@ -386,10 +374,6 @@ export default function ProjectDetailPage() {
 
         {activeTab === "metrics" && (
           <MetricsDashboard projectId={projectId} />
-        )}
-
-        {activeTab === "inventory" && (
-          <InventoryList projectId={projectId} />
         )}
       </main>
 
