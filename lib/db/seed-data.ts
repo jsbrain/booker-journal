@@ -18,7 +18,7 @@ import { nanoid } from "nanoid";
 const SEED_USER = {
   email: "manuel.maute@bradbit.com",
   name: "Admin",
-  password: "example",
+  password: "examplepassword",  // Changed to meet minimum length requirement
 };
 
 const SEED_PRODUCTS = [
