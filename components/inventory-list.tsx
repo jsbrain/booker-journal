@@ -35,7 +35,6 @@ export function InventoryList({ projectId }: InventoryListProps) {
   const [purchases, setPurchases] = useState<InventoryPurchase[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
-  const [selectedProjectId, setSelectedProjectId] = useState<string>("")
 
   useEffect(() => {
     loadPurchases()

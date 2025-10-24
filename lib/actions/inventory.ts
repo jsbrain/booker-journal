@@ -235,17 +235,7 @@ export async function getGlobalInventory() {
     return [];
   }
   
-  // Get all inventory purchases for all user's projects
-  const purchases = await db.query.inventoryPurchases.findMany({
-    where: eq(inventoryPurchases.projectId, projectIds[0]), // We'll need to use SQL for multiple projects
-    orderBy: [desc(inventoryPurchases.purchaseDate)],
-    with: {
-      product: true,
-      project: true,
-    },
-  });
-  
-  // Actually, let's get all purchases without project filter and filter in memory
+  // Get all inventory purchases and filter to user's projects
   const allPurchases = await db.query.inventoryPurchases.findMany({
     orderBy: [desc(inventoryPurchases.purchaseDate)],
     with: {
