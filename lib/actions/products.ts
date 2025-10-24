@@ -9,6 +9,7 @@ import { validate } from "@/lib/db/validate";
 import {
   createProductInputSchema,
   updateProductInputSchema,
+  updateProductBuyingPriceInputSchema,
   deleteProductInputSchema,
 } from "@/lib/db/validation";
 
@@ -63,6 +64,23 @@ export async function createProduct(key: string, name: string) {
   }).returning();
   
   return product;
+}
+
+export async function updateProductBuyingPrice(productId: string, defaultBuyingPrice: number) {
+  // Validate input
+  validate(updateProductBuyingPriceInputSchema, { productId, defaultBuyingPrice });
+  
+  // Only admin can update product buying prices
+  await getCurrentUser();
+  
+  await db.update(products)
+    .set({ 
+      defaultBuyingPrice: defaultBuyingPrice.toString(),
+      updatedAt: new Date(),
+    })
+    .where(eq(products.id, productId));
+  
+  return { success: true };
 }
 
 export async function deleteProduct(productId: string) {

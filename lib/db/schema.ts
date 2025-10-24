@@ -77,6 +77,7 @@ export const products = pgTable("products", {
   id: text("id").primaryKey().$defaultFn(() => nanoid()),
   key: text("key").notNull().unique(), // Internal key like 'cash', 'materials', etc.
   name: text("name").notNull(), // Display name that can be edited
+  defaultBuyingPrice: numeric("default_buying_price", { precision: 10, scale: 2 }), // Optional default buying price
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -116,6 +117,20 @@ export type EditHistoryEntry = {
   }[];
 };
 
+// Inventory purchases table - for tracking buying prices and inventory
+export const inventoryPurchases = pgTable("inventory_purchases", {
+  id: text("id").primaryKey().$defaultFn(() => nanoid()),
+  projectId: text("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  productId: text("product_id").notNull().references(() => products.id),
+  quantity: numeric("quantity", { precision: 10, scale: 2 }).notNull(), // Amount purchased
+  buyingPrice: numeric("buying_price", { precision: 10, scale: 2 }).notNull(), // Price per unit when purchased
+  totalCost: numeric("total_cost", { precision: 10, scale: 2 }).notNull(), // quantity × buyingPrice
+  note: text("note"), // Optional note about the purchase
+  purchaseDate: timestamp("purchase_date").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Shared links table for read-only access
 export const sharedLinks = pgTable("shared_links", {
   id: text("id").primaryKey().$defaultFn(() => nanoid()),
@@ -129,6 +144,7 @@ export const sharedLinks = pgTable("shared_links", {
 export const projectsRelations = relations(projects, ({ many }) => ({
   entries: many(journalEntries),
   sharedLinks: many(sharedLinks),
+  inventoryPurchases: many(inventoryPurchases),
 }));
 
 export const journalEntriesRelations = relations(journalEntries, ({ one }) => ({
@@ -159,4 +175,16 @@ export const entryTypesRelations = relations(entryTypes, ({ many }) => ({
 
 export const productsRelations = relations(products, ({ many }) => ({
   entries: many(journalEntries),
+  inventoryPurchases: many(inventoryPurchases),
+}));
+
+export const inventoryPurchasesRelations = relations(inventoryPurchases, ({ one }) => ({
+  project: one(projects, {
+    fields: [inventoryPurchases.projectId],
+    references: [projects.id],
+  }),
+  product: one(products, {
+    fields: [inventoryPurchases.productId],
+    references: [products.id],
+  }),
 }));

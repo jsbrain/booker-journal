@@ -6,7 +6,7 @@
 
 import { Type, Static } from "@sinclair/typebox";
 import { createSelectSchema, createInsertSchema } from "drizzle-typebox";
-import { projects, journalEntries, entryTypes, products, sharedLinks } from "./schema";
+import { projects, journalEntries, entryTypes, products, sharedLinks, inventoryPurchases } from "./schema";
 
 // ========================================
 // Base TypeBox schemas from Drizzle (source of truth)
@@ -23,6 +23,9 @@ export const insertEntryTypeSchema = createInsertSchema(entryTypes);
 
 export const selectProductSchema = createSelectSchema(products);
 export const insertProductSchema = createInsertSchema(products);
+
+export const selectInventoryPurchaseSchema = createSelectSchema(inventoryPurchases);
+export const insertInventoryPurchaseSchema = createInsertSchema(inventoryPurchases);
 
 export const selectSharedLinkSchema = createSelectSchema(sharedLinks);
 export const insertSharedLinkSchema = createInsertSchema(sharedLinks);
@@ -94,6 +97,45 @@ export const updateProductInputSchema = Type.Object({
   newName: Type.String({ minLength: 1, maxLength: 255 }),
 });
 
+// Product update buying price validation
+export const updateProductBuyingPriceInputSchema = Type.Object({
+  productId: Type.String({ minLength: 1 }),
+  defaultBuyingPrice: Type.Number({ minimum: 0 }),
+});
+
+// Inventory purchase creation input validation
+export const createInventoryPurchaseInputSchema = Type.Object({
+  projectId: Type.String({ minLength: 1 }),
+  productId: Type.String({ minLength: 1 }),
+  quantity: Type.Number({ minimum: 0 }),
+  buyingPrice: Type.Number({ minimum: 0 }),
+  note: Type.Optional(Type.String({ maxLength: 1000 })),
+  purchaseDate: Type.Optional(Type.String()), // ISO date string
+});
+
+// Inventory purchase update input validation
+export const updateInventoryPurchaseInputSchema = Type.Object({
+  purchaseId: Type.String({ minLength: 1 }),
+  projectId: Type.String({ minLength: 1 }),
+  quantity: Type.Optional(Type.Number({ minimum: 0 })),
+  buyingPrice: Type.Optional(Type.Number({ minimum: 0 })),
+  note: Type.Optional(Type.String({ maxLength: 1000 })),
+  purchaseDate: Type.Optional(Type.String()),
+});
+
+// Delete inventory purchase input validation
+export const deleteInventoryPurchaseInputSchema = Type.Object({
+  purchaseId: Type.String({ minLength: 1 }),
+  projectId: Type.String({ minLength: 1 }),
+});
+
+// Get metrics for period input validation
+export const getMetricsInputSchema = Type.Object({
+  projectId: Type.String({ minLength: 1 }),
+  startDate: Type.String(), // ISO date string
+  endDate: Type.String(), // ISO date string
+});
+
 // Shared link creation input validation
 export const createSharedLinkInputSchema = Type.Object({
   projectId: Type.String({ minLength: 1 }),
@@ -145,6 +187,9 @@ export type InsertEntryType = Static<typeof insertEntryTypeSchema>;
 export type SelectProduct = Static<typeof selectProductSchema>;
 export type InsertProduct = Static<typeof insertProductSchema>;
 
+export type SelectInventoryPurchase = Static<typeof selectInventoryPurchaseSchema>;
+export type InsertInventoryPurchase = Static<typeof insertInventoryPurchaseSchema>;
+
 export type SelectSharedLink = Static<typeof selectSharedLinkSchema>;
 export type InsertSharedLink = Static<typeof insertSharedLinkSchema>;
 
@@ -158,6 +203,11 @@ export type UpdateEntryTypeInput = Static<typeof updateEntryTypeInputSchema>;
 export type DeleteEntryTypeInput = Static<typeof deleteEntryTypeInputSchema>;
 export type CreateProductInput = Static<typeof createProductInputSchema>;
 export type UpdateProductInput = Static<typeof updateProductInputSchema>;
+export type UpdateProductBuyingPriceInput = Static<typeof updateProductBuyingPriceInputSchema>;
+export type CreateInventoryPurchaseInput = Static<typeof createInventoryPurchaseInputSchema>;
+export type UpdateInventoryPurchaseInput = Static<typeof updateInventoryPurchaseInputSchema>;
+export type DeleteInventoryPurchaseInput = Static<typeof deleteInventoryPurchaseInputSchema>;
+export type GetMetricsInput = Static<typeof getMetricsInputSchema>;
 export type CreateSharedLinkInput = Static<typeof createSharedLinkInputSchema>;
 export type SharedLinkToken = Static<typeof sharedLinkTokenSchema>;
 export type DeleteProjectInput = Static<typeof deleteProjectInputSchema>;
