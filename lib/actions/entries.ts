@@ -121,7 +121,7 @@ export async function createEntryWithPayment(
   const [paymentEntry] = await db.insert(journalEntries).values({
     projectId,
     amount: amount.toString(),
-    price: Math.abs(parseFloat(price.toString())).toString(), // Make price positive for payment
+    price: Math.abs(price).toString(), // Make price positive for payment
     typeId: paymentType.id,
     productId,
     note: note ? `${note} (immediate payment)` : "Immediate payment",

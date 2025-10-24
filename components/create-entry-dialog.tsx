@@ -76,6 +76,13 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
         .toISOString()
         .slice(0, 16)
       setTimestamp(localDateTime)
+    } else {
+      // Reset form when dialog closes
+      setAmount("")
+      setPrice("")
+      setNote("")
+      setPaidImmediately(false)
+      setError("")
     }
   }, [open])
 
@@ -110,11 +117,11 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
       setShowConfirmDialog(true)
     } else {
       // Proceed with normal entry creation
-      await createEntryInternal()
+      await createEntryInternal(false)
     }
   }
   
-  const createEntryInternal = async () => {
+  const createEntryInternal = async (isPurchaseWithPayment: boolean) => {
     setError("")
     setLoading(true)
 
@@ -129,10 +136,6 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
 
       // Convert local datetime to ISO string
       const timestampISO = timestamp ? new Date(timestamp).toISOString() : undefined
-
-      // Check if this is a Purchase entry with "Paid Immediately" checked
-      const selectedType = entryTypes.find(t => t.id === typeId)
-      const isPurchaseWithPayment = selectedType?.key === 'purchase' && paidImmediately
       
       if (isPurchaseWithPayment) {
         // Create both purchase and payment entries
@@ -305,7 +308,7 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={createEntryInternal} disabled={loading}>
+            <AlertDialogAction onClick={() => createEntryInternal(true)} disabled={loading}>
               {loading ? "Creating..." : "Confirm"}
             </AlertDialogAction>
           </AlertDialogFooter>
