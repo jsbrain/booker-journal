@@ -146,7 +146,14 @@ export async function updateEntry(
   const newHistory = [...existingHistory, editHistoryEntry];
   
   // Update the entry
-  const updateData: any = {
+  const updateData: {
+    updatedAt: Date;
+    editHistory: EditHistoryEntry[];
+    amount?: string;
+    price?: string;
+    productId?: string;
+    note?: string;
+  } = {
     updatedAt: new Date(),
     editHistory: newHistory,
   };
