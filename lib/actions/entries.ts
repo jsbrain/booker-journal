@@ -13,6 +13,16 @@ import {
   getProjectInputSchema,
 } from "@/lib/db/validation";
 
+// Update data interface for journal entries
+interface JournalEntryUpdateData {
+  updatedAt: Date;
+  editHistory: EditHistoryEntry[];
+  amount?: string;
+  price?: string;
+  productId?: string;
+  note?: string;
+}
+
 // Get current user session
 async function getCurrentUser() {
   const session = await auth.api.getSession({
@@ -146,14 +156,7 @@ export async function updateEntry(
   const newHistory = [...existingHistory, editHistoryEntry];
   
   // Update the entry
-  const updateData: {
-    updatedAt: Date;
-    editHistory: EditHistoryEntry[];
-    amount?: string;
-    price?: string;
-    productId?: string;
-    note?: string;
-  } = {
+  const updateData: JournalEntryUpdateData = {
     updatedAt: new Date(),
     editHistory: newHistory,
   };
