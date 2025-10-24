@@ -28,7 +28,7 @@ async function getCurrentUser() {
 }
 
 // Verify project ownership
-async function verifyProjectOwnership(projectId: number, userId: string) {
+async function verifyProjectOwnership(projectId: string, userId: string) {
   const project = await db.query.projects.findFirst({
     where: and(
       eq(projects.id, projectId),
@@ -43,7 +43,7 @@ async function verifyProjectOwnership(projectId: number, userId: string) {
   return project;
 }
 
-export async function createSharedLink(projectId: number, expiresInDays: number) {
+export async function createSharedLink(projectId: string, expiresInDays: number) {
   // Validate input
   validate(createSharedLinkInputSchema, { projectId, expiresInDays });
   
@@ -66,7 +66,7 @@ export async function createSharedLink(projectId: number, expiresInDays: number)
   return link;
 }
 
-export async function getSharedLinks(projectId: number) {
+export async function getSharedLinks(projectId: string) {
   // Validate input
   validate(getProjectInputSchema, { projectId });
   
@@ -81,7 +81,7 @@ export async function getSharedLinks(projectId: number) {
   return links;
 }
 
-export async function deleteSharedLink(linkId: number, projectId: number) {
+export async function deleteSharedLink(linkId: string, projectId: string) {
   // Validate input
   validate(deleteSharedLinkInputSchema, { linkId, projectId });
   
@@ -135,7 +135,7 @@ export async function getProjectBySharedLink(token: string) {
     where: eq(journalEntries.projectId, link.projectId),
     orderBy: [desc(journalEntries.timestamp)],
     with: {
-      type: true,
+      product: true,
     },
   });
   
