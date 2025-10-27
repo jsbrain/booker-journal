@@ -48,6 +48,13 @@ export function DateRangePicker({ dateRange, setDateRange }: DateRangePickerProp
 
     return [
       {
+        label: "All Time",
+        getValue: () => ({
+          from: new Date(2000, 0, 1), // Start from year 2000
+          to: today,
+        }),
+      },
+      {
         label: "Last Year",
         getValue: () => ({
           from: new Date(now.getFullYear() - 1, 0, 1),

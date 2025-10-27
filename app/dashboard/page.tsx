@@ -5,8 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useSession, signOut } from "@/lib/auth-client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { DateRangePicker } from "@/components/ui/date-range-picker"
+import type { DateRange } from "react-day-picker"
 import { LogOut, Plus, FolderOpen, Settings, TrendingUp, Package } from "lucide-react"
 import { getProjects } from "@/lib/actions/projects"
+import { getCurrentMonthRange } from "@/lib/actions/metrics"
 import { CreateProjectDialog } from "@/components/create-project-dialog"
 import { MetricsDashboard } from "@/components/metrics-dashboard"
 import { InventoryList } from "@/components/inventory-list"
@@ -42,6 +45,7 @@ function DashboardContent() {
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
   
   // Get active tab from URL search params, default to "projects"
   const activeTab = (searchParams.get("tab") as "projects" | "metrics" | "inventory") || "projects"
@@ -55,8 +59,37 @@ function DashboardContent() {
   useEffect(() => {
     if (session) {
       loadProjects()
+      loadDefaultDates()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session])
+
+  const loadDefaultDates = async () => {
+    const fromParam = searchParams.get("from")
+    const toParam = searchParams.get("to")
+    
+    if (fromParam && toParam) {
+      // Validate and use dates from URL
+      const fromDate = new Date(fromParam)
+      const toDate = new Date(toParam)
+      
+      // Check if dates are valid
+      if (!isNaN(fromDate.getTime()) && !isNaN(toDate.getTime())) {
+        setDateRange({
+          from: fromDate,
+          to: toDate,
+        })
+        return
+      }
+    }
+    
+    // Fall back to current month
+    const { startDate: start, endDate: end } = await getCurrentMonthRange()
+    setDateRange({
+      from: new Date(start),
+      to: new Date(end),
+    })
+  }
 
   const loadProjects = async () => {
     try {
@@ -77,6 +110,18 @@ function DashboardContent() {
   const handleProjectCreated = () => {
     setShowCreateDialog(false)
     loadProjects()
+  }
+
+  const handleDateRangeChange = (newDateRange: DateRange | undefined) => {
+    setDateRange(newDateRange)
+    
+    // Update URL with new date range
+    if (newDateRange?.from && newDateRange?.to) {
+      const params = new URLSearchParams(searchParams.toString())
+      params.set("from", newDateRange.from.toISOString())
+      params.set("to", newDateRange.to.toISOString())
+      router.push(`/dashboard?${params.toString()}`)
+    }
   }
 
   if (isPending || loading) {
@@ -210,13 +255,16 @@ function DashboardContent() {
 
         {activeTab === "metrics" && (
           <div>
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold">Global Metrics</h2>
-              <p className="text-sm text-muted-foreground">
-                Metrics across all your projects
-              </p>
+            <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+              <div>
+                <h2 className="text-2xl font-bold">Global Metrics</h2>
+                <p className="text-sm text-muted-foreground">
+                  Metrics across all your projects
+                </p>
+              </div>
+              <DateRangePicker dateRange={dateRange} setDateRange={handleDateRangeChange} />
             </div>
-            <MetricsDashboard projectId={null} />
+            <MetricsDashboard projectId={null} dateRange={dateRange} />
           </div>
         )}
 
