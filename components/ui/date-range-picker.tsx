@@ -9,6 +9,9 @@ import type { DateRange } from "react-day-picker"
 import { ChevronLeftIcon, ChevronRightIcon, CalendarIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
+// Default start year for "All Time" preset
+const ALL_TIME_START_YEAR = 2000
+
 type Preset = {
   label: string
   getValue: () => DateRange
@@ -50,7 +53,7 @@ export function DateRangePicker({ dateRange, setDateRange }: DateRangePickerProp
       {
         label: "All Time",
         getValue: () => ({
-          from: new Date(2000, 0, 1), // Start from year 2000
+          from: new Date(ALL_TIME_START_YEAR, 0, 1),
           to: today,
         }),
       },

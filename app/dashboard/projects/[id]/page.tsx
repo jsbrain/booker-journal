@@ -260,7 +260,9 @@ function ProjectDetailContent() {
     // Apply date range filter
     if (dateRange?.from && dateRange?.to) {
       const fromTime = dateRange.from.getTime()
-      const toTime = new Date(dateRange.to).setHours(23, 59, 59, 999)
+      const toDate = new Date(dateRange.to)
+      toDate.setHours(23, 59, 59, 999)
+      const toTime = toDate.getTime()
       
       filtered = filtered.filter(e => {
         const entryTime = new Date(e.timestamp).getTime()
@@ -318,7 +320,7 @@ function ProjectDetailContent() {
     }, 0)
   }, [filteredAndSortedEntries])
 
-  // Check if any filters are active
+  // Check if search or type filters are active
   const hasActiveFilters = useMemo(() => {
     return searchQuery.trim() !== "" || typeFilter !== "all"
   }, [searchQuery, typeFilter])
