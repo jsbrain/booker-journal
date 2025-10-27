@@ -228,36 +228,18 @@ export async function getProjectMetrics(
     },
   });
   
-  // Get ALL inventory purchases across ALL user's projects (GLOBAL inventory)
-  // First, get all user's projects
-  const userProjects = await db.query.projects.findMany({
-    where: eq(projects.userId, user.id),
-  });
-  const userProjectIds = userProjects.map(p => p.id);
-  
-  if (userProjectIds.length === 0) {
-    return {
-      revenue: 0,
-      cost: 0,
-      profit: 0,
-      totalEntries: 0,
-      totalPurchases: 0,
-      productBreakdown: [],
-    };
-  }
-  
-  // Get all inventory purchases for all user's projects using database-level filtering
+  // Get ALL inventory purchases for this user (GLOBAL inventory, not project-specific)
   const purchases = await db.query.inventoryPurchases.findMany({
-    where: inArray(inventoryPurchases.projectId, userProjectIds),
+    where: eq(inventoryPurchases.userId, user.id),
     with: {
       product: true,
     },
   });
   
-  // Count purchases in the date range for the totalPurchases metric (project-specific)
+  // Count purchases in the date range for the totalPurchases metric
   const purchasesInPeriod = purchases.filter(p => {
     const purchaseDate = new Date(p.purchaseDate);
-    return purchaseDate >= start && purchaseDate <= end && p.projectId === projectId;
+    return purchaseDate >= start && purchaseDate <= end;
   });
   
   // Calculate metrics per product
@@ -345,10 +327,9 @@ export async function getGlobalMetrics(
     },
   });
   
-  // Get ALL inventory purchases for all user's projects (not just in date range)
-  // This is needed to calculate accurate average buying prices for COGS
+  // Get ALL inventory purchases for this user (GLOBAL inventory)
   const purchases = await db.query.inventoryPurchases.findMany({
-    where: inArray(inventoryPurchases.projectId, projectIds),
+    where: eq(inventoryPurchases.userId, user.id),
     with: {
       product: true,
     },

@@ -174,19 +174,16 @@ export async function seedDatabase() {
         productKey: "p", 
         quantity: 1000, 
         date: new Date("2025-01-01T10:00:00Z"),
-        projectIndex: 0,
       },
       { 
         productKey: "c", 
         quantity: 100, 
         date: new Date("2025-04-23T10:00:00Z"),
-        projectIndex: 1,
       },
       { 
         productKey: "g", 
         quantity: 100, 
         date: new Date("2025-10-05T10:00:00Z"),
-        projectIndex: 2,
       },
     ];
 
@@ -196,16 +193,15 @@ export async function seedDatabase() {
 
       const buyingPrice = parseFloat(product.defaultBuyingPrice);
       const totalCost = inv.quantity * buyingPrice;
-      const project = createdProjects[inv.projectIndex];
 
       await db.insert(inventoryPurchases).values({
-        projectId: project.id,
+        userId,
         productId: productIds[inv.productKey],
         quantity: inv.quantity.toString(),
         buyingPrice: buyingPrice.toString(),
         totalCost: totalCost.toString(),
         purchaseDate: inv.date,
-        note: `Initial inventory purchase for ${project.name}`,
+        note: `Initial inventory purchase for ${product.name}`,
       });
 
       console.log(`   ✓ Created inventory purchase: ${inv.quantity} ${product.name} on ${inv.date.toLocaleDateString()}`);
