@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { ArrowLeft, LogOut, Plus, Trash2, Edit2 } from "lucide-react"
 import { getProducts, createProduct, updateProductName, updateProductBuyingPrice, deleteProduct } from "@/lib/actions/products"
+import { formatCurrency, formatDate } from "@/lib/utils/locale"
 import Link from "next/link"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -18,6 +19,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 type Product = {
   id: string
@@ -37,7 +48,9 @@ export default function AdminPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [showEditPriceDialog, setShowEditPriceDialog] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null)
   
   const [newProductKey, setNewProductKey] = useState("")
   const [newProductName, setNewProductName] = useState("")
@@ -105,18 +118,23 @@ export default function AdminPage() {
     }
   }
 
-  const handleDeleteProduct = async (productId: string) => {
-    if (!confirm("Are you sure you want to delete this product? This may affect existing entries.")) {
-      return
-    }
+  const handleDeleteProduct = (product: Product) => {
+    setProductToDelete(product)
+    setShowDeleteDialog(true)
+  }
+
+  const confirmDeleteProduct = async () => {
+    if (!productToDelete) return
 
     try {
-      await deleteProduct(productId)
+      await deleteProduct(productToDelete.id)
       loadProducts()
     } catch (error) {
       console.error("Failed to delete product:", error)
       alert("Failed to delete product. It may be in use by existing entries.")
     }
+    setShowDeleteDialog(false)
+    setProductToDelete(null)
   }
 
   const openEditDialog = (product: Product) => {
@@ -146,14 +164,6 @@ export default function AdminPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update buying price")
     }
-  }
-
-  const formatCurrency = (value: string | null) => {
-    if (!value) return "Not set"
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "EUR",
-    }).format(parseFloat(value))
   }
 
   if (isPending || loading) {
@@ -210,9 +220,9 @@ export default function AdminPage() {
                     <span className="text-sm text-muted-foreground">({product.key})</span>
                   </div>
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <span>Created {new Date(product.createdAt).toLocaleDateString()}</span>
+                    <span>Created {formatDate(product.createdAt)}</span>
                     <span>•</span>
-                    <span>Default buying price: {formatCurrency(product.defaultBuyingPrice)}</span>
+                    <span>Default buying price: {product.defaultBuyingPrice ? formatCurrency(parseFloat(product.defaultBuyingPrice)) : "Not set"}</span>
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -235,7 +245,7 @@ export default function AdminPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleDeleteProduct(product.id)}
+                    onClick={() => handleDeleteProduct(product)}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -370,6 +380,25 @@ export default function AdminPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Product Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Product</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete &quot;{productToDelete?.name}&quot;? This may affect existing entries
+              and cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteProduct} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

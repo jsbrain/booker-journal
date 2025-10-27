@@ -13,6 +13,7 @@ import { EditEntryDialog } from "@/components/edit-entry-dialog"
 import { ShareProjectDialog } from "@/components/share-project-dialog"
 import { MetricsDashboard } from "@/components/metrics-dashboard"
 import { getBalanceColor, getBalanceStatus } from "@/lib/utils/balance"
+import { formatCurrency, formatDateTime, formatDate } from "@/lib/utils/locale"
 import Link from "next/link"
 import {
   Dialog,
@@ -21,6 +22,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import type { EditHistoryEntry } from "@/lib/db/schema"
 
 type Entry = {
@@ -82,6 +93,9 @@ function ProjectDetailContent() {
   const [showHistoryDialog, setShowHistoryDialog] = useState(false)
   const [editingEntry, setEditingEntry] = useState<Entry | null>(null)
   const [viewingHistory, setViewingHistory] = useState<EditHistoryEntry[] | null>(null)
+  const [showDeleteProjectDialog, setShowDeleteProjectDialog] = useState(false)
+  const [showDeleteEntryDialog, setShowDeleteEntryDialog] = useState(false)
+  const [entryToDelete, setEntryToDelete] = useState<string | null>(null)
   
   // Get active tab from URL search params, default to "entries"
   const activeTab = (searchParams.get("tab") as "entries" | "metrics" | "inventory") || "entries"
@@ -133,30 +147,36 @@ function ProjectDetailContent() {
     loadProjectData()
   }
 
-  const handleDeleteProject = async () => {
-    if (!confirm("Are you sure you want to delete this project? This action cannot be undone.")) {
-      return
-    }
+  const handleDeleteProject = () => {
+    setShowDeleteProjectDialog(true)
+  }
 
+  const confirmDeleteProject = async () => {
     try {
       await deleteProject(projectId)
       router.push("/dashboard")
     } catch (error) {
       console.error("Failed to delete project:", error)
     }
+    setShowDeleteProjectDialog(false)
   }
 
-  const handleDeleteEntry = async (entryId: string) => {
-    if (!confirm("Are you sure you want to delete this entry?")) {
-      return
-    }
+  const handleDeleteEntry = (entryId: string) => {
+    setEntryToDelete(entryId)
+    setShowDeleteEntryDialog(true)
+  }
+
+  const confirmDeleteEntry = async () => {
+    if (!entryToDelete) return
 
     try {
-      await deleteEntry(entryId, projectId)
+      await deleteEntry(entryToDelete, projectId)
       loadProjectData()
     } catch (error) {
       console.error("Failed to delete entry:", error)
     }
+    setShowDeleteEntryDialog(false)
+    setEntryToDelete(null)
   }
 
   const handleEditEntry = (entry: Entry) => {
@@ -171,20 +191,6 @@ function ProjectDetailContent() {
 
   const setActiveTab = (tab: "entries" | "metrics" | "inventory") => {
     router.push(`/dashboard/projects/${projectId}?tab=${tab}`)
-  }
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "EUR",
-    }).format(value)
-  }
-
-  const formatDateTime = (date: Date) => {
-    return new Intl.DateTimeFormat("en-US", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(new Date(date))
   }
 
   if (isPending || loading) {
@@ -222,7 +228,7 @@ function ProjectDetailContent() {
           <div>
             <h2 className="text-2xl font-bold">{project.name}</h2>
             <p className="text-sm text-muted-foreground">
-              Created {new Date(project.createdAt).toLocaleDateString()}
+              Created {formatDate(project.createdAt)}
             </p>
           </div>
           <div className="flex gap-2">
@@ -268,7 +274,7 @@ function ProjectDetailContent() {
                   <span className="text-sm">Last Updated</span>
                   <span className="text-sm text-muted-foreground">
                     {entries.length > 0
-                      ? new Date(entries[0].timestamp).toLocaleDateString()
+                      ? formatDate(entries[0].timestamp)
                       : "N/A"}
                   </span>
                 </div>
@@ -442,7 +448,7 @@ function ProjectDetailContent() {
                     Edit #{viewingHistory.length - index}
                   </div>
                   <div className="mb-2 text-xs text-muted-foreground">
-                    {new Date(edit.editedAt).toLocaleString()}
+                    {formatDateTime(edit.editedAt)}
                   </div>
                   <div className="space-y-1">
                     {edit.changes.map((change, changeIndex) => (
@@ -462,6 +468,43 @@ function ProjectDetailContent() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Project Confirmation Dialog */}
+      <AlertDialog open={showDeleteProjectDialog} onOpenChange={setShowDeleteProjectDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this project? This action cannot be undone.
+              All entries and associated data will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteProject} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Entry Confirmation Dialog */}
+      <AlertDialog open={showDeleteEntryDialog} onOpenChange={setShowDeleteEntryDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Entry</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this entry? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteEntry} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
