@@ -53,6 +53,154 @@ export interface ProjectMetrics {
   }[];
 }
 
+// Type definitions for helper functions
+interface ProductMetricsMap {
+  productId: string;
+  productName: string;
+  quantitySold: number;
+  revenue: number;
+  totalQuantityPurchased: number;
+  totalCost: number;
+}
+
+interface JournalEntryForMetrics {
+  productId: string | null;
+  product: { id: string; name: string } | null;
+  type: { key: string };
+  amount: string;
+  price: string;
+}
+
+interface InventoryPurchaseForMetrics {
+  productId: string;
+  product: { name: string };
+  quantity: string;
+  totalCost: string;
+}
+
+/**
+ * Processes journal entries to calculate revenue from sales.
+ * 
+ * Business Logic:
+ * - This system uses a customer debt/ledger model
+ * - Purchase entries represent customers buying products (creates debt)
+ * - Purchase entries use negative prices to represent the debt amount
+ * - Revenue = absolute value of (quantity × negative_price)
+ * - Example: Customer buys 10 items at -€5 each → Revenue = |10 × -5| = €50
+ * 
+ * @param entries - Journal entries from the database
+ * @param productMap - Map to accumulate product-level metrics
+ */
+function processJournalEntriesForMetrics(
+  entries: JournalEntryForMetrics[],
+  productMap: Map<string, ProductMetricsMap>
+) {
+  // Process journal entries (sales)
+  for (const entry of entries) {
+    const productId = entry.productId;
+    // Skip entries without products (non-purchase types)
+    if (!productId || !entry.product) continue;
+
+    const amount = parseFloat(entry.amount);
+    const price = parseFloat(entry.price);
+    const total = amount * price;
+    
+    if (!productMap.has(productId)) {
+      productMap.set(productId, {
+        productId,
+        productName: entry.product.name,
+        quantitySold: 0,
+        revenue: 0,
+        totalQuantityPurchased: 0,
+        totalCost: 0,
+      });
+    }
+    
+    const productData = productMap.get(productId)!;
+    // Purchase entries represent customer sales (customer buying products from us)
+    // In this system, purchase entries use negative prices to represent customer debt
+    // Revenue = absolute value of (amount × negative_price)
+    // Example: Customer buys 10 items at -€5 each → Revenue = |10 × -5| = €50
+    if (entry.type.key === "purchase") {
+      productData.quantitySold += Math.abs(amount);
+      productData.revenue += Math.abs(total);
+    }
+  }
+}
+
+/**
+ * Processes inventory purchases to calculate Cost of Goods Sold (COGS).
+ * 
+ * Accumulates total quantity purchased and total cost to calculate
+ * average buying price for COGS calculations.
+ * 
+ * @param purchases - Inventory purchases from the database
+ * @param productMap - Map to accumulate product-level metrics
+ */
+function processInventoryPurchasesForMetrics(
+  purchases: InventoryPurchaseForMetrics[],
+  productMap: Map<string, ProductMetricsMap>
+) {
+  for (const purchase of purchases) {
+    const productId = purchase.productId;
+    const quantity = parseFloat(purchase.quantity);
+    const totalCost = parseFloat(purchase.totalCost);
+    
+    if (!productMap.has(productId)) {
+      productMap.set(productId, {
+        productId,
+        productName: purchase.product.name,
+        quantitySold: 0,
+        revenue: 0,
+        totalQuantityPurchased: 0,
+        totalCost: 0,
+      });
+    }
+    
+    const productData = productMap.get(productId)!;
+    productData.totalQuantityPurchased += quantity;
+    productData.totalCost += totalCost;
+  }
+}
+
+/**
+ * Calculates final product breakdown with revenue, cost, and profit.
+ * 
+ * Uses average buying price method for COGS:
+ * - Average Buying Price = Total Cost / Total Quantity Purchased
+ * - COGS = Quantity Sold × Average Buying Price
+ * - Profit = Revenue - COGS
+ * 
+ * Note: Uses floating-point arithmetic. For production systems with
+ * high-precision requirements, consider using a decimal library.
+ * 
+ * @param productMap - Map containing accumulated product metrics
+ * @returns Array of product breakdowns with calculated profit
+ */
+function calculateProductBreakdown(
+  productMap: Map<string, ProductMetricsMap>
+) {
+  return Array.from(productMap.values()).map(product => {
+    // Calculate average buying price
+    const avgBuyingPrice = product.totalQuantityPurchased > 0 
+      ? product.totalCost / product.totalQuantityPurchased 
+      : 0;
+    
+    // Calculate cost of goods sold based on quantity sold and average buying price
+    const cost = product.quantitySold * avgBuyingPrice;
+    const profit = product.revenue - cost;
+    
+    return {
+      productId: product.productId,
+      productName: product.productName,
+      quantitySold: product.quantitySold,
+      revenue: product.revenue,
+      cost,
+      profit,
+    };
+  });
+}
+
 export async function getProjectMetrics(
   projectId: string,
   startDate: string,
@@ -122,77 +270,12 @@ export async function getProjectMetrics(
     totalCost: number;
   }>();
   
-  // Process journal entries (sales)
-  for (const entry of entries) {
-    const productId = entry.productId;
-    // Skip entries without products (non-purchase types)
-    if (!productId || !entry.product) continue;
-
-    const amount = parseFloat(entry.amount);
-    const price = parseFloat(entry.price);
-    const total = amount * price;
-    
-    if (!productMap.has(productId)) {
-      productMap.set(productId, {
-        productId,
-        productName: entry.product.name,
-        quantitySold: 0,
-        revenue: 0,
-        totalQuantityPurchased: 0,
-        totalCost: 0,
-      });
-    }
-    
-    const productData = productMap.get(productId)!;
-    // Only count positive totals as revenue (sales)
-    if (total > 0) {
-      productData.quantitySold += amount;
-      productData.revenue += total;
-    }
-  }
-  
-  // Process inventory purchases (costs)
-  for (const purchase of purchases) {
-    const productId = purchase.productId;
-    const quantity = parseFloat(purchase.quantity);
-    const totalCost = parseFloat(purchase.totalCost);
-    
-    if (!productMap.has(productId)) {
-      productMap.set(productId, {
-        productId,
-        productName: purchase.product.name,
-        quantitySold: 0,
-        revenue: 0,
-        totalQuantityPurchased: 0,
-        totalCost: 0,
-      });
-    }
-    
-    const productData = productMap.get(productId)!;
-    productData.totalQuantityPurchased += quantity;
-    productData.totalCost += totalCost;
-  }
+  // Use helper functions to process data
+  processJournalEntriesForMetrics(entries, productMap);
+  processInventoryPurchasesForMetrics(purchases, productMap);
   
   // Calculate profit per product
-  const productBreakdown = Array.from(productMap.values()).map(product => {
-    // Calculate average buying price
-    const avgBuyingPrice = product.totalQuantityPurchased > 0 
-      ? product.totalCost / product.totalQuantityPurchased 
-      : 0;
-    
-    // Calculate cost of goods sold based on quantity sold and average buying price
-    const cost = product.quantitySold * avgBuyingPrice;
-    const profit = product.revenue - cost;
-    
-    return {
-      productId: product.productId,
-      productName: product.productName,
-      quantitySold: product.quantitySold,
-      revenue: product.revenue,
-      cost,
-      profit,
-    };
-  });
+  const productBreakdown = calculateProductBreakdown(productMap);
   
   // Calculate total metrics
   const totalRevenue = productBreakdown.reduce((sum, p) => sum + p.revenue, 0);
@@ -287,77 +370,12 @@ export async function getGlobalMetrics(
     totalCost: number;
   }>();
   
-  // Process journal entries (sales)
-  for (const entry of entries) {
-    const productId = entry.productId;
-    // Skip entries without products (non-purchase types)
-    if (!productId || !entry.product) continue;
-
-    const amount = parseFloat(entry.amount);
-    const price = parseFloat(entry.price);
-    const total = amount * price;
-    
-    if (!productMap.has(productId)) {
-      productMap.set(productId, {
-        productId,
-        productName: entry.product.name,
-        quantitySold: 0,
-        revenue: 0,
-        totalQuantityPurchased: 0,
-        totalCost: 0,
-      });
-    }
-    
-    const productData = productMap.get(productId)!;
-    // Only count positive totals as revenue (sales)
-    if (total > 0) {
-      productData.quantitySold += amount;
-      productData.revenue += total;
-    }
-  }
-  
-  // Process inventory purchases (costs)
-  for (const purchase of purchases) {
-    const productId = purchase.productId;
-    const quantity = parseFloat(purchase.quantity);
-    const totalCost = parseFloat(purchase.totalCost);
-    
-    if (!productMap.has(productId)) {
-      productMap.set(productId, {
-        productId,
-        productName: purchase.product.name,
-        quantitySold: 0,
-        revenue: 0,
-        totalQuantityPurchased: 0,
-        totalCost: 0,
-      });
-    }
-    
-    const productData = productMap.get(productId)!;
-    productData.totalQuantityPurchased += quantity;
-    productData.totalCost += totalCost;
-  }
+  // Use helper functions to process data
+  processJournalEntriesForMetrics(entries, productMap);
+  processInventoryPurchasesForMetrics(purchases, productMap);
   
   // Calculate profit per product
-  const productBreakdown = Array.from(productMap.values()).map(product => {
-    // Calculate average buying price
-    const avgBuyingPrice = product.totalQuantityPurchased > 0 
-      ? product.totalCost / product.totalQuantityPurchased 
-      : 0;
-    
-    // Calculate cost of goods sold based on quantity sold and average buying price
-    const cost = product.quantitySold * avgBuyingPrice;
-    const profit = product.revenue - cost;
-    
-    return {
-      productId: product.productId,
-      productName: product.productName,
-      quantitySold: product.quantitySold,
-      revenue: product.revenue,
-      cost,
-      profit,
-    };
-  });
+  const productBreakdown = calculateProductBreakdown(productMap);
   
   // Calculate total metrics
   const totalRevenue = productBreakdown.reduce((sum, p) => sum + p.revenue, 0);

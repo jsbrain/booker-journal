@@ -11,8 +11,6 @@ interface MetricsDashboardProps {
   projectId: string | null  // null means global metrics
 }
 
-type DatePreset = "all" | "this-year" | "last-year" | "this-month" | "last-month" | "last-14-days" | "custom"
-
 export function MetricsDashboard({ projectId }: MetricsDashboardProps) {
   const [metrics, setMetrics] = useState<ProjectMetrics | null>(null)
   const [loading, setLoading] = useState(true)
@@ -88,15 +86,13 @@ export function MetricsDashboard({ projectId }: MetricsDashboardProps) {
   return (
     <div className="space-y-6">
       {/* Date Range Selector */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Period Selection</CardTitle>
-          <CardDescription>Choose the date range for metrics</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <DateRangePicker dateRange={dateRange} setDateRange={setDateRange} />
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold">Metrics for Selected Period</h3>
+          <p className="text-sm text-muted-foreground">Choose a date range to view metrics</p>
+        </div>
+        <DateRangePicker dateRange={dateRange} setDateRange={setDateRange} />
+      </div>
 
       {/* Key Metrics */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

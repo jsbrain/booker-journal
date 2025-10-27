@@ -311,3 +311,146 @@ export async function getGlobalInventorySummary() {
   
   return summary;
 }
+
+// Get current inventory (purchases - sales) with detailed breakdown
+export async function getCurrentInventory(projectId: string | null = null) {
+  const user = await getCurrentUser();
+  
+  // Get user's projects
+  let projectIds: string[];
+  if (projectId) {
+    await verifyProjectOwnership(projectId, user.id);
+    projectIds = [projectId];
+  } else {
+    const userProjects = await db.query.projects.findMany({
+      where: eq(projects.userId, user.id),
+    });
+    projectIds = userProjects.map(p => p.id);
+  }
+  
+  if (projectIds.length === 0) {
+    return [];
+  }
+  
+  // Import journalEntries to access it
+  const { journalEntries: journalEntriesTable } = await import("@/lib/db/schema");
+  const { inArray } = await import("drizzle-orm");
+  
+  // Get all inventory purchases for the user's projects
+  const purchases = await db.query.inventoryPurchases.findMany({
+    where: projectId 
+      ? eq(inventoryPurchases.projectId, projectId)
+      : inArray(inventoryPurchases.projectId, projectIds),
+    with: {
+      product: true,
+    },
+  });
+  
+  // Get all sales (journal entries with type='purchase' which represents selling products)
+  // First get the purchase entry type
+  const purchaseType = await db.query.entryTypes.findFirst({
+    where: (types, { eq }) => eq(types.key, "purchase"),
+  });
+  
+  if (!purchaseType) {
+    // If no purchase type exists, just return inventory purchases
+    return calculateInventorySummary(purchases, []);
+  }
+  
+  // Get all purchase entries (sales) for user's projects
+  const sales = await db.query.journalEntries.findMany({
+    where: and(
+      projectId 
+        ? eq(journalEntriesTable.projectId, projectId)
+        : inArray(journalEntriesTable.projectId, projectIds),
+      eq(journalEntriesTable.typeId, purchaseType.id)
+    ),
+    with: {
+      product: true,
+    },
+  });
+  
+  return calculateInventorySummary(purchases, sales);
+}
+
+// Helper function to calculate inventory summary
+function calculateInventorySummary(
+  purchases: Array<{
+    productId: string
+    product: { name: string }
+    quantity: string
+    totalCost: string
+  }>,
+  sales: Array<{
+    productId: string | null
+    product: { name: string } | null
+    amount: string
+  }>
+) {
+  const productMap = new Map<string, {
+    productId: string;
+    productName: string;
+    totalPurchased: number;
+    totalSold: number;
+    currentStock: number;
+    averageBuyingPrice: number;
+    totalCost: number;
+  }>();
+  
+  // Process inventory purchases (adds to stock)
+  for (const purchase of purchases) {
+    const productId = purchase.productId;
+    const quantity = parseFloat(purchase.quantity);
+    const totalCost = parseFloat(purchase.totalCost);
+    
+    if (!productMap.has(productId)) {
+      productMap.set(productId, {
+        productId,
+        productName: purchase.product.name,
+        totalPurchased: 0,
+        totalSold: 0,
+        currentStock: 0,
+        averageBuyingPrice: 0,
+        totalCost: 0,
+      });
+    }
+    
+    const productData = productMap.get(productId)!;
+    productData.totalPurchased += quantity;
+    productData.totalCost += totalCost;
+  }
+  
+  // Process sales (deducts from stock)
+  for (const sale of sales) {
+    if (!sale.productId || !sale.product) continue;
+    
+    const productId = sale.productId;
+    const quantity = Math.abs(parseFloat(sale.amount)); // Use absolute value
+    
+    if (!productMap.has(productId)) {
+      productMap.set(productId, {
+        productId,
+        productName: sale.product.name,
+        totalPurchased: 0,
+        totalSold: 0,
+        currentStock: 0,
+        averageBuyingPrice: 0,
+        totalCost: 0,
+      });
+    }
+    
+    const productData = productMap.get(productId)!;
+    productData.totalSold += quantity;
+  }
+  
+  // Calculate current stock and average prices
+  const summary = Array.from(productMap.values()).map(product => {
+    product.currentStock = product.totalPurchased - product.totalSold;
+    product.averageBuyingPrice = product.totalPurchased > 0 
+      ? product.totalCost / product.totalPurchased 
+      : 0;
+    return product;
+  });
+  
+  return summary;
+}
