@@ -29,7 +29,7 @@ const SEED_PRODUCTS = [
 ];
 
 const SEED_ENTRY_TYPES = [
-  { key: "purchase", name: "Purchase" },
+  { key: "sale", name: "Sale" },
   { key: "payment", name: "Payment" },
   { key: "refund", name: "Refund" },
   { key: "adjustment", name: "Adjustment" },
@@ -117,14 +117,14 @@ export async function seedDatabase() {
     await seedEntryTypes();
 
     // Get entry types for later use
-    const purchaseType = await db.query.entryTypes.findFirst({
-      where: (types, { eq }) => eq(types.key, "purchase"),
+    const saleType = await db.query.entryTypes.findFirst({
+      where: (types, { eq }) => eq(types.key, "sale"),
     });
     const paymentType = await db.query.entryTypes.findFirst({
       where: (types, { eq }) => eq(types.key, "payment"),
     });
 
-    if (!purchaseType || !paymentType) {
+    if (!saleType || !paymentType) {
       throw new Error("Entry types not found");
     }
 
@@ -217,21 +217,21 @@ export async function seedDatabase() {
     for (const project of createdProjects) {
       console.log(`   Creating entries for ${project.name}...`);
       
-      // Create initial balance entry if not zero (no product for non-purchase entries)
+      // Create initial balance entry if not zero (no product for non-sale entries)
       if (project.initialBalance !== 0) {
         const initialDate = new Date("2024-12-01T10:00:00Z");
         await db.insert(journalEntries).values({
           projectId: project.id,
           amount: "1",
           price: project.initialBalance.toString(),
-          typeId: project.initialBalance > 0 ? paymentType.id : purchaseType.id,
-          productId: project.initialBalance > 0 ? null : productIds["c"], // Only purchases get products
+          typeId: project.initialBalance > 0 ? paymentType.id : saleType.id,
+          productId: project.initialBalance > 0 ? null : productIds["c"], // Only sales get products
           note: "Initial balance",
           timestamp: initialDate,
         });
       }
 
-      // Generate 10-30 random buying events
+      // Generate 10-30 random customer transactions
       const numEvents = Math.floor(Math.random() * 21) + 10; // 10-30
       const startDate = new Date("2025-01-01");
       const endDate = new Date();
@@ -242,9 +242,9 @@ export async function seedDatabase() {
         const randomTime = Math.random() * timeRange;
         const timestamp = new Date(startDate.getTime() + randomTime);
         
-        // Random entry type (mostly purchases, some payments)
-        const isPurchase = Math.random() > 0.3; // 70% purchases, 30% payments
-        const typeId = isPurchase ? purchaseType.id : paymentType.id;
+        // Random entry type (mostly sales, some payments)
+        const isSale = Math.random() > 0.3; // 70% sales, 30% payments
+        const typeId = isSale ? saleType.id : paymentType.id;
         
         // Random amount (1-50 units)
         const amount = Math.floor(Math.random() * 50) + 1;
@@ -252,8 +252,8 @@ export async function seedDatabase() {
         let productId = null;
         let price = 0;
         
-        if (isPurchase) {
-          // For purchases, select a random product and use its price
+        if (isSale) {
+          // For sales, select a random product and use its price
           const productKeys = Object.keys(productIds);
           const randomProductKey = productKeys[Math.floor(Math.random() * productKeys.length)];
           productId = productIds[randomProductKey];
@@ -273,8 +273,8 @@ export async function seedDatabase() {
           price: price.toFixed(2),
           typeId,
           productId,
-          note: isPurchase 
-            ? `Purchase of product` 
+          note: isSale 
+            ? `Sale of product` 
             : `Payment received`,
           timestamp,
         });

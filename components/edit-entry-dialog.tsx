@@ -108,7 +108,7 @@ export function EditEntryDialog({ open, onOpenChange, projectId, entry, onSucces
         amount: amountNum,
         price: priceNum,
         typeId,
-        productId: selectedTypeKey === "purchase" ? productId : undefined,
+        productId: selectedTypeKey === "sale" ? productId : undefined,
         note: note || undefined,
       })
       
@@ -157,7 +157,7 @@ export function EditEntryDialog({ open, onOpenChange, projectId, entry, onSucces
                 </SelectContent>
               </Select>
             </div>
-            {selectedTypeKey === "purchase" && (
+            {selectedTypeKey === "sale" && (
               <div className="grid gap-2">
                 <Label htmlFor="edit-product">Product</Label>
                 <Select value={productId} onValueChange={setProductId} required>
@@ -173,7 +173,7 @@ export function EditEntryDialog({ open, onOpenChange, projectId, entry, onSucces
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  Product is only used for purchase type entries
+                  Product is only required for sale type entries
                 </p>
               </div>
             )}

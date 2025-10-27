@@ -346,24 +346,24 @@ export async function getCurrentInventory(projectId: string | null = null) {
     },
   });
   
-  // Get all sales (journal entries with type='purchase' which represents selling products)
-  // First get the purchase entry type
-  const purchaseType = await db.query.entryTypes.findFirst({
-    where: (types, { eq }) => eq(types.key, "purchase"),
+  // Get all sales (journal entries with type='sale' which represents selling products)
+  // First get the sale entry type
+  const saleType = await db.query.entryTypes.findFirst({
+    where: (types, { eq }) => eq(types.key, "sale"),
   });
   
-  if (!purchaseType) {
-    // If no purchase type exists, just return inventory purchases
+  if (!saleType) {
+    // If no sale type exists, just return inventory purchases
     return calculateInventorySummary(purchases, []);
   }
   
-  // Get all purchase entries (sales) for user's projects
+  // Get all sale entries (sales) for user's projects
   const sales = await db.query.journalEntries.findMany({
     where: and(
       projectId 
         ? eq(journalEntriesTable.projectId, projectId)
         : inArray(journalEntriesTable.projectId, projectIds),
-      eq(journalEntriesTable.typeId, purchaseType.id)
+      eq(journalEntriesTable.typeId, saleType.id)
     ),
     with: {
       product: true,
