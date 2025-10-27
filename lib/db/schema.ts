@@ -138,6 +138,8 @@ export const sharedLinks = pgTable("shared_links", {
   projectId: text("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   token: text("token").notNull().unique(),
   expiresAt: timestamp("expires_at").notNull(),
+  startDate: timestamp("start_date"), // Optional: filter entries from this date
+  endDate: timestamp("end_date"), // Optional: filter entries to this date
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
