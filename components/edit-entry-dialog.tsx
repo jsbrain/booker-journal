@@ -32,8 +32,11 @@ interface EditEntryDialogProps {
     amount: string
     price: string
     typeId: string
-    productId: string
+    productId: string | null
     note: string | null
+    type: {
+      key: string
+    }
   }
   onSuccess: () => void
 }
@@ -60,6 +63,7 @@ export function EditEntryDialog({ open, onOpenChange, projectId, entry, onSucces
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [selectedTypeKey, setSelectedTypeKey] = useState("")
 
   useEffect(() => {
     if (open) {
@@ -67,8 +71,9 @@ export function EditEntryDialog({ open, onOpenChange, projectId, entry, onSucces
       setAmount(entry.amount)
       setPrice(entry.price)
       setTypeId(entry.typeId)
-      setProductId(entry.productId)
+      setProductId(entry.productId || "")
       setNote(entry.note || "")
+      setSelectedTypeKey(entry.type.key)
     }
   }, [open, entry])
 
@@ -103,7 +108,7 @@ export function EditEntryDialog({ open, onOpenChange, projectId, entry, onSucces
         amount: amountNum,
         price: priceNum,
         typeId,
-        productId,
+        productId: selectedTypeKey === "purchase" ? productId : undefined,
         note: note || undefined,
       })
       
@@ -129,7 +134,17 @@ export function EditEntryDialog({ open, onOpenChange, projectId, entry, onSucces
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="edit-type">Type</Label>
-              <Select value={typeId} onValueChange={setTypeId} required>
+              <Select 
+                value={typeId} 
+                onValueChange={(value) => {
+                  setTypeId(value)
+                  const type = entryTypes.find(t => t.id === value)
+                  if (type) {
+                    setSelectedTypeKey(type.key)
+                  }
+                }} 
+                required
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
@@ -142,21 +157,26 @@ export function EditEntryDialog({ open, onOpenChange, projectId, entry, onSucces
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-product">Product</Label>
-              <Select value={productId} onValueChange={setProductId} required>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select product" />
-                </SelectTrigger>
-                <SelectContent>
-                  {products.map((product) => (
-                    <SelectItem key={product.id} value={product.id}>
-                      {product.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {selectedTypeKey === "purchase" && (
+              <div className="grid gap-2">
+                <Label htmlFor="edit-product">Product</Label>
+                <Select value={productId} onValueChange={setProductId} required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select product" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {products.map((product) => (
+                      <SelectItem key={product.id} value={product.id}>
+                        {product.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Product is only used for purchase type entries
+                </p>
+              </div>
+            )}
             <div className="grid gap-2">
               <Label htmlFor="edit-amount">Amount/Quantity</Label>
               <Input

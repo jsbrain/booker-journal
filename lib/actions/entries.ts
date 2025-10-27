@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { journalEntries, projects, type EditHistoryEntry } from "@/lib/db/schema";
+import { journalEntries, projects, entryTypes, type EditHistoryEntry } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { eq, desc, and } from "drizzle-orm";
@@ -20,7 +20,7 @@ interface JournalEntryUpdateData {
   amount?: string;
   price?: string;
   typeId?: string;
-  productId?: string;
+  productId?: string | null;
   note?: string;
 }
 
@@ -58,7 +58,7 @@ export async function createEntry(
   amount: number,
   price: number,
   typeId: string,
-  productId: string,
+  productId: string | undefined,
   note?: string,
   timestamp?: string
 ) {
@@ -68,12 +68,22 @@ export async function createEntry(
   const user = await getCurrentUser();
   await verifyProjectOwnership(projectId, user.id);
   
+  // Get the entry type to check if it's a purchase
+  const entryType = await db.query.entryTypes.findFirst({
+    where: eq(entryTypes.id, typeId),
+  });
+  
+  // If it's a purchase type, productId is required
+  if (entryType?.key === "purchase" && !productId) {
+    throw new Error("Product is required for purchase entries");
+  }
+  
   const [entry] = await db.insert(journalEntries).values({
     projectId,
     amount: amount.toString(),
     price: price.toString(),
     typeId,
-    productId,
+    productId: productId || null,
     note,
     timestamp: timestamp ? new Date(timestamp) : new Date(),
   }).returning();
@@ -86,7 +96,7 @@ export async function createEntryWithPayment(
   amount: number,
   price: number,
   typeId: string,
-  productId: string,
+  productId: string | undefined,
   note?: string,
   timestamp?: string
 ) {
@@ -112,18 +122,19 @@ export async function createEntryWithPayment(
     amount: amount.toString(),
     price: price.toString(),
     typeId,
-    productId,
+    productId: productId || null,
     note,
     timestamp: timestampDate,
   }).returning();
   
   // Create the payment entry immediately after (positive price to offset the purchase)
+  // Payment entries don't have products
   const [paymentEntry] = await db.insert(journalEntries).values({
     projectId,
     amount: amount.toString(),
     price: Math.abs(price).toString(), // Make price positive for payment
     typeId: paymentType.id,
-    productId,
+    productId: null, // Payments don't have products
     note: note ? `${note} (immediate payment)` : "Immediate payment",
     timestamp: timestampDate,
   }).returning();
@@ -154,10 +165,26 @@ export async function updateEntry(
       eq(journalEntries.id, entryId),
       eq(journalEntries.projectId, projectId)
     ),
+    with: {
+      type: true,
+    },
   });
   
   if (!currentEntry) {
     throw new Error("Entry not found");
+  }
+  
+  // If updating to purchase type, productId is required
+  if (updates.typeId) {
+    const newType = await db.query.entryTypes.findFirst({
+      where: eq(entryTypes.id, updates.typeId),
+    });
+    if (newType?.key === "purchase" && !updates.productId) {
+      throw new Error("Product is required for purchase entries");
+    }
+  } else if (currentEntry.type.key === "purchase" && updates.productId === undefined && !currentEntry.productId) {
+    // If it's already a purchase and productId wasn't provided and there isn't one already
+    throw new Error("Product is required for purchase entries");
   }
   
   // Build edit history entry
@@ -190,7 +217,7 @@ export async function updateEntry(
   if (updates.productId !== undefined && updates.productId !== currentEntry.productId) {
     changes.push({
       field: "productId",
-      oldValue: currentEntry.productId,
+      oldValue: currentEntry.productId || "",
       newValue: updates.productId,
     });
   }
@@ -235,7 +262,7 @@ export async function updateEntry(
     updateData.typeId = updates.typeId;
   }
   if (updates.productId !== undefined) {
-    updateData.productId = updates.productId;
+    updateData.productId = updates.productId || null;
   }
   if (updates.note !== undefined) {
     updateData.note = updates.note;
