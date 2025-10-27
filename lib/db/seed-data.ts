@@ -35,8 +35,16 @@ const SEED_ENTRY_TYPES = [
   { key: "adjustment", name: "Adjustment" },
 ];
 
+// Type for buying patterns
+type BuyingPattern = 'blumen' | 'schokolade' | 'pfanne';
+
 // Realistic customer data
-const CUSTOMER_DATA = [
+const CUSTOMER_DATA: Array<{
+  name: string;
+  initialBalance: number;
+  buyingPattern: BuyingPattern;
+  paymentReliability: number;
+}> = [
   {
     name: "Müller Blumenladen GmbH",
     initialBalance: -850, // They owe us
@@ -58,7 +66,12 @@ const CUSTOMER_DATA = [
 ];
 
 // Inventory purchase timeline for each product
-const INVENTORY_TIMELINE = {
+const INVENTORY_TIMELINE: Record<BuyingPattern, Array<{
+  date: string;
+  quantity: number;
+  price: number;
+  note: string;
+}>> = {
   blumen: [
     { date: "2025-01-01", quantity: 50, price: 45.00, note: "Initial stock - Winter flowers" },
     { date: "2025-04-15", quantity: 100, price: 42.50, note: "Spring restocking at better price" },
@@ -121,7 +134,7 @@ function generateSalePrice(buyingPrice: number, productKey: string): number {
   let margin: number;
 
   // Different profit margins for different products
-  switch(productKey) {
+  switch (productKey) {
     case "blumen":
       margin = 1.8; // 80% markup
       break;
@@ -152,7 +165,7 @@ function generateTransactionNote(type: 'sale' | 'payment', productName?: string,
     return notes[Math.floor(Math.random() * notes.length)];
   } else {
     const notes = [
-      `Überweisung Rechnung erhalten`,
+      `Rechnung per Überweisung erhalten`,
       `Barzahlung`,
       `PayPal Zahlung`,
       `Banküberweisung eingegangen`,
@@ -293,7 +306,7 @@ export async function seedDatabase() {
       // Generate realistic transactions from Jan to Oct 2025
       const transactions: Array<{date: Date, type: 'sale' | 'payment', amount?: number, price?: number}> = [];
 
-      // Create sales events (3-7 per month)
+      // Create sales events (2-5 per month)
       for (let month = 0; month < 10; month++) { // Jan to Oct
         const salesInMonth = 2 + Math.floor(Math.random() * 4);
 
