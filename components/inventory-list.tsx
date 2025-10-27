@@ -256,7 +256,7 @@ export function InventoryList() {
                     ))}
                   </SelectContent>
                 </Select>
-                <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+                <Select value={sortBy} onValueChange={(value: "date-desc" | "date-asc" | "amount-desc" | "amount-asc") => setSortBy(value)}>
                   <SelectTrigger className="w-full sm:w-[180px]">
                     <SelectValue placeholder="Sort by" />
                   </SelectTrigger>

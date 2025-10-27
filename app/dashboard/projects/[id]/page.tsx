@@ -202,10 +202,6 @@ function ProjectDetailContent() {
     setShowHistoryDialog(true)
   }
 
-  const setActiveTab = (tab: "entries" | "metrics" | "inventory") => {
-    router.push(`/dashboard/projects/${projectId}?tab=${tab}`)
-  }
-
   // Get unique entry types for filter
   const uniqueTypes = useMemo(() => {
     const types = new Map<string, string>()
@@ -293,33 +289,33 @@ function ProjectDetailContent() {
         </div>
       </header>
       <main className="container mx-auto p-4 md:p-8">
-        <div className="mb-6 flex items-start justify-between">
-          <div>
-            <h2 className="text-2xl font-bold">{project.name}</h2>
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-2xl font-bold truncate">{project.name}</h2>
             <p className="text-sm text-muted-foreground">
               Created {formatDate(project.createdAt)}
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button onClick={() => setShowShareDialog(true)} variant="outline">
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => setShowShareDialog(true)} variant="outline" className="flex-1 sm:flex-none">
               <Share2 className="mr-2 h-4 w-4" />
               Share
             </Button>
-            <Button onClick={handleDeleteProject} variant="outline">
+            <Button onClick={handleDeleteProject} variant="outline" className="flex-1 sm:flex-none">
               <Trash2 className="mr-2 h-4 w-4" />
               Delete
             </Button>
           </div>
         </div>
 
-        <div className="mb-6 grid gap-4 md:grid-cols-2">
+        <div className="mb-6 grid gap-4 sm:grid-cols-2">
           <Card>
             <CardHeader>
               <CardTitle>Current Balance</CardTitle>
               <CardDescription>Amount owed by customer</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className={`text-3xl font-bold ${getBalanceColor(balance)}`}>
+              <div className={`text-3xl font-bold break-words ${getBalanceColor(balance)}`}>
                 {formatCurrency(balance)}
               </div>
               <p className="mt-2 text-sm text-muted-foreground">
@@ -341,7 +337,7 @@ function ProjectDetailContent() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Last Updated</span>
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-sm text-muted-foreground truncate">
                     {entries.length > 0
                       ? formatDate(entries[0].timestamp)
                       : "N/A"}
@@ -353,28 +349,30 @@ function ProjectDetailContent() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="mb-6 flex gap-2 border-b">
-          <button
-            onClick={() => setActiveTab("entries")}
-            className={`px-4 py-2 font-medium transition-colors ${
-              activeTab === "entries"
-                ? "border-b-2 border-primary text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Journal Entries
-          </button>
-          <button
-            onClick={() => setActiveTab("metrics")}
-            className={`flex items-center gap-2 px-4 py-2 font-medium transition-colors ${
-              activeTab === "metrics"
-                ? "border-b-2 border-primary text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <TrendingUp className="h-4 w-4" />
-            Metrics
-          </button>
+        <div className="mb-6 flex flex-wrap gap-2 border-b">
+          <Link href={`/dashboard/projects/${projectId}?tab=entries`} className="inline-block">
+            <button
+              className={`px-4 py-2 font-medium transition-colors ${
+                activeTab === "entries"
+                  ? "border-b-2 border-primary text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Journal Entries
+            </button>
+          </Link>
+          <Link href={`/dashboard/projects/${projectId}?tab=metrics`} className="inline-block">
+            <button
+              className={`flex items-center gap-2 px-4 py-2 font-medium transition-colors ${
+                activeTab === "metrics"
+                  ? "border-b-2 border-primary text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <TrendingUp className="h-4 w-4" />
+              Metrics
+            </button>
+          </Link>
         </div>
 
         {/* Tab Content */}
@@ -426,7 +424,7 @@ function ProjectDetailContent() {
                       ))}
                     </SelectContent>
                   </Select>
-                  <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+                  <Select value={sortBy} onValueChange={(value: "date-desc" | "date-asc" | "amount-desc" | "amount-asc") => setSortBy(value)}>
                     <SelectTrigger className="w-full sm:w-[180px]">
                       <SelectValue placeholder="Sort by" />
                     </SelectTrigger>
