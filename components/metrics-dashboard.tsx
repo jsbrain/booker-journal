@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { DateRangePicker } from "@/components/ui/date-range-picker"
 import type { DateRange } from "react-day-picker"
@@ -12,21 +13,49 @@ interface MetricsDashboardProps {
 }
 
 export function MetricsDashboard({ projectId }: MetricsDashboardProps) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [metrics, setMetrics] = useState<ProjectMetrics | null>(null)
   const [loading, setLoading] = useState(true)
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
 
   useEffect(() => {
-    // Set default to current month
+    // Read date range from URL or set default to current month
     const loadDefaultDates = async () => {
-      const { startDate: start, endDate: end } = await getCurrentMonthRange()
-      setDateRange({
-        from: new Date(start),
-        to: new Date(end),
-      })
+      const fromParam = searchParams.get("from")
+      const toParam = searchParams.get("to")
+      
+      if (fromParam && toParam) {
+        // Validate and use dates from URL
+        const fromDate = new Date(fromParam)
+        const toDate = new Date(toParam)
+        
+        // Check if dates are valid
+        if (!isNaN(fromDate.getTime()) && !isNaN(toDate.getTime())) {
+          setDateRange({
+            from: fromDate,
+            to: toDate,
+          })
+        } else {
+          // Fall back to current month if dates are invalid
+          const { startDate: start, endDate: end } = await getCurrentMonthRange()
+          setDateRange({
+            from: new Date(start),
+            to: new Date(end),
+          })
+        }
+      } else {
+        // Set default to current month
+        const { startDate: start, endDate: end } = await getCurrentMonthRange()
+        setDateRange({
+          from: new Date(start),
+          to: new Date(end),
+        })
+      }
     }
     loadDefaultDates()
-  }, [projectId])
+  }, [projectId, searchParams])
 
   useEffect(() => {
     if (dateRange?.from && dateRange?.to) {
@@ -62,6 +91,20 @@ export function MetricsDashboard({ projectId }: MetricsDashboardProps) {
     }
   }
 
+  const handleDateRangeChange = (newDateRange: DateRange | undefined) => {
+    setDateRange(newDateRange)
+    
+    // Update URL with new date range
+    if (newDateRange?.from && newDateRange?.to) {
+      const params = new URLSearchParams(searchParams.toString())
+      params.set("from", newDateRange.from.toISOString())
+      params.set("to", newDateRange.to.toISOString())
+      
+      // Preserve the tab parameter and other existing params
+      router.push(`${pathname}?${params.toString()}`)
+    }
+  }
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -91,7 +134,7 @@ export function MetricsDashboard({ projectId }: MetricsDashboardProps) {
           <h3 className="text-lg font-semibold">Metrics for Selected Period</h3>
           <p className="text-sm text-muted-foreground">Choose a date range to view metrics</p>
         </div>
-        <DateRangePicker dateRange={dateRange} setDateRange={setDateRange} />
+        <DateRangePicker dateRange={dateRange} setDateRange={handleDateRangeChange} />
       </div>
 
       {/* Key Metrics */}
