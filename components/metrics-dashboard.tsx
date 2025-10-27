@@ -11,8 +11,6 @@ interface MetricsDashboardProps {
   projectId: string | null  // null means global metrics
 }
 
-type DatePreset = "all" | "this-year" | "last-year" | "this-month" | "last-month" | "last-14-days" | "custom"
-
 export function MetricsDashboard({ projectId }: MetricsDashboardProps) {
   const [metrics, setMetrics] = useState<ProjectMetrics | null>(null)
   const [loading, setLoading] = useState(true)

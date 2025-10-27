@@ -375,8 +375,17 @@ export async function getCurrentInventory(projectId: string | null = null) {
 
 // Helper function to calculate inventory summary
 function calculateInventorySummary(
-  purchases: any[],
-  sales: any[]
+  purchases: Array<{
+    productId: string
+    product: { name: string }
+    quantity: string
+    totalCost: string
+  }>,
+  sales: Array<{
+    productId: string | null
+    product: { name: string } | null
+    amount: string
+  }>
 ) {
   const productMap = new Map<string, {
     productId: string;
