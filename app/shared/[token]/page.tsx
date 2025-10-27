@@ -148,12 +148,15 @@ export default function SharedProjectPage() {
           <Card>
             <CardHeader>
               <CardTitle>Current Balance</CardTitle>
-              <CardDescription>Total of all {dateRange ? "filtered" : ""} entries</CardDescription>
+              <CardDescription>Amount owed by customer{dateRange ? " (filtered)" : ""}</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className={`text-3xl font-bold ${balance >= 0 ? "text-green-600" : "text-red-600"}`}>
+              <div className={`text-3xl font-bold ${balance > 0 ? "text-green-600" : balance < 0 ? "text-red-600" : ""}`}>
                 {formatCurrency(balance)}
               </div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {balance > 0 ? "Customer owes money" : balance < 0 ? "Customer has credit" : "Account settled"}
+              </p>
             </CardContent>
           </Card>
 

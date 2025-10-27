@@ -190,8 +190,10 @@ export async function getProjectBySharedLink(token: string) {
     });
   }
   
-  // Calculate balance
-  const balance = entries.reduce((sum, entry) => {
+  // Calculate balance: -(sum of amount * price)
+  // Sales have negative prices, payments have positive prices
+  // Negating the sum gives us: positive = customer owes, negative = customer has credit
+  const balance = -entries.reduce((sum, entry) => {
     const amount = parseFloat(entry.amount);
     const price = parseFloat(entry.price);
     return sum + (amount * price);

@@ -309,14 +309,16 @@ export async function getProjectBalance(projectId: string) {
     where: eq(journalEntries.projectId, projectId),
   });
   
-  // Calculate balance: sum of (amount * price)
+  // Calculate balance: -(sum of amount * price)
+  // Sales have negative prices, payments have positive prices
+  // Negating the sum gives us: positive = customer owes, negative = customer has credit
   const balance = entries.reduce((sum, entry) => {
     const amount = parseFloat(entry.amount);
     const price = parseFloat(entry.price);
     return sum + (amount * price);
   }, 0);
   
-  return balance;
+  return -balance;
 }
 
 export async function deleteEntry(entryId: string, projectId: string) {
