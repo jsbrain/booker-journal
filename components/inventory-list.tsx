@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Trash2, Plus } from "lucide-react"
-import { getInventoryPurchases, getGlobalInventory, deleteInventoryPurchase } from "@/lib/actions/inventory"
+import { getInventoryPurchases, getGlobalInventory, deleteInventoryPurchase, getCurrentInventory } from "@/lib/actions/inventory"
 import { CreateInventoryPurchaseDialog } from "./create-inventory-purchase-dialog"
 
 interface InventoryListProps {
@@ -31,25 +31,39 @@ type InventoryPurchase = {
   }
 }
 
+type InventorySummary = {
+  productId: string
+  productName: string
+  totalPurchased: number
+  totalSold: number
+  currentStock: number
+  averageBuyingPrice: number
+  totalCost: number
+}
+
 export function InventoryList({ projectId }: InventoryListProps) {
   const [purchases, setPurchases] = useState<InventoryPurchase[]>([])
+  const [inventorySummary, setInventorySummary] = useState<InventorySummary[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
 
   useEffect(() => {
-    loadPurchases()
+    loadInventoryData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId])
 
-  const loadPurchases = async () => {
+  const loadInventoryData = async () => {
     setLoading(true)
     try {
-      const data = projectId 
-        ? await getInventoryPurchases(projectId)
-        : await getGlobalInventory()
-      setPurchases(data)
+      // Load both purchase history and current inventory summary
+      const [purchasesData, summaryData] = await Promise.all([
+        projectId ? getInventoryPurchases(projectId) : getGlobalInventory(),
+        getCurrentInventory(projectId),
+      ])
+      setPurchases(purchasesData)
+      setInventorySummary(summaryData)
     } catch (error) {
-      console.error("Failed to load purchases:", error)
+      console.error("Failed to load inventory:", error)
     } finally {
       setLoading(false)
     }
@@ -62,7 +76,7 @@ export function InventoryList({ projectId }: InventoryListProps) {
 
     try {
       await deleteInventoryPurchase(purchaseId, purchaseProjectId)
-      loadPurchases()
+      loadInventoryData()
     } catch (error) {
       console.error("Failed to delete purchase:", error)
     }
@@ -70,14 +84,14 @@ export function InventoryList({ projectId }: InventoryListProps) {
 
   const handleSuccess = () => {
     setShowCreateDialog(false)
-    loadPurchases()
+    loadInventoryData()
   }
 
-  const formatCurrency = (value: string) => {
+  const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "EUR",
-    }).format(parseFloat(value))
+    }).format(value)
   }
 
   const formatDate = (date: Date) => {
@@ -92,20 +106,6 @@ export function InventoryList({ projectId }: InventoryListProps) {
     return <div className="text-muted-foreground">Loading inventory...</div>
   }
 
-  // Calculate totals by product
-  const productTotals = purchases.reduce((acc, purchase) => {
-    const productName = purchase.product.name
-    if (!acc[productName]) {
-      acc[productName] = {
-        quantity: 0,
-        totalCost: 0,
-      }
-    }
-    acc[productName].quantity += parseFloat(purchase.quantity)
-    acc[productName].totalCost += parseFloat(purchase.totalCost)
-    return acc
-  }, {} as Record<string, { quantity: number; totalCost: number }>)
-
   return (
     <div className="space-y-6">
       <Card>
@@ -114,7 +114,7 @@ export function InventoryList({ projectId }: InventoryListProps) {
             <div>
               <CardTitle>Inventory Summary</CardTitle>
               <CardDescription>
-                {projectId ? "Project inventory by product" : "Global inventory by product"}
+                {projectId ? "Current inventory by product" : "Global current inventory by product"}
               </CardDescription>
             </div>
             {projectId && (
@@ -126,24 +126,29 @@ export function InventoryList({ projectId }: InventoryListProps) {
           </div>
         </CardHeader>
         <CardContent>
-          {Object.keys(productTotals).length === 0 ? (
-            <p className="text-sm text-muted-foreground">No inventory purchases yet</p>
+          {inventorySummary.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No inventory data available</p>
           ) : (
             <div className="space-y-4">
-              {Object.entries(productTotals).map(([productName, totals]) => {
-                const avgPrice = totals.quantity > 0 ? totals.totalCost / totals.quantity : 0
+              {inventorySummary.map((item) => {
+                const currentValue = item.currentStock * item.averageBuyingPrice
                 return (
-                  <div key={productName} className="flex items-center justify-between border-b pb-3 last:border-0 last:pb-0">
+                  <div key={item.productId} className="flex items-center justify-between border-b pb-3 last:border-0 last:pb-0">
                     <div>
-                      <div className="font-medium">{productName}</div>
+                      <div className="font-medium">{item.productName}</div>
                       <div className="text-sm text-muted-foreground">
-                        Avg. price: {formatCurrency(avgPrice.toString())}
+                        Avg. buying price: {formatCurrency(item.averageBuyingPrice)}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Purchased: {item.totalPurchased.toFixed(2)} units • Sold: {item.totalSold.toFixed(2)} units
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-medium">{totals.quantity.toFixed(2)} units</div>
+                      <div className={`text-lg font-medium ${item.currentStock < 0 ? "text-red-600" : "text-green-600"}`}>
+                        {item.currentStock.toFixed(2)} units
+                      </div>
                       <div className="text-sm text-muted-foreground">
-                        Total: {formatCurrency(totals.totalCost.toString())}
+                        Value: {formatCurrency(currentValue)}
                       </div>
                     </div>
                   </div>
@@ -197,13 +202,13 @@ export function InventoryList({ projectId }: InventoryListProps) {
                         <p className="text-sm text-muted-foreground">{purchase.note}</p>
                       )}
                       <div className="mt-1 text-sm text-muted-foreground">
-                        Quantity: {parseFloat(purchase.quantity).toFixed(2)} × {formatCurrency(purchase.buyingPrice)}
+                        Quantity: {parseFloat(purchase.quantity).toFixed(2)} × {formatCurrency(parseFloat(purchase.buyingPrice))}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="text-right">
                         <div className="text-lg font-bold">
-                          {formatCurrency(purchase.totalCost)}
+                          {formatCurrency(parseFloat(purchase.totalCost))}
                         </div>
                       </div>
                       <Button
