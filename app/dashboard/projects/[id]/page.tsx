@@ -1,11 +1,12 @@
 "use client"
 
-import { useEffect, useState, Suspense } from "react"
+import { useEffect, useState, Suspense, useMemo } from "react"
 import { useRouter, useParams, useSearchParams } from "next/navigation"
 import { useSession, signOut } from "@/lib/auth-client"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, LogOut, Plus, Share2, Trash2, Edit2, History, TrendingUp } from "lucide-react"
+import { ArrowLeft, LogOut, Plus, Share2, Trash2, Edit2, History, TrendingUp, Search } from "lucide-react"
 import { getProject, deleteProject } from "@/lib/actions/projects"
 import { getEntries, getProjectBalance, deleteEntry } from "@/lib/actions/entries"
 import { CreateEntryDialog } from "@/components/create-entry-dialog"
@@ -22,6 +23,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -96,6 +104,11 @@ function ProjectDetailContent() {
   const [showDeleteProjectDialog, setShowDeleteProjectDialog] = useState(false)
   const [showDeleteEntryDialog, setShowDeleteEntryDialog] = useState(false)
   const [entryToDelete, setEntryToDelete] = useState<string | null>(null)
+  
+  // Filter and sort states for journal entries
+  const [searchQuery, setSearchQuery] = useState("")
+  const [typeFilter, setTypeFilter] = useState<string>("all")
+  const [sortBy, setSortBy] = useState<"date-desc" | "date-asc" | "amount-desc" | "amount-asc">("date-desc")
   
   // Get active tab from URL search params, default to "entries"
   const activeTab = (searchParams.get("tab") as "entries" | "metrics" | "inventory") || "entries"
@@ -193,6 +206,60 @@ function ProjectDetailContent() {
     router.push(`/dashboard/projects/${projectId}?tab=${tab}`)
   }
 
+  // Get unique entry types for filter
+  const uniqueTypes = useMemo(() => {
+    const types = new Map<string, string>()
+    entries.forEach(e => types.set(e.type.key, e.type.name))
+    return Array.from(types.entries())
+  }, [entries])
+
+  // Filter and sort entries
+  const filteredAndSortedEntries = useMemo(() => {
+    let filtered = entries
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter(e => 
+        e.type.name.toLowerCase().includes(query) ||
+        (e.product && e.product.name.toLowerCase().includes(query)) ||
+        (e.note && e.note.toLowerCase().includes(query))
+      )
+    }
+
+    // Apply type filter
+    if (typeFilter !== "all") {
+      filtered = filtered.filter(e => e.type.key === typeFilter)
+    }
+
+    // Apply sorting
+    const sorted = [...filtered]
+    switch (sortBy) {
+      case "date-desc":
+        sorted.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        break
+      case "date-asc":
+        sorted.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+        break
+      case "amount-desc":
+        sorted.sort((a, b) => {
+          const totalA = parseFloat(a.amount) * parseFloat(a.price)
+          const totalB = parseFloat(b.amount) * parseFloat(b.price)
+          return Math.abs(totalB) - Math.abs(totalA)
+        })
+        break
+      case "amount-asc":
+        sorted.sort((a, b) => {
+          const totalA = parseFloat(a.amount) * parseFloat(a.price)
+          const totalB = parseFloat(b.amount) * parseFloat(b.price)
+          return Math.abs(totalA) - Math.abs(totalB)
+        })
+        break
+    }
+
+    return sorted
+  }, [entries, searchQuery, typeFilter, sortBy])
+
   if (isPending || loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -215,7 +282,9 @@ function ProjectDetailContent() {
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             </Link>
-            <h1 className="text-xl font-bold">Booker Journal</h1>
+            <Link href="/dashboard">
+              <h1 className="text-xl font-bold cursor-pointer hover:text-primary transition-colors">Booker Journal</h1>
+            </Link>
           </div>
           <Button onClick={handleSignOut} variant="outline" size="sm">
             <LogOut className="mr-2 h-4 w-4" />
@@ -311,7 +380,7 @@ function ProjectDetailContent() {
         {/* Tab Content */}
         {activeTab === "entries" && (
           <>
-            <div className="mb-4 flex items-center justify-between">
+            <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <h3 className="text-lg font-semibold">Journal Entries</h3>
               <Button onClick={() => setShowCreateDialog(true)}>
                 <Plus className="mr-2 h-4 w-4" />
@@ -332,72 +401,118 @@ function ProjectDetailContent() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="space-y-2">
-                {entries.map((entry) => {
-                  const amount = parseFloat(entry.amount)
-                  const price = parseFloat(entry.price)
-                  const total = amount * price
-                  const hasEditHistory = entry.editHistory && entry.editHistory.length > 0
-                  
-                  return (
-                    <Card key={entry.id}>
-                      <CardContent className="flex items-center justify-between p-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{entry.type.name}</span>
-                            {entry.product && (
-                              <>
-                                <span className="text-sm text-muted-foreground">•</span>
-                                <span className="text-sm text-muted-foreground">{entry.product.name}</span>
-                              </>
-                            )}
-                            {hasEditHistory && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleViewHistory(entry.editHistory)}
-                                className="h-6 px-2 text-xs"
-                              >
-                                <History className="mr-1 h-3 w-3" />
-                                Edited ({entry.editHistory!.length})
-                              </Button>
-                            )}
-                            <span className="text-sm text-muted-foreground">
-                              {formatDateTime(entry.timestamp)}
-                            </span>
-                          </div>
-                          {entry.note && (
-                            <p className="text-sm text-muted-foreground">{entry.note}</p>
-                          )}
-                          <div className="mt-1 text-sm text-muted-foreground">
-                            Amount: {amount} × {formatCurrency(price)}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className={`text-xl font-bold ${total >= 0 ? "text-green-600" : "text-red-600"}`}>
-                            {total >= 0 ? "+" : ""}{formatCurrency(total)}
-                          </div>
-                          <div className="flex gap-1">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleEditEntry(entry)}
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDeleteEntry(entry.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
+              <div className="space-y-4">
+                {/* Filters and Search */}
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Search entries, products, or notes..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                  <Select value={typeFilter} onValueChange={setTypeFilter}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                      <SelectValue placeholder="Filter by type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      {uniqueTypes.map(([key, name]) => (
+                        <SelectItem key={key} value={key}>
+                          {name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                      <SelectValue placeholder="Sort by" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="date-desc">Date (Newest)</SelectItem>
+                      <SelectItem value="date-asc">Date (Oldest)</SelectItem>
+                      <SelectItem value="amount-desc">Amount (High)</SelectItem>
+                      <SelectItem value="amount-asc">Amount (Low)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Entry List */}
+                <div className="space-y-2">
+                  {filteredAndSortedEntries.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No entries match your filters
+                    </p>
+                  ) : (
+                    filteredAndSortedEntries.map((entry) => {
+                      const amount = parseFloat(entry.amount)
+                      const price = parseFloat(entry.price)
+                      const total = amount * price
+                      const hasEditHistory = entry.editHistory && entry.editHistory.length > 0
+                      
+                      return (
+                        <Card key={entry.id}>
+                          <CardContent className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-medium">{entry.type.name}</span>
+                                {entry.product && (
+                                  <>
+                                    <span className="text-sm text-muted-foreground">•</span>
+                                    <span className="text-sm text-muted-foreground truncate">{entry.product.name}</span>
+                                  </>
+                                )}
+                                {hasEditHistory && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleViewHistory(entry.editHistory)}
+                                    className="h-6 px-2 text-xs"
+                                  >
+                                    <History className="mr-1 h-3 w-3" />
+                                    Edited ({entry.editHistory!.length})
+                                  </Button>
+                                )}
+                              </div>
+                              <span className="text-sm text-muted-foreground block mt-1">
+                                {formatDateTime(entry.timestamp)}
+                              </span>
+                              {entry.note && (
+                                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{entry.note}</p>
+                              )}
+                              <div className="mt-1 text-sm text-muted-foreground">
+                                Amount: {amount} × {formatCurrency(price)}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 justify-between sm:justify-end">
+                              <div className={`text-xl font-bold ${total >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                {total >= 0 ? "+" : ""}{formatCurrency(total)}
+                              </div>
+                              <div className="flex gap-1 shrink-0">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleEditEntry(entry)}
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleDeleteEntry(entry.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )
+                    })
+                  )}
+                </div>
               </div>
             )}
           </>

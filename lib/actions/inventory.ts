@@ -305,6 +305,7 @@ function calculateInventorySummary(
     productId: string | null
     product: { name: string } | null
     amount: string
+    price: string
   }>
 ) {
   const productMap = new Map<string, {
@@ -314,7 +315,9 @@ function calculateInventorySummary(
     totalSold: number;
     currentStock: number;
     averageBuyingPrice: number;
+    averageSellingPrice: number;
     totalCost: number;
+    totalRevenue: number;
   }>();
   
   // Process inventory purchases (adds to stock)
@@ -331,7 +334,9 @@ function calculateInventorySummary(
         totalSold: 0,
         currentStock: 0,
         averageBuyingPrice: 0,
+        averageSellingPrice: 0,
         totalCost: 0,
+        totalRevenue: 0,
       });
     }
     
@@ -340,12 +345,14 @@ function calculateInventorySummary(
     productData.totalCost += totalCost;
   }
   
-  // Process sales (deducts from stock)
+  // Process sales (deducts from stock and calculates revenue)
   for (const sale of sales) {
     if (!sale.productId || !sale.product) continue;
     
     const productId = sale.productId;
     const quantity = Math.abs(parseFloat(sale.amount)); // Use absolute value
+    const price = Math.abs(parseFloat(sale.price)); // Use absolute value for selling price
+    const revenue = quantity * price;
     
     if (!productMap.has(productId)) {
       productMap.set(productId, {
@@ -355,19 +362,25 @@ function calculateInventorySummary(
         totalSold: 0,
         currentStock: 0,
         averageBuyingPrice: 0,
+        averageSellingPrice: 0,
         totalCost: 0,
+        totalRevenue: 0,
       });
     }
     
     const productData = productMap.get(productId)!;
     productData.totalSold += quantity;
+    productData.totalRevenue += revenue;
   }
   
-  // Calculate current stock and average prices
+  // Calculate current stock, average prices
   const summary = Array.from(productMap.values()).map(product => {
     product.currentStock = product.totalPurchased - product.totalSold;
     product.averageBuyingPrice = product.totalPurchased > 0 
       ? product.totalCost / product.totalPurchased 
+      : 0;
+    product.averageSellingPrice = product.totalSold > 0
+      ? product.totalRevenue / product.totalSold
       : 0;
     return product;
   });

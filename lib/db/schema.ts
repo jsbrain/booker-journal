@@ -1,6 +1,6 @@
 import { pgTable, text, timestamp, numeric, boolean, jsonb } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
-import { nanoid } from "nanoid";
+import { nanoid } from "@/lib/utils";
 
 // Better-auth tables
 export const user = pgTable("user", {

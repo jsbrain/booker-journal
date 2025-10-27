@@ -99,7 +99,9 @@ function DashboardContent() {
     <div className="min-h-screen bg-background">
       <header className="border-b">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
-          <h1 className="text-xl font-bold">Booker Journal</h1>
+          <Link href="/dashboard">
+            <h1 className="text-xl font-bold cursor-pointer hover:text-primary transition-colors">Booker Journal</h1>
+          </Link>
           <div className="flex gap-2">
             <Link href="/dashboard/admin">
               <Button variant="outline" size="sm">
