@@ -144,10 +144,12 @@ export async function getProjectMetrics(
     }
     
     const productData = productMap.get(productId)!;
-    // Only count positive totals as revenue (sales)
-    if (total > 0) {
-      productData.quantitySold += amount;
-      productData.revenue += total;
+    // Purchase entries represent sales (customer buying products)
+    // They have negative prices, so we use absolute value for revenue
+    // Only count purchase type entries (those with products) as sales
+    if (entry.type.key === "purchase") {
+      productData.quantitySold += Math.abs(amount);
+      productData.revenue += Math.abs(total);
     }
   }
   
@@ -309,10 +311,12 @@ export async function getGlobalMetrics(
     }
     
     const productData = productMap.get(productId)!;
-    // Only count positive totals as revenue (sales)
-    if (total > 0) {
-      productData.quantitySold += amount;
-      productData.revenue += total;
+    // Purchase entries represent sales (customer buying products)
+    // They have negative prices, so we use absolute value for revenue
+    // Only count purchase type entries (those with products) as sales
+    if (entry.type.key === "purchase") {
+      productData.quantitySold += Math.abs(amount);
+      productData.revenue += Math.abs(total);
     }
   }
   
