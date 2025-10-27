@@ -91,6 +91,57 @@ export async function createEntry(
   return entry;
 }
 
+export async function createEntryWithPayment(
+  projectId: string,
+  amount: number,
+  price: number,
+  typeId: string,
+  productId: string | undefined,
+  note?: string,
+  timestamp?: string
+) {
+  // Validate input for both entries
+  validate(createEntryInputSchema, { projectId, amount, price, typeId, productId, note, timestamp });
+  
+  const user = await getCurrentUser();
+  await verifyProjectOwnership(projectId, user.id);
+  
+  // Get the payment entry type
+  const entryTypesList = await db.query.entryTypes.findMany();
+  const paymentType = entryTypesList.find(t => t.key === 'payment');
+  
+  if (!paymentType) {
+    throw new Error("Payment entry type not found");
+  }
+  
+  const timestampDate = timestamp ? new Date(timestamp) : new Date();
+  
+  // Create the purchase entry first
+  const [purchaseEntry] = await db.insert(journalEntries).values({
+    projectId,
+    amount: amount.toString(),
+    price: price.toString(),
+    typeId,
+    productId: productId || null,
+    note,
+    timestamp: timestampDate,
+  }).returning();
+  
+  // Create the payment entry immediately after (positive price to offset the purchase)
+  // Payment entries don't have products
+  const [paymentEntry] = await db.insert(journalEntries).values({
+    projectId,
+    amount: amount.toString(),
+    price: Math.abs(price).toString(), // Make price positive for payment
+    typeId: paymentType.id,
+    productId: null, // Payments don't have products
+    note: note ? `${note} (immediate payment)` : "Immediate payment",
+    timestamp: timestampDate,
+  }).returning();
+  
+  return { purchaseEntry, paymentEntry };
+}
+
 export async function updateEntry(
   entryId: string,
   projectId: string,
