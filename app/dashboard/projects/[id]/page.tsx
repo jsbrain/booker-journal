@@ -83,7 +83,7 @@ function ProjectDetailContent() {
   const [viewingHistory, setViewingHistory] = useState<EditHistoryEntry[] | null>(null)
   
   // Get active tab from URL search params, default to "entries"
-  const activeTab = (searchParams.get("tab") as "entries" | "metrics") || "entries"
+  const activeTab = (searchParams.get("tab") as "entries" | "metrics" | "inventory") || "entries"
 
   useEffect(() => {
     if (!isPending && !session) {
@@ -168,7 +168,7 @@ function ProjectDetailContent() {
     setShowHistoryDialog(true)
   }
 
-  const setActiveTab = (tab: "entries" | "metrics") => {
+  const setActiveTab = (tab: "entries" | "metrics" | "inventory") => {
     router.push(`/dashboard/projects/${projectId}?tab=${tab}`)
   }
 

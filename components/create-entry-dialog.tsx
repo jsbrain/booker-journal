@@ -138,7 +138,7 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
 
       // Convert local datetime to ISO string
       const timestampISO = timestamp ? new Date(timestamp).toISOString() : undefined
-      
+
       if (isPurchaseWithPayment) {
         // Create both purchase and payment entries
         await createEntryWithPayment(projectId, amountNum, priceNum, typeId, selectedTypeKey === "purchase" ? productId : undefined, note || undefined, timestampISO)
@@ -187,15 +187,15 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
                 <Label htmlFor="type">Type</Label>
-                <Select 
-                  value={typeId} 
+                <Select
+                  value={typeId}
                   onValueChange={(value) => {
                     setTypeId(value)
                     const type = entryTypes.find(t => t.id === value)
                     if (type) {
                       setSelectedTypeKey(type.key)
                     }
-                  }} 
+                  }}
                   required
                 >
                   <SelectTrigger>
