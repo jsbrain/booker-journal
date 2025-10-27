@@ -1,13 +1,13 @@
 /**
  * Comprehensive seed data script for Booker Journal
- * 
- * Creates:
+ *
+ * Creates realistic business scenario:
  * - Default user: Admin (manuel.maute@bradbit.com, pw: examplepassword)
- * - Entry types: Purchase, Payment, Refund, Adjustment
- * - 3 products: c (Blumen, 40€), p (Schokolade, 2€), g (Pfanne, 4.50€)
- * - 3 initial inventory purchases with specific dates
- * - 3 projects with different starting balances
- * - 10-30 buying events per project
+ * - Entry types: Sale, Payment, Refund, Adjustment
+ * - 3 products with varying prices over time
+ * - Multiple inventory purchases throughout 2025 showing price changes
+ * - 3 customer projects with realistic sales and payment patterns
+ * - Detailed transaction history from Jan-Oct 2025
  */
 
 import { db } from "./index";
@@ -23,9 +23,9 @@ const SEED_USER = {
 };
 
 const SEED_PRODUCTS = [
-  { key: "c", name: "Blumen", defaultBuyingPrice: "40.00" },
-  { key: "p", name: "Schokolade", defaultBuyingPrice: "2.00" },
-  { key: "g", name: "Pfanne", defaultBuyingPrice: "4.50" },
+  { key: "blumen", name: "Blumen", defaultBuyingPrice: "40.00" },
+  { key: "schokolade", name: "Schokolade", defaultBuyingPrice: "2.00" },
+  { key: "pfanne", name: "Pfanne", defaultBuyingPrice: "4.50" },
 ];
 
 const SEED_ENTRY_TYPES = [
@@ -35,6 +35,48 @@ const SEED_ENTRY_TYPES = [
   { key: "adjustment", name: "Adjustment" },
 ];
 
+// Realistic customer data
+const CUSTOMER_DATA = [
+  {
+    name: "Müller Blumenladen GmbH",
+    initialBalance: -850, // They owe us
+    buyingPattern: "blumen", // Primarily buys flowers
+    paymentReliability: 0.6, // 60% pay regularly
+  },
+  {
+    name: "Schmidt Feinkost",
+    initialBalance: 0, // Fresh start
+    buyingPattern: "schokolade", // Primarily buys chocolate
+    paymentReliability: 0.8, // 80% pay regularly
+  },
+  {
+    name: "Weber Haushaltswaren",
+    initialBalance: 120, // We owe them (overpaid)
+    buyingPattern: "pfanne", // Primarily buys pans
+    paymentReliability: 0.9, // 90% pay regularly
+  },
+];
+
+// Inventory purchase timeline for each product
+const INVENTORY_TIMELINE = {
+  blumen: [
+    { date: "2025-01-01", quantity: 50, price: 45.00, note: "Initial stock - Winter flowers" },
+    { date: "2025-04-15", quantity: 100, price: 42.50, note: "Spring restocking at better price" },
+    { date: "2025-09-01", quantity: 200, price: 40.00, note: "Large fall order with volume discount" },
+  ],
+  schokolade: [
+    { date: "2025-01-10", quantity: 500, price: 2.20, note: "New Year promotional stock" },
+    { date: "2025-03-20", quantity: 300, price: 2.10, note: "Easter season restocking" },
+    { date: "2025-06-05", quantity: 400, price: 1.95, note: "Summer sale stock at reduced price" },
+    { date: "2025-10-15", quantity: 600, price: 2.00, note: "Halloween/Christmas preparation" },
+  ],
+  pfanne: [
+    { date: "2025-01-05", quantity: 80, price: 5.00, note: "New supplier - testing quality" },
+    { date: "2025-05-10", quantity: 150, price: 4.50, note: "Switched to reliable supplier" },
+    { date: "2025-08-20", quantity: 200, price: 4.20, note: "Negotiated better contract terms" },
+  ],
+};
+
 // Standalone seed functions for use by server actions
 export async function seedEntryTypes() {
   try {
@@ -42,7 +84,7 @@ export async function seedEntryTypes() {
       const existing = await db.query.entryTypes.findFirst({
         where: (entryTypes, { eq }) => eq(entryTypes.key, type.key),
       });
-      
+
       if (!existing) {
         await db.insert(entryTypes).values(type);
         console.log(`Created entry type: ${type.name}`);
@@ -61,7 +103,7 @@ export async function seedProducts() {
       const existing = await db.query.products.findFirst({
         where: (products, { eq }) => eq(products.key, product.key),
       });
-      
+
       if (!existing) {
         await db.insert(products).values(product);
         console.log(`Created product: ${product.name}`);
@@ -74,24 +116,71 @@ export async function seedProducts() {
   }
 }
 
+// Helper to generate realistic sale prices based on buying price
+function generateSalePrice(buyingPrice: number, productKey: string): number {
+  let margin: number;
+
+  // Different profit margins for different products
+  switch(productKey) {
+    case "blumen":
+      margin = 1.8; // 80% markup
+      break;
+    case "schokolade":
+      margin = 2.5; // 150% markup
+      break;
+    case "pfanne":
+      margin = 2.0; // 100% markup
+      break;
+    default:
+      margin = 2.0;
+  }
+
+  // Add some variation (±10%)
+  const variation = 0.9 + Math.random() * 0.2;
+  return buyingPrice * margin * variation;
+}
+
+// Helper to generate transaction notes
+function generateTransactionNote(type: 'sale' | 'payment', productName?: string, quantity?: number): string {
+  if (type === 'sale') {
+    const notes = [
+      `${quantity}x ${productName} - Rechnung #${Math.floor(Math.random() * 9000) + 1000}`,
+      `Lieferung ${productName} (${quantity} Stück)`,
+      `Bestellung ${productName} - Menge: ${quantity}`,
+      `${quantity}x ${productName} - Sofortlieferung`,
+    ];
+    return notes[Math.floor(Math.random() * notes.length)];
+  } else {
+    const notes = [
+      `Überweisung Rechnung erhalten`,
+      `Barzahlung`,
+      `PayPal Zahlung`,
+      `Banküberweisung eingegangen`,
+      `Teilzahlung`,
+    ];
+    return notes[Math.floor(Math.random() * notes.length)];
+  }
+}
+
 export async function seedDatabase() {
-  console.log("🌱 Starting database seeding...");
+  console.log("🌱 Starting sophisticated database seeding...");
+  console.log("   Creating realistic business scenario for 2025");
 
   try {
     // 1. Create/verify user
-    console.log("👤 Creating user...");
+    console.log("\n👤 Creating admin user...");
     const existingUser = await db.query.user.findFirst({
       where: (users, { eq }) => eq(users.email, SEED_USER.email),
     });
 
     let userId: string;
     if (existingUser) {
-      console.log("   User already exists, skipping creation");
+      console.log("   User already exists, using existing user");
       userId = existingUser.id;
     } else {
       const hashedPassword = await hashPassword(SEED_USER.password);
       const newUserId = nanoid();
-      
+
       await db.insert(user).values({
         id: newUserId,
         email: SEED_USER.email,
@@ -99,7 +188,6 @@ export async function seedDatabase() {
         emailVerified: true,
       });
 
-      // Create account with password
       await db.insert(account).values({
         id: nanoid(),
         accountId: SEED_USER.email,
@@ -109,14 +197,13 @@ export async function seedDatabase() {
       });
 
       userId = newUserId;
-      console.log("   ✓ User created");
+      console.log("   ✓ Admin user created");
     }
 
     // 2. Create/verify entry types
-    console.log("📝 Creating entry types...");
+    console.log("\n📝 Creating entry types...");
     await seedEntryTypes();
 
-    // Get entry types for later use
     const saleType = await db.query.entryTypes.findFirst({
       where: (types, { eq }) => eq(types.key, "sale"),
     });
@@ -129,162 +216,195 @@ export async function seedDatabase() {
     }
 
     // 3. Create/verify products
-    console.log("📦 Creating products...");
+    console.log("\n📦 Creating products...");
     await seedProducts();
-    
-    const productIds: Record<string, string> = {};
+
+    const productMap: Record<string, { id: string; name: string }> = {};
     for (const product of SEED_PRODUCTS) {
       const existing = await db.query.products.findFirst({
         where: (prods, { eq }) => eq(prods.key, product.key),
       });
       if (existing) {
-        productIds[product.key] = existing.id;
+        productMap[product.key] = { id: existing.id, name: existing.name };
       }
     }
 
-    // 4. Create projects
-    console.log("🗂️  Creating projects...");
-    const projectData = [
-      { name: "Project Negative Start", initialBalance: -500 },
-      { name: "Project Zero Start", initialBalance: 0 },
-      { name: "Project Positive Start", initialBalance: 1000 },
-    ];
+    // 4. Create comprehensive inventory purchases
+    console.log("\n📥 Creating inventory purchase history (Jan-Oct 2025)...");
+    let totalInventoryValue = 0;
 
-    const createdProjects: Array<{ id: string; name: string; initialBalance: number }> = [];
+    for (const [productKey, purchases] of Object.entries(INVENTORY_TIMELINE)) {
+      console.log(`\n   ${productMap[productKey].name}:`);
 
-    for (const proj of projectData) {
+      for (const purchase of purchases) {
+        const totalCost = purchase.quantity * purchase.price;
+        totalInventoryValue += totalCost;
+
+        await db.insert(inventoryPurchases).values({
+          userId,
+          productId: productMap[productKey].id,
+          quantity: purchase.quantity.toString(),
+          buyingPrice: purchase.price.toString(),
+          totalCost: totalCost.toString(),
+          purchaseDate: new Date(purchase.date),
+          note: purchase.note,
+        });
+
+        console.log(`   ✓ ${purchase.date}: ${purchase.quantity} units @ €${purchase.price.toFixed(2)} = €${totalCost.toFixed(2)}`);
+        console.log(`      ${purchase.note}`);
+      }
+    }
+
+    console.log(`\n   💰 Total inventory investment: €${totalInventoryValue.toFixed(2)}`);
+
+    // 5. Create customer projects with realistic transactions
+    console.log("\n🏢 Creating customer projects and transactions...");
+
+    for (const customer of CUSTOMER_DATA) {
+      console.log(`\n   ${customer.name}:`);
+
+      // Create project
       const [newProject] = await db.insert(projects).values({
-        name: proj.name,
+        name: customer.name,
         userId,
       }).returning();
-      
-      createdProjects.push({
-        id: newProject.id,
-        name: newProject.name,
-        initialBalance: proj.initialBalance,
-      });
-      
-      console.log(`   ✓ Created project: ${proj.name}`);
-    }
 
-    // 5. Create initial inventory purchases with specific dates
-    console.log("📥 Creating initial inventory purchases...");
-    const inventoryData = [
-      { 
-        productKey: "p", 
-        quantity: 1000, 
-        date: new Date("2025-01-01T10:00:00Z"),
-      },
-      { 
-        productKey: "c", 
-        quantity: 100, 
-        date: new Date("2025-04-23T10:00:00Z"),
-      },
-      { 
-        productKey: "g", 
-        quantity: 100, 
-        date: new Date("2025-10-05T10:00:00Z"),
-      },
-    ];
+      console.log(`   ✓ Project created (ID: ${newProject.id.substring(0, 8)}...)`);
 
-    for (const inv of inventoryData) {
-      const product = SEED_PRODUCTS.find(p => p.key === inv.productKey);
-      if (!product) continue;
-
-      const buyingPrice = parseFloat(product.defaultBuyingPrice);
-      const totalCost = inv.quantity * buyingPrice;
-
-      await db.insert(inventoryPurchases).values({
-        userId,
-        productId: productIds[inv.productKey],
-        quantity: inv.quantity.toString(),
-        buyingPrice: buyingPrice.toString(),
-        totalCost: totalCost.toString(),
-        purchaseDate: inv.date,
-        note: `Initial inventory purchase for ${product.name}`,
-      });
-
-      console.log(`   ✓ Created inventory purchase: ${inv.quantity} ${product.name} on ${inv.date.toLocaleDateString()}`);
-    }
-
-    // 6. Create journal entries for each project
-    console.log("📊 Creating journal entries...");
-    
-    for (const project of createdProjects) {
-      console.log(`   Creating entries for ${project.name}...`);
-      
-      // Create initial balance entry if not zero (no product for non-sale entries)
-      if (project.initialBalance !== 0) {
-        const initialDate = new Date("2024-12-01T10:00:00Z");
+      // Create initial balance entry if not zero
+      if (customer.initialBalance !== 0) {
+        const initialDate = new Date("2024-12-15T10:00:00Z");
         await db.insert(journalEntries).values({
-          projectId: project.id,
+          projectId: newProject.id,
           amount: "1",
-          price: project.initialBalance.toString(),
-          typeId: project.initialBalance > 0 ? paymentType.id : saleType.id,
-          productId: project.initialBalance > 0 ? null : productIds["c"], // Only sales get products
-          note: "Initial balance",
+          price: customer.initialBalance.toString(),
+          typeId: customer.initialBalance < 0 ? saleType.id : paymentType.id,
+          productId: customer.initialBalance < 0 ? productMap[customer.buyingPattern].id : null,
+          note: customer.initialBalance < 0
+            ? "Offene Rechnung aus 2024"
+            : "Überzahlung aus 2024 - Guthaben",
           timestamp: initialDate,
         });
+
+        const balanceType = customer.initialBalance < 0 ? "Schulden" : "Guthaben";
+        console.log(`   📋 Initial balance: €${Math.abs(customer.initialBalance).toFixed(2)} ${balanceType}`);
       }
 
-      // Generate 10-30 random customer transactions
-      const numEvents = Math.floor(Math.random() * 21) + 10; // 10-30
-      const startDate = new Date("2025-01-01");
-      const endDate = new Date();
-      const timeRange = endDate.getTime() - startDate.getTime();
+      // Generate realistic transactions from Jan to Oct 2025
+      const transactions: Array<{date: Date, type: 'sale' | 'payment', amount?: number, price?: number}> = [];
 
-      for (let i = 0; i < numEvents; i++) {
-        // Random timestamp
-        const randomTime = Math.random() * timeRange;
-        const timestamp = new Date(startDate.getTime() + randomTime);
-        
-        // Random entry type (mostly sales, some payments)
-        const isSale = Math.random() > 0.3; // 70% sales, 30% payments
-        const typeId = isSale ? saleType.id : paymentType.id;
-        
-        // Random amount (1-50 units)
-        const amount = Math.floor(Math.random() * 50) + 1;
-        
-        let productId = null;
-        let price = 0;
-        
-        if (isSale) {
-          // For sales, select a random product and use its price
-          const productKeys = Object.keys(productIds);
-          const randomProductKey = productKeys[Math.floor(Math.random() * productKeys.length)];
-          productId = productIds[randomProductKey];
-          
-          const product = SEED_PRODUCTS.find(p => p.key === randomProductKey);
-          const basePrice = product ? parseFloat(product.defaultBuyingPrice) : 10;
-          const priceVariation = basePrice * 0.2; // ±20% variation
-          price = -(basePrice + (Math.random() * priceVariation * 2 - priceVariation));
-        } else {
-          // For payments, no product, just a random positive amount
-          price = Math.random() * 100 + 10; // 10-110
+      // Create sales events (3-7 per month)
+      for (let month = 0; month < 10; month++) { // Jan to Oct
+        const salesInMonth = 2 + Math.floor(Math.random() * 4);
+
+        for (let i = 0; i < salesInMonth; i++) {
+          const day = 1 + Math.floor(Math.random() * 28);
+          const hour = 8 + Math.floor(Math.random() * 10);
+          const date = new Date(2025, month, day, hour, 0, 0);
+
+          // Quantity varies by product type
+          let quantity: number;
+          if (customer.buyingPattern === "blumen") {
+            quantity = 5 + Math.floor(Math.random() * 20); // 5-25 flowers
+          } else if (customer.buyingPattern === "schokolade") {
+            quantity = 20 + Math.floor(Math.random() * 80); // 20-100 chocolates
+          } else {
+            quantity = 2 + Math.floor(Math.random() * 8); // 2-10 pans
+          }
+
+          // Find the most recent buying price for this product at this date
+          const productTimeline = INVENTORY_TIMELINE[customer.buyingPattern as keyof typeof INVENTORY_TIMELINE];
+          let buyingPrice = 0;
+          for (const purchase of productTimeline) {
+            if (new Date(purchase.date) <= date) {
+              buyingPrice = purchase.price;
+            }
+          }
+
+          if (buyingPrice > 0) {
+            const salePrice = generateSalePrice(buyingPrice, customer.buyingPattern);
+            transactions.push({
+              date,
+              type: 'sale',
+              amount: quantity,
+              price: -salePrice, // Negative for customer debt
+            });
+          }
         }
-        
-        await db.insert(journalEntries).values({
-          projectId: project.id,
-          amount: amount.toString(),
-          price: price.toFixed(2),
-          typeId,
-          productId,
-          note: isSale 
-            ? `Sale of product` 
-            : `Payment received`,
-          timestamp,
+      }
+
+      // Add payment events based on reliability
+      const numPayments = Math.floor(transactions.filter(t => t.type === 'sale').length * customer.paymentReliability);
+      for (let i = 0; i < numPayments; i++) {
+        const month = Math.floor(Math.random() * 10);
+        const day = 5 + Math.floor(Math.random() * 20);
+        const date = new Date(2025, month, day, 12, 0, 0);
+
+        // Payment amount between €50 and €500
+        const paymentAmount = 50 + Math.floor(Math.random() * 450);
+        transactions.push({
+          date,
+          type: 'payment',
+          amount: 1,
+          price: paymentAmount,
         });
       }
-      
-      console.log(`   ✓ Created ${numEvents} entries for ${project.name}`);
+
+      // Sort transactions by date
+      transactions.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+      // Insert transactions
+      let salesCount = 0;
+      let paymentsCount = 0;
+      let totalSales = 0;
+      let totalPayments = 0;
+
+      for (const transaction of transactions) {
+        if (transaction.type === 'sale') {
+          await db.insert(journalEntries).values({
+            projectId: newProject.id,
+            amount: transaction.amount!.toString(),
+            price: transaction.price!.toFixed(2),
+            typeId: saleType.id,
+            productId: productMap[customer.buyingPattern].id,
+            note: generateTransactionNote('sale', productMap[customer.buyingPattern].name, transaction.amount),
+            timestamp: transaction.date,
+          });
+          salesCount++;
+          totalSales += transaction.amount! * Math.abs(transaction.price!);
+        } else {
+          await db.insert(journalEntries).values({
+            projectId: newProject.id,
+            amount: transaction.amount!.toString(),
+            price: transaction.price!.toFixed(2),
+            typeId: paymentType.id,
+            productId: null,
+            note: generateTransactionNote('payment'),
+            timestamp: transaction.date,
+          });
+          paymentsCount++;
+          totalPayments += transaction.price!;
+        }
+      }
+
+      console.log(`   ✓ Created ${salesCount} sales (€${totalSales.toFixed(2)} total)`);
+      console.log(`   ✓ Created ${paymentsCount} payments (€${totalPayments.toFixed(2)} total)`);
+
+      const currentBalance = customer.initialBalance - totalSales + totalPayments;
+      const balanceStatus = currentBalance < 0 ? "Schulden" : currentBalance > 0 ? "Guthaben" : "Ausgeglichen";
+      console.log(`   💳 Current balance: €${Math.abs(currentBalance).toFixed(2)} ${balanceStatus}`);
     }
 
-    console.log("✅ Database seeding completed successfully!");
-    
+    console.log("\n✅ Sophisticated database seeding completed!");
+    console.log("\n📊 Summary:");
+    console.log(`   • ${CUSTOMER_DATA.length} customers with realistic purchase patterns`);
+    console.log(`   • ${Object.values(INVENTORY_TIMELINE).flat().length} inventory purchases showing price evolution`);
+    console.log(`   • Transactions spanning Jan-Oct 2025`);
+    console.log(`   • Different payment behaviors per customer`);
+    console.log(`   • Varied sales quantities and pricing`);
+
     return {
       userId,
-      projectIds: createdProjects.map(p => p.id),
-      productIds,
       success: true,
     };
   } catch (error) {
@@ -297,7 +417,9 @@ export async function seedDatabase() {
 if (require.main === module) {
   seedDatabase()
     .then(() => {
-      console.log("Seeding complete, exiting...");
+      console.log("\n🎉 Seeding complete! You can now log in with:");
+      console.log(`   Email: ${SEED_USER.email}`);
+      console.log(`   Password: ${SEED_USER.password}`);
       process.exit(0);
     })
     .catch((error) => {
