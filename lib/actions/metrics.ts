@@ -53,23 +53,47 @@ export interface ProjectMetrics {
   }[];
 }
 
-// Helper function to process journal entries and calculate revenue
+// Type definitions for helper functions
+interface ProductMetricsMap {
+  productId: string;
+  productName: string;
+  quantitySold: number;
+  revenue: number;
+  totalQuantityPurchased: number;
+  totalCost: number;
+}
+
+interface JournalEntryForMetrics {
+  productId: string | null;
+  product: { id: string; name: string } | null;
+  type: { key: string };
+  amount: string;
+  price: string;
+}
+
+interface InventoryPurchaseForMetrics {
+  productId: string;
+  product: { name: string };
+  quantity: string;
+  totalCost: string;
+}
+
+/**
+ * Processes journal entries to calculate revenue from sales.
+ * 
+ * Business Logic:
+ * - This system uses a customer debt/ledger model
+ * - Purchase entries represent customers buying products (creates debt)
+ * - Purchase entries use negative prices to represent the debt amount
+ * - Revenue = absolute value of (quantity × negative_price)
+ * - Example: Customer buys 10 items at -€5 each → Revenue = |10 × -5| = €50
+ * 
+ * @param entries - Journal entries from the database
+ * @param productMap - Map to accumulate product-level metrics
+ */
 function processJournalEntriesForMetrics(
-  entries: Array<{
-    productId: string | null;
-    product: { id: string; name: string } | null;
-    type: { key: string };
-    amount: string;
-    price: string;
-  }>,
-  productMap: Map<string, {
-    productId: string;
-    productName: string;
-    quantitySold: number;
-    revenue: number;
-    totalQuantityPurchased: number;
-    totalCost: number;
-  }>
+  entries: JournalEntryForMetrics[],
+  productMap: Map<string, ProductMetricsMap>
 ) {
   // Process journal entries (sales)
   for (const entry of entries) {
@@ -104,22 +128,18 @@ function processJournalEntriesForMetrics(
   }
 }
 
-// Helper function to process inventory purchases for COGS calculation
+/**
+ * Processes inventory purchases to calculate Cost of Goods Sold (COGS).
+ * 
+ * Accumulates total quantity purchased and total cost to calculate
+ * average buying price for COGS calculations.
+ * 
+ * @param purchases - Inventory purchases from the database
+ * @param productMap - Map to accumulate product-level metrics
+ */
 function processInventoryPurchasesForMetrics(
-  purchases: Array<{
-    productId: string;
-    product: { name: string };
-    quantity: string;
-    totalCost: string;
-  }>,
-  productMap: Map<string, {
-    productId: string;
-    productName: string;
-    quantitySold: number;
-    revenue: number;
-    totalQuantityPurchased: number;
-    totalCost: number;
-  }>
+  purchases: InventoryPurchaseForMetrics[],
+  productMap: Map<string, ProductMetricsMap>
 ) {
   for (const purchase of purchases) {
     const productId = purchase.productId;
@@ -143,16 +163,22 @@ function processInventoryPurchasesForMetrics(
   }
 }
 
-// Helper function to calculate final metrics from product map
+/**
+ * Calculates final product breakdown with revenue, cost, and profit.
+ * 
+ * Uses average buying price method for COGS:
+ * - Average Buying Price = Total Cost / Total Quantity Purchased
+ * - COGS = Quantity Sold × Average Buying Price
+ * - Profit = Revenue - COGS
+ * 
+ * Note: Uses floating-point arithmetic. For production systems with
+ * high-precision requirements, consider using a decimal library.
+ * 
+ * @param productMap - Map containing accumulated product metrics
+ * @returns Array of product breakdowns with calculated profit
+ */
 function calculateProductBreakdown(
-  productMap: Map<string, {
-    productId: string;
-    productName: string;
-    quantitySold: number;
-    revenue: number;
-    totalQuantityPurchased: number;
-    totalCost: number;
-  }>
+  productMap: Map<string, ProductMetricsMap>
 ) {
   return Array.from(productMap.values()).map(product => {
     // Calculate average buying price
