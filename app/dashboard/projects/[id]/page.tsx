@@ -12,6 +12,7 @@ import { CreateEntryDialog } from "@/components/create-entry-dialog"
 import { EditEntryDialog } from "@/components/edit-entry-dialog"
 import { ShareProjectDialog } from "@/components/share-project-dialog"
 import { MetricsDashboard } from "@/components/metrics-dashboard"
+import { getBalanceColor, getBalanceStatus } from "@/lib/utils/balance"
 import Link from "next/link"
 import {
   Dialog,
@@ -240,12 +241,15 @@ function ProjectDetailContent() {
           <Card>
             <CardHeader>
               <CardTitle>Current Balance</CardTitle>
-              <CardDescription>Total of all entries</CardDescription>
+              <CardDescription>Amount owed by customer</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className={`text-3xl font-bold ${balance >= 0 ? "text-green-600" : "text-red-600"}`}>
+              <div className={`text-3xl font-bold ${getBalanceColor(balance)}`}>
                 {formatCurrency(balance)}
               </div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {getBalanceStatus(balance)}
+              </p>
             </CardContent>
           </Card>
 

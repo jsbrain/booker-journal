@@ -5,6 +5,7 @@ import { useParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Lock, Calendar } from "lucide-react"
 import { getProjectBySharedLink } from "@/lib/actions/shared-links"
+import { getBalanceColor, getBalanceStatus } from "@/lib/utils/balance"
 
 type Entry = {
   id: string
@@ -148,12 +149,15 @@ export default function SharedProjectPage() {
           <Card>
             <CardHeader>
               <CardTitle>Current Balance</CardTitle>
-              <CardDescription>Total of all {dateRange ? "filtered" : ""} entries</CardDescription>
+              <CardDescription>Amount owed by customer{dateRange ? " (filtered)" : ""}</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className={`text-3xl font-bold ${balance >= 0 ? "text-green-600" : "text-red-600"}`}>
+              <div className={`text-3xl font-bold ${getBalanceColor(balance)}`}>
                 {formatCurrency(balance)}
               </div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {getBalanceStatus(balance)}
+              </p>
             </CardContent>
           </Card>
 
