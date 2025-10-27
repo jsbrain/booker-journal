@@ -6,6 +6,10 @@
  * Gets the appropriate color class for a balance value
  * @param balance - The balance amount (positive = customer owes, negative = customer has credit)
  * @returns Tailwind CSS color class
+ * 
+ * Note: From a business perspective, positive balance (customer owes) is shown in green
+ * as it represents money the business will receive (good). Negative balance (customer has
+ * credit) is shown in red as it represents money the business owes (bad).
  */
 export function getBalanceColor(balance: number): string {
   if (balance > 0) return "text-green-600"
