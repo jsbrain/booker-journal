@@ -201,7 +201,7 @@ export function EditEntryDialog({ open, onOpenChange, projectId, entry, onSucces
                 required
               />
               <p className="text-xs text-muted-foreground">
-                Negative for expenses/debt, positive for payments/income
+                For sales: negative (customer owes). For payments: positive (customer pays)
               </p>
             </div>
             <div className="grid gap-2">

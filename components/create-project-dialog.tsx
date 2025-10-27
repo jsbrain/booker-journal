@@ -82,7 +82,7 @@ export function CreateProjectDialog({ open, onOpenChange, onSuccess }: CreatePro
                 required
               />
               <p className="text-xs text-muted-foreground">
-                Negative for debt, positive for credit
+                Positive = customer owes you, Negative = customer has credit/you owe them
               </p>
             </div>
             {error && (
