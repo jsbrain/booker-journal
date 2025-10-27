@@ -63,10 +63,10 @@ export const verification = pgTable("verification", {
     .notNull(),
 });
 
-// Entry types table - for type of entry (Purchase, Payment, etc.)
+// Entry types table - for type of entry (Sale, Payment, etc.)
 export const entryTypes = pgTable("entry_types", {
   id: text("id").primaryKey().$defaultFn(() => nanoid()),
-  key: text("key").notNull().unique(), // Internal key like 'purchase', 'payment'
+  key: text("key").notNull().unique(), // Internal key like 'sale', 'payment'
   name: text("name").notNull(), // Display name that can be edited
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -97,8 +97,8 @@ export const journalEntries = pgTable("journal_entries", {
   projectId: text("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   amount: numeric("amount", { precision: 10, scale: 2 }).notNull(), // e.g., quantity of items
   price: numeric("price", { precision: 10, scale: 2 }).notNull(), // Price per unit (can be negative or positive)
-  typeId: text("type_id").notNull().references(() => entryTypes.id), // Entry type (Purchase, Payment, etc.)
-  productId: text("product_id").references(() => products.id), // Product assignment - only required for Purchase type
+  typeId: text("type_id").notNull().references(() => entryTypes.id), // Entry type (Sale, Payment, etc.)
+  productId: text("product_id").references(() => products.id), // Product assignment - only required for Sale type
   note: text("note"), // Optional note
   timestamp: timestamp("timestamp").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
