@@ -30,6 +30,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
+import { DateTimePicker } from "@/components/ui/date-time-picker"
 import { createEntry, createEntryWithPayment } from "@/lib/actions/entries"
 import { getEntryTypes } from "@/lib/actions/entry-types"
 import { getProducts } from "@/lib/actions/products"
@@ -59,7 +60,7 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
   const [typeId, setTypeId] = useState("")
   const [productId, setProductId] = useState("")
   const [note, setNote] = useState("")
-  const [timestamp, setTimestamp] = useState("")
+  const [timestamp, setTimestamp] = useState<Date | undefined>(new Date())
   const [paidImmediately, setPaidImmediately] = useState(false)
   const [entryTypes, setEntryTypes] = useState<EntryType[]>([])
   const [products, setProducts] = useState<Product[]>([])
@@ -72,11 +73,7 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
     if (open) {
       loadData()
       // Set default timestamp to current date/time
-      const now = new Date()
-      const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
-        .toISOString()
-        .slice(0, 16)
-      setTimestamp(localDateTime)
+      setTimestamp(new Date())
     } else {
       // Reset form when dialog closes
       setAmount("")
@@ -136,8 +133,8 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
         return
       }
 
-      // Convert local datetime to ISO string
-      const timestampISO = timestamp ? new Date(timestamp).toISOString() : undefined
+      // Convert datetime to ISO string
+      const timestampISO = timestamp ? timestamp.toISOString() : undefined
 
       if (isPurchaseWithPayment) {
         // Create both purchase and payment entries
@@ -151,12 +148,8 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
       setAmount("")
       setPrice("")
       setNote("")
+      setTimestamp(new Date())
       setPaidImmediately(false)
-      const now = new Date()
-      const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
-        .toISOString()
-        .slice(0, 16)
-      setTimestamp(localDateTime)
       if (entryTypes.length > 0) {
         setTypeId(entryTypes[0].id)
       }
@@ -259,12 +252,10 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="timestamp">Date & Time</Label>
-                <Input
-                  id="timestamp"
-                  type="datetime-local"
-                  value={timestamp}
-                  onChange={(e) => setTimestamp(e.target.value)}
-                  required
+                <DateTimePicker
+                  date={timestamp}
+                  setDate={setTimestamp}
+                  placeholder="Select date and time"
                 />
                 <p className="text-xs text-muted-foreground">
                   When this transaction occurred (defaults to now)
@@ -309,7 +300,7 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
           </form>
         </DialogContent>
       </Dialog>
-      
+
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>

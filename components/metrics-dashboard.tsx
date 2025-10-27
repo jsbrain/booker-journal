@@ -2,9 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/button"
+import { DateRangePicker } from "@/components/ui/date-range-picker"
+import type { DateRange } from "react-day-picker"
 import { getProjectMetrics, getGlobalMetrics, getCurrentMonthRange, type ProjectMetrics } from "@/lib/actions/metrics"
 import { TrendingUp, TrendingDown, DollarSign, Package, ShoppingCart } from "lucide-react"
 
@@ -17,93 +16,45 @@ type DatePreset = "all" | "this-year" | "last-year" | "this-month" | "last-month
 export function MetricsDashboard({ projectId }: MetricsDashboardProps) {
   const [metrics, setMetrics] = useState<ProjectMetrics | null>(null)
   const [loading, setLoading] = useState(true)
-  const [startDate, setStartDate] = useState("")
-  const [endDate, setEndDate] = useState("")
-  const [preset, setPreset] = useState<DatePreset>("all")
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
 
   useEffect(() => {
-    // Set default to all time for global view, current month for project view
-    if (projectId) {
-      setPreset("this-month")
-      loadDefaultDates()
-    } else {
-      setPreset("all")
-      setAllTimeDates()
+    // Set default to current month
+    const loadDefaultDates = async () => {
+      const { startDate: start, endDate: end } = await getCurrentMonthRange()
+      setDateRange({
+        from: new Date(start),
+        to: new Date(end),
+      })
     }
+    loadDefaultDates()
   }, [projectId])
 
-  const loadDefaultDates = async () => {
-    const { startDate: start, endDate: end } = await getCurrentMonthRange()
-    setStartDate(new Date(start).toISOString().split("T")[0])
-    setEndDate(new Date(end).toISOString().split("T")[0])
-  }
-
-  const setAllTimeDates = () => {
-    // Set to a very early date and today
-    setStartDate("2020-01-01")
-    setEndDate(new Date().toISOString().split("T")[0])
-  }
-
-  const applyPreset = (presetValue: DatePreset) => {
-    setPreset(presetValue)
-    const now = new Date()
-    
-    switch (presetValue) {
-      case "all":
-        setStartDate("2020-01-01")
-        setEndDate(now.toISOString().split("T")[0])
-        break
-      case "this-year":
-        setStartDate(new Date(now.getFullYear(), 0, 1).toISOString().split("T")[0])
-        setEndDate(now.toISOString().split("T")[0])
-        break
-      case "last-year":
-        setStartDate(new Date(now.getFullYear() - 1, 0, 1).toISOString().split("T")[0])
-        setEndDate(new Date(now.getFullYear() - 1, 11, 31).toISOString().split("T")[0])
-        break
-      case "this-month":
-        setStartDate(new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0])
-        setEndDate(now.toISOString().split("T")[0])
-        break
-      case "last-month":
-        const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-        const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0)
-        setStartDate(lastMonth.toISOString().split("T")[0])
-        setEndDate(lastMonthEnd.toISOString().split("T")[0])
-        break
-      case "last-14-days":
-        const fourteenDaysAgo = new Date(now)
-        fourteenDaysAgo.setDate(now.getDate() - 14)
-        setStartDate(fourteenDaysAgo.toISOString().split("T")[0])
-        setEndDate(now.toISOString().split("T")[0])
-        break
-      case "custom":
-        // Don't change dates, let user pick
-        break
-    }
-  }
-
   useEffect(() => {
-    if (startDate && endDate) {
+    if (dateRange?.from && dateRange?.to) {
       loadMetrics()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startDate, endDate, projectId])
+  }, [dateRange, projectId])
 
   const loadMetrics = async () => {
-    if (!startDate || !endDate) return
+    if (!dateRange?.from || !dateRange?.to) return
     
     setLoading(true)
     try {
+      // Create a copy of the end date and set time to end of day
+      const endOfDay = new Date(dateRange.to)
+      endOfDay.setHours(23, 59, 59, 999)
+      
       const data = projectId
         ? await getProjectMetrics(
             projectId,
-            new Date(startDate).toISOString(),
-            new Date(endDate + "T23:59:59").toISOString()
+            dateRange.from.toISOString(),
+            endOfDay.toISOString()
           )
         : await getGlobalMetrics(
-            new Date(startDate).toISOString(),
-            new Date(endDate + "T23:59:59").toISOString()
+            dateRange.from.toISOString(),
+            endOfDay.toISOString()
           )
       setMetrics(data)
     } catch (error) {
@@ -143,88 +94,7 @@ export function MetricsDashboard({ projectId }: MetricsDashboardProps) {
           <CardDescription>Choose the date range for metrics</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {/* Preset buttons */}
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant={preset === "all" ? "default" : "outline"}
-                size="sm"
-                onClick={() => applyPreset("all")}
-              >
-                All Time
-              </Button>
-              <Button
-                variant={preset === "this-year" ? "default" : "outline"}
-                size="sm"
-                onClick={() => applyPreset("this-year")}
-              >
-                This Year
-              </Button>
-              <Button
-                variant={preset === "last-year" ? "default" : "outline"}
-                size="sm"
-                onClick={() => applyPreset("last-year")}
-              >
-                Last Year
-              </Button>
-              <Button
-                variant={preset === "this-month" ? "default" : "outline"}
-                size="sm"
-                onClick={() => applyPreset("this-month")}
-              >
-                This Month
-              </Button>
-              <Button
-                variant={preset === "last-month" ? "default" : "outline"}
-                size="sm"
-                onClick={() => applyPreset("last-month")}
-              >
-                Last Month
-              </Button>
-              <Button
-                variant={preset === "last-14-days" ? "default" : "outline"}
-                size="sm"
-                onClick={() => applyPreset("last-14-days")}
-              >
-                Last 14 Days
-              </Button>
-              <Button
-                variant={preset === "custom" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setPreset("custom")}
-              >
-                Custom
-              </Button>
-            </div>
-            
-            {/* Date inputs */}
-            <div className="flex gap-4">
-              <div className="flex-1 space-y-2">
-                <Label htmlFor="startDate">Start Date</Label>
-                <Input
-                  id="startDate"
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => {
-                    setStartDate(e.target.value)
-                    setPreset("custom")
-                  }}
-                />
-              </div>
-              <div className="flex-1 space-y-2">
-                <Label htmlFor="endDate">End Date</Label>
-                <Input
-                  id="endDate"
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => {
-                    setEndDate(e.target.value)
-                    setPreset("custom")
-                  }}
-                />
-              </div>
-            </div>
-          </div>
+          <DateRangePicker dateRange={dateRange} setDateRange={setDateRange} />
         </CardContent>
       </Card>
 
