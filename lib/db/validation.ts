@@ -53,7 +53,7 @@ export const createEntryInputSchema = Type.Object({
   amount: Type.Number(),
   price: Type.Number(),
   typeId: Type.String({ minLength: 1 }),
-  productId: Type.String({ minLength: 1 }),
+  productId: Type.Optional(Type.String({ minLength: 1 })), // Optional - only required for Purchase type
   note: Type.Optional(Type.String({ maxLength: 1000 })),
   timestamp: Type.Optional(Type.String()), // ISO date string
 });

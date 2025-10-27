@@ -5,7 +5,7 @@ import { projects, journalEntries } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { eq, desc, and } from "drizzle-orm";
-import { seedEntryTypes, seedProducts } from "@/lib/db/seed";
+import { seedEntryTypes, seedProducts } from "@/lib/db/seed-data";
 import { validate } from "@/lib/db/validate";
 import {
   createProjectInputSchema,
@@ -55,18 +55,28 @@ export async function createProject(name: string, initialAmount: number) {
   
   // Get the first entry type (e.g., "Purchase" or whatever is first)
   const entryTypesList = await db.query.entryTypes.findMany();
-  const defaultType = entryTypesList[0];
+  const paymentType = entryTypesList.find(t => t.key === "payment");
+  const purchaseType = entryTypesList.find(t => t.key === "purchase");
+  
+  // Use payment type for positive amounts, purchase for negative
+  const defaultType = initialAmount >= 0 
+    ? (paymentType || entryTypesList[0])
+    : (purchaseType || entryTypesList[0]);
   
   if (!defaultType) {
     throw new Error("No entry types found");
   }
   
-  // Get the first product (e.g., "Cash" or whatever is first)
-  const productsList = await db.query.products.findMany();
-  const defaultProduct = productsList[0];
-  
-  if (!defaultProduct) {
-    throw new Error("No products found");
+  // Only get product if it's a purchase type
+  let productId = null;
+  if (defaultType.key === "purchase") {
+    const productsList = await db.query.products.findMany();
+    const defaultProduct = productsList[0];
+    
+    if (!defaultProduct) {
+      throw new Error("No products found");
+    }
+    productId = defaultProduct.id;
   }
   
   // Create initial journal entry
@@ -75,7 +85,7 @@ export async function createProject(name: string, initialAmount: number) {
     amount: "1",
     price: initialAmount.toString(),
     typeId: defaultType.id,
-    productId: defaultProduct.id,
+    productId,
     note: "Initial entry",
   });
   

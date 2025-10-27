@@ -67,6 +67,7 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [selectedTypeKey, setSelectedTypeKey] = useState("")
 
   useEffect(() => {
     if (open) {
@@ -93,6 +94,7 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
       setProducts(prods)
       if (types.length > 0) {
         setTypeId(types[0].id)
+        setSelectedTypeKey(types[0].key)
       }
       if (prods.length > 0) {
         setProductId(prods[0].id)
@@ -133,13 +135,13 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
 
       // Convert datetime to ISO string
       const timestampISO = timestamp ? timestamp.toISOString() : undefined
-      
+
       if (isPurchaseWithPayment) {
         // Create both purchase and payment entries
-        await createEntryWithPayment(projectId, amountNum, priceNum, typeId, productId, note || undefined, timestampISO)
+        await createEntryWithPayment(projectId, amountNum, priceNum, typeId, selectedTypeKey === "purchase" ? productId : undefined, note || undefined, timestampISO)
       } else {
         // Create single entry
-        await createEntry(projectId, amountNum, priceNum, typeId, productId, note || undefined, timestampISO)
+        await createEntry(projectId, amountNum, priceNum, typeId, selectedTypeKey === "purchase" ? productId : undefined, note || undefined, timestampISO)
       }
       
       // Reset form
@@ -178,7 +180,17 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
                 <Label htmlFor="type">Type</Label>
-                <Select value={typeId} onValueChange={setTypeId} required>
+                <Select
+                  value={typeId}
+                  onValueChange={(value) => {
+                    setTypeId(value)
+                    const type = entryTypes.find(t => t.id === value)
+                    if (type) {
+                      setSelectedTypeKey(type.key)
+                    }
+                  }}
+                  required
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
@@ -191,21 +203,26 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="product">Product</Label>
-                <Select value={productId} onValueChange={setProductId} required>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select product" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {products.map((product) => (
-                      <SelectItem key={product.id} value={product.id}>
-                        {product.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {selectedTypeKey === "purchase" && (
+                <div className="grid gap-2">
+                  <Label htmlFor="product">Product</Label>
+                  <Select value={productId} onValueChange={setProductId} required>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select product" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {products.map((product) => (
+                        <SelectItem key={product.id} value={product.id}>
+                          {product.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Product is only used for purchase type entries
+                  </p>
+                </div>
+              )}
               <div className="grid gap-2">
                 <Label htmlFor="amount">Amount/Quantity</Label>
                 <Input
@@ -290,20 +307,17 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
             <AlertDialogTitle>Confirm Immediate Payment</AlertDialogTitle>
             <AlertDialogDescription>
               This will create two entries:
-              <br />
-              1. A purchase entry (expense) with the details you provided
-              <br />
-              2. A payment entry (income) with the same amount to offset the debt
-              <br /><br />
-              Continue?
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>A purchase entry with the specified amount and price</li>
+                <li>An automatic payment entry to offset the purchase</li>
+              </ul>
+              Are you sure you want to proceed?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setShowConfirmDialog(false)}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={() => createEntryInternal(true)}>
-              Confirm
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => createEntryInternal(true)} disabled={loading}>
+              {loading ? "Creating..." : "Confirm"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

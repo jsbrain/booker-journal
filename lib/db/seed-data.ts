@@ -1,8 +1,9 @@
 /**
- * Seed data script for Booker Journal
+ * Comprehensive seed data script for Booker Journal
  * 
  * Creates:
  * - Default user: Admin (manuel.maute@bradbit.com, pw: examplepassword)
+ * - Entry types: Purchase, Payment, Refund, Adjustment
  * - 3 products: c (Blumen, 40€), p (Schokolade, 2€), g (Pfanne, 4.50€)
  * - 3 initial inventory purchases with specific dates
  * - 3 projects with different starting balances
@@ -18,7 +19,7 @@ import { nanoid } from "nanoid";
 const SEED_USER = {
   email: "manuel.maute@bradbit.com",
   name: "Admin",
-  password: "examplepassword",  // Changed to meet minimum length requirement
+  password: "examplepassword",
 };
 
 const SEED_PRODUCTS = [
@@ -33,6 +34,45 @@ const SEED_ENTRY_TYPES = [
   { key: "refund", name: "Refund" },
   { key: "adjustment", name: "Adjustment" },
 ];
+
+// Standalone seed functions for use by server actions
+export async function seedEntryTypes() {
+  try {
+    for (const type of SEED_ENTRY_TYPES) {
+      const existing = await db.query.entryTypes.findFirst({
+        where: (entryTypes, { eq }) => eq(entryTypes.key, type.key),
+      });
+      
+      if (!existing) {
+        await db.insert(entryTypes).values(type);
+        console.log(`Created entry type: ${type.name}`);
+      }
+    }
+    console.log("Entry types seeded successfully");
+  } catch (error) {
+    console.error("Error seeding entry types:", error);
+    throw error;
+  }
+}
+
+export async function seedProducts() {
+  try {
+    for (const product of SEED_PRODUCTS) {
+      const existing = await db.query.products.findFirst({
+        where: (products, { eq }) => eq(products.key, product.key),
+      });
+      
+      if (!existing) {
+        await db.insert(products).values(product);
+        console.log(`Created product: ${product.name}`);
+      }
+    }
+    console.log("Products seeded successfully");
+  } catch (error) {
+    console.error("Error seeding products:", error);
+    throw error;
+  }
+}
 
 export async function seedDatabase() {
   console.log("🌱 Starting database seeding...");
@@ -74,16 +114,7 @@ export async function seedDatabase() {
 
     // 2. Create/verify entry types
     console.log("📝 Creating entry types...");
-    for (const type of SEED_ENTRY_TYPES) {
-      const existing = await db.query.entryTypes.findFirst({
-        where: (types, { eq }) => eq(types.key, type.key),
-      });
-      
-      if (!existing) {
-        await db.insert(entryTypes).values(type);
-        console.log(`   ✓ Created entry type: ${type.name}`);
-      }
-    }
+    await seedEntryTypes();
 
     // Get entry types for later use
     const purchaseType = await db.query.entryTypes.findFirst({
@@ -99,20 +130,15 @@ export async function seedDatabase() {
 
     // 3. Create/verify products
     console.log("📦 Creating products...");
-    const productIds: Record<string, string> = {};
+    await seedProducts();
     
+    const productIds: Record<string, string> = {};
     for (const product of SEED_PRODUCTS) {
       const existing = await db.query.products.findFirst({
         where: (prods, { eq }) => eq(prods.key, product.key),
       });
-      
       if (existing) {
         productIds[product.key] = existing.id;
-        console.log(`   Product ${product.name} already exists`);
-      } else {
-        const [newProduct] = await db.insert(products).values(product).returning();
-        productIds[product.key] = newProduct.id;
-        console.log(`   ✓ Created product: ${product.name} (${product.defaultBuyingPrice}€)`);
       }
     }
 
@@ -191,7 +217,7 @@ export async function seedDatabase() {
     for (const project of createdProjects) {
       console.log(`   Creating entries for ${project.name}...`);
       
-      // Create initial balance entry if not zero
+      // Create initial balance entry if not zero (no product for non-purchase entries)
       if (project.initialBalance !== 0) {
         const initialDate = new Date("2024-12-01T10:00:00Z");
         await db.insert(journalEntries).values({
@@ -199,7 +225,7 @@ export async function seedDatabase() {
           amount: "1",
           price: project.initialBalance.toString(),
           typeId: project.initialBalance > 0 ? paymentType.id : purchaseType.id,
-          productId: productIds["c"], // Use Cash (Blumen) for initial balance
+          productId: project.initialBalance > 0 ? null : productIds["c"], // Only purchases get products
           note: "Initial balance",
           timestamp: initialDate,
         });
@@ -212,20 +238,6 @@ export async function seedDatabase() {
       const timeRange = endDate.getTime() - startDate.getTime();
 
       for (let i = 0; i < numEvents; i++) {
-        // Random product
-        const productKeys = Object.keys(productIds);
-        const randomProductKey = productKeys[Math.floor(Math.random() * productKeys.length)];
-        const productId = productIds[randomProductKey];
-        
-        // Random amount (1-50 units)
-        const amount = Math.floor(Math.random() * 50) + 1;
-        
-        // Random price based on product (with some variation)
-        const product = SEED_PRODUCTS.find(p => p.key === randomProductKey);
-        const basePrice = product ? parseFloat(product.defaultBuyingPrice) : 10;
-        const priceVariation = basePrice * 0.2; // ±20% variation
-        const price = basePrice + (Math.random() * priceVariation * 2 - priceVariation);
-        
         // Random timestamp
         const randomTime = Math.random() * timeRange;
         const timestamp = new Date(startDate.getTime() + randomTime);
@@ -234,18 +246,36 @@ export async function seedDatabase() {
         const isPurchase = Math.random() > 0.3; // 70% purchases, 30% payments
         const typeId = isPurchase ? purchaseType.id : paymentType.id;
         
-        // For purchases, make price negative; for payments, positive
-        const finalPrice = isPurchase ? -Math.abs(price) : Math.abs(price);
+        // Random amount (1-50 units)
+        const amount = Math.floor(Math.random() * 50) + 1;
+        
+        let productId = null;
+        let price = 0;
+        
+        if (isPurchase) {
+          // For purchases, select a random product and use its price
+          const productKeys = Object.keys(productIds);
+          const randomProductKey = productKeys[Math.floor(Math.random() * productKeys.length)];
+          productId = productIds[randomProductKey];
+          
+          const product = SEED_PRODUCTS.find(p => p.key === randomProductKey);
+          const basePrice = product ? parseFloat(product.defaultBuyingPrice) : 10;
+          const priceVariation = basePrice * 0.2; // ±20% variation
+          price = -(basePrice + (Math.random() * priceVariation * 2 - priceVariation));
+        } else {
+          // For payments, no product, just a random positive amount
+          price = Math.random() * 100 + 10; // 10-110
+        }
         
         await db.insert(journalEntries).values({
           projectId: project.id,
           amount: amount.toString(),
-          price: finalPrice.toFixed(2),
+          price: price.toFixed(2),
           typeId,
           productId,
           note: isPurchase 
-            ? `Purchase of ${product?.name || 'product'}` 
-            : `Payment for ${product?.name || 'product'}`,
+            ? `Purchase of product` 
+            : `Payment received`,
           timestamp,
         });
       }
