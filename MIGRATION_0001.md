@@ -11,13 +11,16 @@ This migration changes the `inventory_purchases` table from being project-specif
 3. Added foreign key constraint from `inventory_purchases.user_id` to `user.id`
 
 ### Data Migration Notes
-**IMPORTANT:** If you have existing data in `inventory_purchases`:
-- The migration will rename `project_id` to `user_id`
-- You need to update the values to point to user IDs instead of project IDs
-- SQL to migrate data (run BEFORE applying the migration):
+**CRITICAL TIMING**: The migration renames the column from `project_id` to `user_id`. You MUST migrate the data values BEFORE the column rename occurs.
+
+If you have existing data in `inventory_purchases`:
+
+**Step 1: Migrate the data (BEFORE schema changes)**
+Run this SQL while the column is still named `project_id`:
 
 ```sql
 -- Update inventory_purchases to use user_id from the project's owner
+-- This must be run BEFORE the migration renames the column
 UPDATE inventory_purchases ip
 SET project_id = (
   SELECT p.user_id 
@@ -25,6 +28,11 @@ SET project_id = (
   WHERE p.id = ip.project_id
 );
 ```
+
+**Step 2: Apply the schema migration**
+After Step 1 is complete, apply the migration which will rename the column.
+
+**Warning**: If you run the migration first, the column will be renamed to `user_id` and the above SQL will fail because `project_id` no longer exists.
 
 ### How to Apply
 

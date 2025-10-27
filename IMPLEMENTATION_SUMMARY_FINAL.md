@@ -122,22 +122,32 @@ bun run db:push
 This creates all tables with the new structure.
 
 ### If You Have Existing Data
-1. **IMPORTANT**: Run this SQL FIRST to migrate data:
-   ```sql
-   UPDATE inventory_purchases ip
-   SET project_id = (
-     SELECT p.user_id 
-     FROM projects p 
-     WHERE p.id = ip.project_id
-   );
-   ```
 
-2. Then apply the migration:
-   ```bash
-   bun run db:push
-   ```
+**CRITICAL**: The migration renames `project_id` to `user_id`. You must migrate the data BEFORE the column rename happens.
 
-See `MIGRATION_0001.md` for detailed migration steps.
+#### Step 1: Migrate the Data (BEFORE applying migration)
+Run this SQL to update the values while the column is still named `project_id`:
+
+```sql
+-- This updates project_id values to point to user_id BEFORE the column rename
+UPDATE inventory_purchases ip
+SET project_id = (
+  SELECT p.user_id 
+  FROM projects p 
+  WHERE p.id = ip.project_id
+);
+```
+
+#### Step 2: Apply the Schema Migration
+Now apply the migration which will rename `project_id` to `user_id`:
+
+```bash
+bun run db:push
+```
+
+**Important**: If you apply the migration first, the column will be renamed and you won't be able to run the data migration query above. Always do Step 1 before Step 2.
+
+See `MIGRATION_0001.md` for detailed migration steps and rollback instructions.
 
 ## Files Changed
 
@@ -160,7 +170,7 @@ See `MIGRATION_0001.md` for detailed migration steps.
 
 ## All Requirements Met ✅
 
-From your issue:
+From the original GitHub issue "Fix the whole system" (#[issue-number]):
 - ✅ Admin can create products in admin panel
 - ✅ Admin buys inventory globally (not per customer)
 - ✅ Inventory is tracked: purchases - sales across all customers
