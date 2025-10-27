@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { DateRangePicker } from "@/components/ui/date-range-picker"
 import type { DateRange } from "react-day-picker"
@@ -14,6 +14,7 @@ interface MetricsDashboardProps {
 
 export function MetricsDashboard({ projectId }: MetricsDashboardProps) {
   const router = useRouter()
+  const pathname = usePathname()
   const searchParams = useSearchParams()
   const [metrics, setMetrics] = useState<ProjectMetrics | null>(null)
   const [loading, setLoading] = useState(true)
@@ -26,11 +27,24 @@ export function MetricsDashboard({ projectId }: MetricsDashboardProps) {
       const toParam = searchParams.get("to")
       
       if (fromParam && toParam) {
-        // Use dates from URL
-        setDateRange({
-          from: new Date(fromParam),
-          to: new Date(toParam),
-        })
+        // Validate and use dates from URL
+        const fromDate = new Date(fromParam)
+        const toDate = new Date(toParam)
+        
+        // Check if dates are valid
+        if (!isNaN(fromDate.getTime()) && !isNaN(toDate.getTime())) {
+          setDateRange({
+            from: fromDate,
+            to: toDate,
+          })
+        } else {
+          // Fall back to current month if dates are invalid
+          const { startDate: start, endDate: end } = await getCurrentMonthRange()
+          setDateRange({
+            from: new Date(start),
+            to: new Date(end),
+          })
+        }
       } else {
         // Set default to current month
         const { startDate: start, endDate: end } = await getCurrentMonthRange()
@@ -86,9 +100,8 @@ export function MetricsDashboard({ projectId }: MetricsDashboardProps) {
       params.set("from", newDateRange.from.toISOString())
       params.set("to", newDateRange.to.toISOString())
       
-      // Preserve the tab parameter if it exists
-      const currentPath = window.location.pathname
-      router.push(`${currentPath}?${params.toString()}`)
+      // Preserve the tab parameter and other existing params
+      router.push(`${pathname}?${params.toString()}`)
     }
   }
 
