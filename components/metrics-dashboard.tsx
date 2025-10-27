@@ -30,13 +30,6 @@ export function MetricsDashboard({ projectId }: MetricsDashboardProps) {
     loadDefaultDates()
   }, [projectId])
 
-  useEffect(() => {
-    if (dateRange?.from && dateRange?.to) {
-      loadMetrics()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateRange, projectId])
-
   const loadMetrics = async () => {
     if (!dateRange?.from || !dateRange?.to) return
     
@@ -64,6 +57,18 @@ export function MetricsDashboard({ projectId }: MetricsDashboardProps) {
     }
   }
 
+  // Use stable date string representation for dependency tracking
+  const dateRangeKey = dateRange?.from && dateRange?.to 
+    ? `${dateRange.from.toISOString()}_${dateRange.to.toISOString()}`
+    : null
+
+  useEffect(() => {
+    if (dateRangeKey) {
+      loadMetrics()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateRangeKey, projectId])
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -88,15 +93,11 @@ export function MetricsDashboard({ projectId }: MetricsDashboardProps) {
   return (
     <div className="space-y-6">
       {/* Date Range Selector */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Period Selection</CardTitle>
-          <CardDescription>Choose the date range for metrics</CardDescription>
-        </CardHeader>
-        <CardContent>
+      <div className="flex items-center gap-4">
+        <div className="flex-1 max-w-md">
           <DateRangePicker dateRange={dateRange} setDateRange={setDateRange} />
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Key Metrics */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
