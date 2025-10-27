@@ -223,10 +223,10 @@ function DashboardContent() {
             <div className="mb-6">
               <h2 className="text-2xl font-bold">Global Inventory</h2>
               <p className="text-sm text-muted-foreground">
-                Inventory across all your projects
+                Manage your global inventory across all customers
               </p>
             </div>
-            <InventoryList projectId={null} />
+            <InventoryList />
           </div>
         )}
       </main>

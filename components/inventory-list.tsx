@@ -4,16 +4,12 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Trash2, Plus } from "lucide-react"
-import { getInventoryPurchases, getGlobalInventory, deleteInventoryPurchase, getCurrentInventory } from "@/lib/actions/inventory"
+import { getInventoryPurchases, deleteInventoryPurchase, getCurrentInventory } from "@/lib/actions/inventory"
 import { CreateInventoryPurchaseDialog } from "./create-inventory-purchase-dialog"
-
-interface InventoryListProps {
-  projectId: string | null  // null means global inventory
-}
 
 type InventoryPurchase = {
   id: string
-  projectId: string
+  userId: string
   productId: string
   quantity: string
   buyingPrice: string
@@ -23,10 +19,6 @@ type InventoryPurchase = {
   product: {
     id: string
     key: string
-    name: string
-  }
-  project?: {
-    id: string
     name: string
   }
 }
@@ -41,7 +33,7 @@ type InventorySummary = {
   totalCost: number
 }
 
-export function InventoryList({ projectId }: InventoryListProps) {
+export function InventoryList() {
   const [purchases, setPurchases] = useState<InventoryPurchase[]>([])
   const [inventorySummary, setInventorySummary] = useState<InventorySummary[]>([])
   const [loading, setLoading] = useState(true)
@@ -49,16 +41,15 @@ export function InventoryList({ projectId }: InventoryListProps) {
 
   useEffect(() => {
     loadInventoryData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId])
+  }, [])
 
   const loadInventoryData = async () => {
     setLoading(true)
     try {
       // Load both purchase history and current inventory summary
       const [purchasesData, summaryData] = await Promise.all([
-        projectId ? getInventoryPurchases(projectId) : getGlobalInventory(),
-        getCurrentInventory(projectId),
+        getInventoryPurchases(),
+        getCurrentInventory(),
       ])
       setPurchases(purchasesData)
       setInventorySummary(summaryData)
@@ -69,13 +60,13 @@ export function InventoryList({ projectId }: InventoryListProps) {
     }
   }
 
-  const handleDelete = async (purchaseId: string, purchaseProjectId: string) => {
+  const handleDelete = async (purchaseId: string) => {
     if (!confirm("Are you sure you want to delete this purchase?")) {
       return
     }
 
     try {
-      await deleteInventoryPurchase(purchaseId, purchaseProjectId)
+      await deleteInventoryPurchase(purchaseId)
       loadInventoryData()
     } catch (error) {
       console.error("Failed to delete purchase:", error)
@@ -114,15 +105,13 @@ export function InventoryList({ projectId }: InventoryListProps) {
             <div>
               <CardTitle>Inventory Summary</CardTitle>
               <CardDescription>
-                {projectId ? "Current inventory by product" : "Global current inventory by product"}
+                Global inventory levels across all customers
               </CardDescription>
             </div>
-            {projectId && (
-              <Button onClick={() => setShowCreateDialog(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Purchase
-              </Button>
-            )}
+            <Button onClick={() => setShowCreateDialog(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Purchase
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -162,7 +151,7 @@ export function InventoryList({ projectId }: InventoryListProps) {
       <Card>
         <CardHeader>
           <CardTitle>Purchase History</CardTitle>
-          <CardDescription>All inventory purchases</CardDescription>
+          <CardDescription>All global inventory purchases</CardDescription>
         </CardHeader>
         <CardContent>
           {purchases.length === 0 ? (
@@ -170,12 +159,10 @@ export function InventoryList({ projectId }: InventoryListProps) {
               <p className="mb-4 text-sm text-muted-foreground">
                 No purchases recorded yet
               </p>
-              {projectId && (
-                <Button onClick={() => setShowCreateDialog(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add First Purchase
-                </Button>
-              )}
+              <Button onClick={() => setShowCreateDialog(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add First Purchase
+              </Button>
             </div>
           ) : (
             <div className="space-y-2">
@@ -189,14 +176,6 @@ export function InventoryList({ projectId }: InventoryListProps) {
                         <span className="text-sm text-muted-foreground">
                           {formatDate(purchase.purchaseDate)}
                         </span>
-                        {!projectId && purchase.project && (
-                          <>
-                            <span className="text-sm text-muted-foreground">•</span>
-                            <span className="text-sm text-muted-foreground">
-                              {purchase.project.name}
-                            </span>
-                          </>
-                        )}
                       </div>
                       {purchase.note && (
                         <p className="text-sm text-muted-foreground">{purchase.note}</p>
@@ -214,7 +193,7 @@ export function InventoryList({ projectId }: InventoryListProps) {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleDelete(purchase.id, purchase.projectId)}
+                        onClick={() => handleDelete(purchase.id)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -227,14 +206,11 @@ export function InventoryList({ projectId }: InventoryListProps) {
         </CardContent>
       </Card>
 
-      {projectId && (
-        <CreateInventoryPurchaseDialog
-          open={showCreateDialog}
-          onOpenChange={setShowCreateDialog}
-          projectId={projectId}
-          onSuccess={handleSuccess}
-        />
-      )}
+      <CreateInventoryPurchaseDialog
+        open={showCreateDialog}
+        onOpenChange={setShowCreateDialog}
+        onSuccess={handleSuccess}
+      />
     </div>
   )
 }
