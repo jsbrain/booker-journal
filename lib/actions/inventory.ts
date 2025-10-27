@@ -1,10 +1,10 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { inventoryPurchases, projects } from "@/lib/db/schema";
+import { inventoryPurchases, projects, journalEntries } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, inArray } from "drizzle-orm";
 import { validate } from "@/lib/db/validate";
 import {
   createInventoryPurchaseInputSchema,
@@ -330,7 +330,6 @@ export async function getCurrentInventoryState(projectId: string | null) {
   }
   
   // Get all inventory purchases for the projects
-  const { inArray } = await import('drizzle-orm');
   const purchases = await db.query.inventoryPurchases.findMany({
     where: projectIds.length === 1 
       ? eq(inventoryPurchases.projectId, projectIds[0])
@@ -341,11 +340,10 @@ export async function getCurrentInventoryState(projectId: string | null) {
   });
   
   // Get all journal entries (sales) for the projects
-  const { journalEntries: journalEntriesTable } = await import('@/lib/db/schema');
   const entries = await db.query.journalEntries.findMany({
     where: projectIds.length === 1
-      ? eq(journalEntriesTable.projectId, projectIds[0])
-      : inArray(journalEntriesTable.projectId, projectIds),
+      ? eq(journalEntries.projectId, projectIds[0])
+      : inArray(journalEntries.projectId, projectIds),
     with: {
       product: true,
     },
