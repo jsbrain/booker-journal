@@ -83,8 +83,8 @@ interface InventoryPurchaseForMetrics {
  * 
  * Business Logic:
  * - This system uses a customer debt/ledger model
- * - Purchase entries represent customers buying products (creates debt)
- * - Purchase entries use negative prices to represent the debt amount
+ * - Sale entries represent customers buying products (creates debt)
+ * - Sale entries use negative prices to represent the debt amount
  * - Revenue = absolute value of (quantity × negative_price)
  * - Example: Customer buys 10 items at -€5 each → Revenue = |10 × -5| = €50
  * 
@@ -98,7 +98,7 @@ function processJournalEntriesForMetrics(
   // Process journal entries (sales)
   for (const entry of entries) {
     const productId = entry.productId;
-    // Skip entries without products (non-purchase types)
+    // Skip entries without products (non-sale types)
     if (!productId || !entry.product) continue;
 
     const amount = parseFloat(entry.amount);
@@ -117,11 +117,11 @@ function processJournalEntriesForMetrics(
     }
     
     const productData = productMap.get(productId)!;
-    // Purchase entries represent customer sales (customer buying products from us)
-    // In this system, purchase entries use negative prices to represent customer debt
+    // Sale entries represent customer sales (customer buying products from us)
+    // In this system, sale entries use negative prices to represent customer debt
     // Revenue = absolute value of (amount × negative_price)
     // Example: Customer buys 10 items at -€5 each → Revenue = |10 × -5| = €50
-    if (entry.type.key === "purchase") {
+    if (entry.type.key === "sale") {
       productData.quantitySold += Math.abs(amount);
       productData.revenue += Math.abs(total);
     }

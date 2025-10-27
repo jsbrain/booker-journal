@@ -53,23 +53,23 @@ export async function createProject(name: string, initialAmount: number) {
     userId: user.id,
   }).returning();
   
-  // Get the first entry type (e.g., "Purchase" or whatever is first)
+  // Get the first entry type (e.g., "Sale" or whatever is first)
   const entryTypesList = await db.query.entryTypes.findMany();
   const paymentType = entryTypesList.find(t => t.key === "payment");
-  const purchaseType = entryTypesList.find(t => t.key === "purchase");
+  const saleType = entryTypesList.find(t => t.key === "sale");
   
-  // Use payment type for positive amounts, purchase for negative
+  // Use payment type for positive amounts, sale for negative
   const defaultType = initialAmount >= 0 
     ? (paymentType || entryTypesList[0])
-    : (purchaseType || entryTypesList[0]);
+    : (saleType || entryTypesList[0]);
   
   if (!defaultType) {
     throw new Error("No entry types found");
   }
   
-  // Only get product if it's a purchase type
+  // Only get product if it's a sale type
   let productId = null;
-  if (defaultType.key === "purchase") {
+  if (defaultType.key === "sale") {
     const productsList = await db.query.products.findMany();
     const defaultProduct = productsList[0];
     

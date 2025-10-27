@@ -107,11 +107,11 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    // Check if this is a Purchase entry with "Paid Immediately" checked
+    // Check if this is a Sale entry with "Paid Immediately" checked
     const selectedType = entryTypes.find(t => t.id === typeId)
-    const isPurchaseWithPayment = selectedType?.key === 'purchase' && paidImmediately
+    const isSaleWithPayment = selectedType?.key === 'sale' && paidImmediately
     
-    if (isPurchaseWithPayment) {
+    if (isSaleWithPayment) {
       // Show confirmation dialog
       setShowConfirmDialog(true)
     } else {
@@ -120,7 +120,7 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
     }
   }
   
-  const createEntryInternal = async (isPurchaseWithPayment: boolean) => {
+  const createEntryInternal = async (isSaleWithPayment: boolean) => {
     setError("")
     setLoading(true)
 
@@ -136,12 +136,12 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
       // Convert datetime to ISO string
       const timestampISO = timestamp ? timestamp.toISOString() : undefined
 
-      if (isPurchaseWithPayment) {
-        // Create both purchase and payment entries
-        await createEntryWithPayment(projectId, amountNum, priceNum, typeId, selectedTypeKey === "purchase" ? productId : undefined, note || undefined, timestampISO)
+      if (isSaleWithPayment) {
+        // Create both sale and payment entries
+        await createEntryWithPayment(projectId, amountNum, priceNum, typeId, selectedTypeKey === "sale" ? productId : undefined, note || undefined, timestampISO)
       } else {
         // Create single entry
-        await createEntry(projectId, amountNum, priceNum, typeId, selectedTypeKey === "purchase" ? productId : undefined, note || undefined, timestampISO)
+        await createEntry(projectId, amountNum, priceNum, typeId, selectedTypeKey === "sale" ? productId : undefined, note || undefined, timestampISO)
       }
       
       // Reset form
@@ -203,7 +203,7 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
                   </SelectContent>
                 </Select>
               </div>
-              {selectedTypeKey === "purchase" && (
+              {selectedTypeKey === "sale" && (
                 <div className="grid gap-2">
                   <Label htmlFor="product">Product</Label>
                   <Select value={productId} onValueChange={setProductId} required>
@@ -219,7 +219,7 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    Product is only used for purchase type entries
+                    Product is only required for sale type entries
                   </p>
                 </div>
               )}
@@ -270,7 +270,7 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
                   onChange={(e) => setNote(e.target.value)}
                 />
               </div>
-              {entryTypes.find(t => t.id === typeId)?.key === 'purchase' && (
+              {entryTypes.find(t => t.id === typeId)?.key === 'sale' && (
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="paidImmediately"
@@ -308,8 +308,8 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
             <AlertDialogDescription>
               This will create two entries:
               <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>A purchase entry with the specified amount and price</li>
-                <li>An automatic payment entry to offset the purchase</li>
+                <li>A sale entry with the specified amount and price</li>
+                <li>An automatic payment entry to offset the sale</li>
               </ul>
               Are you sure you want to proceed?
             </AlertDialogDescription>

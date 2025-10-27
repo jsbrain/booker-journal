@@ -68,14 +68,14 @@ export async function createEntry(
   const user = await getCurrentUser();
   await verifyProjectOwnership(projectId, user.id);
   
-  // Get the entry type to check if it's a purchase
+  // Get the entry type to check if it's a sale
   const entryType = await db.query.entryTypes.findFirst({
     where: eq(entryTypes.id, typeId),
   });
   
-  // If it's a purchase type, productId is required
-  if (entryType?.key === "purchase" && !productId) {
-    throw new Error("Product is required for purchase entries");
+  // If it's a sale type, productId is required
+  if (entryType?.key === "sale" && !productId) {
+    throw new Error("Product is required for sale entries");
   }
   
   const [entry] = await db.insert(journalEntries).values({
@@ -116,8 +116,8 @@ export async function createEntryWithPayment(
   
   const timestampDate = timestamp ? new Date(timestamp) : new Date();
   
-  // Create the purchase entry first
-  const [purchaseEntry] = await db.insert(journalEntries).values({
+  // Create the sale entry first
+  const [saleEntry] = await db.insert(journalEntries).values({
     projectId,
     amount: amount.toString(),
     price: price.toString(),
@@ -127,7 +127,7 @@ export async function createEntryWithPayment(
     timestamp: timestampDate,
   }).returning();
   
-  // Create the payment entry immediately after (positive price to offset the purchase)
+  // Create the payment entry immediately after (positive price to offset the sale)
   // Payment entries don't have products
   const [paymentEntry] = await db.insert(journalEntries).values({
     projectId,
@@ -139,7 +139,7 @@ export async function createEntryWithPayment(
     timestamp: timestampDate,
   }).returning();
   
-  return { purchaseEntry, paymentEntry };
+  return { saleEntry, paymentEntry };
 }
 
 export async function updateEntry(
@@ -174,17 +174,17 @@ export async function updateEntry(
     throw new Error("Entry not found");
   }
   
-  // If updating to purchase type, productId is required
+  // If updating to sale type, productId is required
   if (updates.typeId) {
     const newType = await db.query.entryTypes.findFirst({
       where: eq(entryTypes.id, updates.typeId),
     });
-    if (newType?.key === "purchase" && !updates.productId) {
-      throw new Error("Product is required for purchase entries");
+    if (newType?.key === "sale" && !updates.productId) {
+      throw new Error("Product is required for sale entries");
     }
-  } else if (currentEntry.type.key === "purchase" && updates.productId === undefined && !currentEntry.productId) {
-    // If it's already a purchase and productId wasn't provided and there isn't one already
-    throw new Error("Product is required for purchase entries");
+  } else if (currentEntry.type.key === "sale" && updates.productId === undefined && !currentEntry.productId) {
+    // If it's already a sale and productId wasn't provided and there isn't one already
+    throw new Error("Product is required for sale entries");
   }
   
   // Build edit history entry
