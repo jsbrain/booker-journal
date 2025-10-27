@@ -24,7 +24,6 @@ import { getProducts } from "@/lib/actions/products"
 interface CreateInventoryPurchaseDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  projectId: string
   onSuccess: () => void
 }
 
@@ -38,7 +37,6 @@ type Product = {
 export function CreateInventoryPurchaseDialog({
   open,
   onOpenChange,
-  projectId,
   onSuccess,
 }: CreateInventoryPurchaseDialogProps) {
   const [products, setProducts] = useState<Product[]>([])
@@ -89,7 +87,6 @@ export function CreateInventoryPurchaseDialog({
       const purchaseDateISO = purchaseDate ? new Date(purchaseDate).toISOString() : undefined
 
       await createInventoryPurchase(
-        projectId,
         productId,
         parseFloat(quantity),
         parseFloat(buyingPrice),
@@ -122,7 +119,7 @@ export function CreateInventoryPurchaseDialog({
         <DialogHeader>
           <DialogTitle>Add Inventory Purchase</DialogTitle>
           <DialogDescription>
-            Record a purchase of inventory/materials for cost tracking
+            Record a global inventory purchase for cost tracking
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">

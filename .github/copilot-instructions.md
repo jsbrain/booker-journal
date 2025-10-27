@@ -2,7 +2,9 @@
 
 ## Project Overview
 
-A Next.js 16 journal management system with project-based accounting. Uses **Bun** as the exclusive runtime and package manager, **better-auth** for authentication, **Drizzle ORM** with PostgreSQL, and **TypeBox** for validation.
+A Next.js 16 business inventory and customer sales management system. Uses **Bun** as the exclusive runtime and package manager, **better-auth** for authentication, **Drizzle ORM** with PostgreSQL, and **TypeBox** for validation.
+
+**Business Model:** Admin user manages global inventory and tracks sales to customers (projects). Each project represents a customer with their own ledger of sales, payments, and outstanding balance.
 
 ## Critical: Bun-Only Environment
 
@@ -94,7 +96,7 @@ Both `drizzle.config.ts` and `lib/auth.ts` use `expand(config())` to load variab
 
 ```bash
 # First-time setup (starts Docker PostgreSQL on port 35432)
-docker compose -f docker-compose.dev.yml up -d
+docker compose -f docker-compose.dev.yaml up -d
 bun run db:push
 
 # Schema changes workflow
@@ -108,11 +110,14 @@ bun run db:migrate           # Apply migration
 # Inspect database
 bun run db:studio            # Opens Drizzle Studio UI
 
+# Seed entry types and products
+bun run db:seed              # Runs lib/db/seed-data.ts
+
 # Stop database
-docker compose -f docker-compose.dev.yml down
+docker compose -f docker-compose.dev.yaml down
 ```
 
-**Note:** `docker-compose.dev.yml` is for local development only. Docker uses custom port 35432 (not 5432) to avoid conflicts. Database name is `booker_journal`.
+**Note:** `docker-compose.dev.yaml` is for local development only. Docker uses custom port 35432 (not 5432) to avoid conflicts. Database name is `booker_journal`.
 
 ### Running the Application
 
@@ -121,25 +126,47 @@ bun install                  # Install dependencies
 bun run dev                  # Start Next.js dev server (uses Turbopack)
 ```
 
-### Entry Types Initialization
+### Data Initialization
 
-Entry types (`Purchase`, `Payment`, `Refund`, `Adjustment`) are seeded automatically on first project creation via `seedEntryTypes()` called in `lib/actions/projects.ts`. Don't manually seed unless debugging.
+Entry types (`Sale`, `Payment`, `Refund`, `Adjustment`) and products are seeded automatically on first project creation via `seedEntryTypes()` and `seedProducts()` in `lib/db/seed-data.ts`. Can also manually seed with `bun run db:seed`.
 
 ## Project-Specific Conventions
 
+### Business Domain Model
+
+**Core Entities:**
+
+- **Admin User:** Business owner managing inventory and customers
+- **Products:** Global catalog of sellable items with optional default buying prices
+- **Inventory Purchases:** GLOBAL inventory tracked per user (not per project/customer)
+- **Projects:** Each project represents a customer with their own ledger
+- **Journal Entries:** Sales to customers, payments received, refunds, adjustments
+
+**Key Insight:** Inventory is global. When admin purchases 100 units of Product A, those units are available to sell to ANY customer, not tied to one project.
+
 ### Balance Calculation Logic
 
-Balance = Σ(amount × price) for all entries. Negative amounts = expenses, positive = income.
+Balance = Σ(amount × price) for all entries. Represents customer's outstanding balance (positive = they owe money).
 
 ```typescript
 // lib/actions/entries.ts
-export async function getProjectBalance(projectId: number) {
+export async function getProjectBalance(projectId: string) {
   const entries = await getEntries(projectId)
   return entries.reduce((sum, entry) => {
     return sum + parseFloat(entry.amount) * parseFloat(entry.price)
   }, 0)
 }
 ```
+
+### Metrics Calculation (Profit/Revenue Analysis)
+
+Uses **Average Cost Method** for COGS:
+
+1. Calculate average buying price: Total Cost ÷ Total Quantity Purchased (globally)
+2. Calculate COGS: Quantity Sold × Average Buying Price
+3. Calculate Profit: Revenue - COGS
+
+See `lib/actions/metrics.ts` for implementation details. Metrics can be viewed per-project (customer) or globally.
 
 ### Numeric Fields as Strings
 
@@ -148,6 +175,10 @@ Drizzle `numeric` columns return strings. Always parse:
 ```typescript
 const total = parseFloat(entry.amount) * parseFloat(entry.price)
 ```
+
+### ID Generation
+
+Uses `nanoid()` for all primary keys (not auto-incrementing integers). IDs are text fields.
 
 ### Shared Links Pattern
 
@@ -162,10 +193,28 @@ Read-only sharing uses secure random tokens stored in `sharedLinks` table:
 
 - **Schemas (source of truth):** `lib/db/schema.ts`
 - **Validation:** `lib/db/validation.ts` (TypeBox), `lib/db/validate.ts` (utilities)
-- **Server actions:** `lib/actions/projects.ts`, `lib/actions/entries.ts`, `lib/actions/shared-links.ts`
+- **Server actions:**
+  - `lib/actions/projects.ts` - Customer management
+  - `lib/actions/entries.ts` - Sales/payments to customers
+  - `lib/actions/inventory.ts` - Global inventory purchases
+  - `lib/actions/metrics.ts` - Profit/revenue calculations
+  - `lib/actions/products.ts` - Product catalog management
+  - `lib/actions/shared-links.ts` - Public sharing
 - **Auth config:** `lib/auth.ts` (server), `lib/auth-client.ts` (client)
-- **Dialogs:** `components/create-project-dialog.tsx`, `components/create-entry-dialog.tsx`, `components/share-project-dialog.tsx`
-- **UI components:** `components/ui/*` (shadcn-ui - DO NOT edit directly, regenerate via CLI)
+- **Data seeding:** `lib/db/seed-data.ts`
+- **Pages:**
+  - `app/dashboard/page.tsx` - Customer list with global metrics
+  - `app/dashboard/projects/[id]/page.tsx` - Customer detail (3 tabs: Entries, Metrics, Inventory)
+  - `app/dashboard/admin/page.tsx` - Product catalog management
+- **Components:**
+  - `components/create-project-dialog.tsx` - New customer
+  - `components/create-entry-dialog.tsx` - New sale/payment
+  - `components/edit-entry-dialog.tsx` - Edit existing entry
+  - `components/create-inventory-purchase-dialog.tsx` - Record inventory purchase
+  - `components/inventory-list.tsx` - Display inventory purchases
+  - `components/metrics-dashboard.tsx` - Revenue/cost/profit dashboard
+  - `components/share-project-dialog.tsx` - Generate share link
+  - `components/ui/*` (shadcn-ui - DO NOT edit directly, regenerate via CLI)
 
 ## Common Mistakes to Avoid
 
@@ -176,14 +225,27 @@ Read-only sharing uses secure random tokens stored in `sharedLinks` table:
 5. **Client/server auth mixing:** Don't use `auth.api` on client, don't use `authClient` hooks on server
 6. **Numeric precision:** Always use `parseFloat()` on numeric columns before calculations
 7. **Shadcn-ui edits:** Don't manually edit `components/ui/*`, use `bunx shadcn@latest add <component>`
+8. **Inventory scope confusion:** Inventory is GLOBAL per user, not per-project. `inventoryPurchases.userId` links to admin user, not project
+9. **ID types:** All IDs are text (nanoid), not integers. Use `text("id")` in schemas and `string` in TypeScript types
 
 ## External Dependencies
 
 - **Database:** PostgreSQL 17 (Docker) or hosted (Vercel Postgres, Supabase supported)
 - **Auth:** better-auth 1.3.29 (email/password only, no OAuth configured)
-- **UI:** shadcn-ui with Radix UI primitives, Tailwind CSS v4
+- **UI:** shadcn-ui with Radix UI primitives, Tailwind CSS v4, next-themes for dark mode
 - **ORM:** Drizzle ORM 0.44.7 with drizzle-typebox for validation
+- **Date handling:** date-fns 4.1.0 for formatting, react-day-picker 9.11.1 for date range selection
+- **IDs:** nanoid 5.1.6 for generating unique text IDs
+
+## Documentation Files
+
+- **SYSTEM_ARCHITECTURE.md:** Detailed business model and data flow explanation
+- **METRICS_IMPLEMENTATION.md:** How profit/revenue metrics are calculated
+- **API_DOCUMENTATION.md:** Server action reference
+- **VALIDATION.md:** Validation flow details
+- **DATABASE_SETUP.md:** Database setup and migration guide
+- **USER_GUIDE.md:** End-user feature documentation
 
 ## Testing Notes
 
-No test framework configured. For validation testing, use `validateSafe()` from `lib/db/validate.ts` which returns `{success, data}` or `{success, errors}`.
+Test script available at `test-metrics.ts` for verifying metrics calculations. Run with `bun run test-metrics.ts`. No formal test framework configured. For validation testing, use `validateSafe()` from `lib/db/validate.ts` which returns `{success, data}` or `{success, errors}`.

@@ -106,7 +106,6 @@ export const updateProductBuyingPriceInputSchema = Type.Object({
 
 // Inventory purchase creation input validation
 export const createInventoryPurchaseInputSchema = Type.Object({
-  projectId: Type.String({ minLength: 1 }),
   productId: Type.String({ minLength: 1 }),
   quantity: Type.Number({ minimum: 0 }),
   buyingPrice: Type.Number({ minimum: 0 }),
@@ -117,7 +116,6 @@ export const createInventoryPurchaseInputSchema = Type.Object({
 // Inventory purchase update input validation
 export const updateInventoryPurchaseInputSchema = Type.Object({
   purchaseId: Type.String({ minLength: 1 }),
-  projectId: Type.String({ minLength: 1 }),
   quantity: Type.Optional(Type.Number({ minimum: 0 })),
   buyingPrice: Type.Optional(Type.Number({ minimum: 0 })),
   note: Type.Optional(Type.String({ maxLength: 1000 })),
@@ -127,7 +125,6 @@ export const updateInventoryPurchaseInputSchema = Type.Object({
 // Delete inventory purchase input validation
 export const deleteInventoryPurchaseInputSchema = Type.Object({
   purchaseId: Type.String({ minLength: 1 }),
-  projectId: Type.String({ minLength: 1 }),
 });
 
 // Get metrics for period input validation
