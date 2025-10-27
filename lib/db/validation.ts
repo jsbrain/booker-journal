@@ -137,7 +137,10 @@ export const getMetricsInputSchema = Type.Object({
 // Shared link creation input validation
 export const createSharedLinkInputSchema = Type.Object({
   projectId: Type.String({ minLength: 1 }),
-  expiresInDays: Type.Integer({ minimum: 1, maximum: 365 }),
+  expiresInDays: Type.Optional(Type.Integer({ minimum: 1, maximum: 365 })),
+  expiresInHours: Type.Optional(Type.Integer({ minimum: 1, maximum: 8760 })), // max 365 days in hours
+  startDate: Type.Optional(Type.String()), // ISO date string
+  endDate: Type.Optional(Type.String()), // ISO date string
 });
 
 // Shared link token validation
