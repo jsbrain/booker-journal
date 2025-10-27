@@ -43,9 +43,35 @@ async function verifyProjectOwnership(projectId: string, userId: string) {
   return project;
 }
 
-export async function createSharedLink(projectId: string, expiresInDays: number) {
+export async function createSharedLink(
+  projectId: string, 
+  expiresInDays?: number, 
+  expiresInHours?: number,
+  startDate?: string,
+  endDate?: string
+) {
   // Validate input
-  validate(createSharedLinkInputSchema, { projectId, expiresInDays });
+  validate(createSharedLinkInputSchema, { 
+    projectId, 
+    expiresInDays, 
+    expiresInHours,
+    startDate,
+    endDate 
+  });
+  
+  // Validate that at least one expiration parameter is provided
+  if (!expiresInDays && !expiresInHours) {
+    throw new Error("Either expiresInDays or expiresInHours must be provided");
+  }
+  
+  // Validate date range if provided
+  if (startDate && endDate) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (start >= end) {
+      throw new Error("Start date must be before end date");
+    }
+  }
   
   const user = await getCurrentUser();
   await verifyProjectOwnership(projectId, user.id);
@@ -55,12 +81,18 @@ export async function createSharedLink(projectId: string, expiresInDays: number)
   
   // Calculate expiration date
   const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + expiresInDays);
+  if (expiresInHours) {
+    expiresAt.setHours(expiresAt.getHours() + expiresInHours);
+  } else if (expiresInDays) {
+    expiresAt.setDate(expiresAt.getDate() + expiresInDays);
+  }
   
   const [link] = await db.insert(sharedLinks).values({
     projectId,
     token,
     expiresAt,
+    startDate: startDate ? new Date(startDate) : undefined,
+    endDate: endDate ? new Date(endDate) : undefined,
   }).returning();
   
   return link;
@@ -131,7 +163,8 @@ export async function getProjectBySharedLink(token: string) {
     throw new Error("Invalid or expired link");
   }
   
-  const entries = await db.query.journalEntries.findMany({
+  // Build query with optional date filtering
+  let entries = await db.query.journalEntries.findMany({
     where: eq(journalEntries.projectId, link.projectId),
     orderBy: [desc(journalEntries.timestamp)],
     with: {
@@ -139,6 +172,23 @@ export async function getProjectBySharedLink(token: string) {
       product: true,
     },
   });
+  
+  // Filter entries by date range if specified
+  if (link.startDate || link.endDate) {
+    entries = entries.filter((entry) => {
+      const entryDate = new Date(entry.timestamp);
+      
+      if (link.startDate && entryDate < new Date(link.startDate)) {
+        return false;
+      }
+      
+      if (link.endDate && entryDate > new Date(link.endDate)) {
+        return false;
+      }
+      
+      return true;
+    });
+  }
   
   // Calculate balance
   const balance = entries.reduce((sum, entry) => {
@@ -151,5 +201,9 @@ export async function getProjectBySharedLink(token: string) {
     project: link.project,
     entries,
     balance,
+    dateRange: link.startDate || link.endDate ? {
+      startDate: link.startDate,
+      endDate: link.endDate,
+    } : null,
   };
 }

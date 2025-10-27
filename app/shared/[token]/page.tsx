@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Lock } from "lucide-react"
+import { Lock, Calendar } from "lucide-react"
 import { getProjectBySharedLink } from "@/lib/actions/shared-links"
 
 type Entry = {
@@ -36,6 +36,11 @@ type Project = {
   updatedAt: Date
 }
 
+type DateRangeInfo = {
+  startDate: Date | null
+  endDate: Date | null
+} | null
+
 export default function SharedProjectPage() {
   const params = useParams()
   const token = params.token as string
@@ -43,6 +48,7 @@ export default function SharedProjectPage() {
   const [project, setProject] = useState<Project | null>(null)
   const [entries, setEntries] = useState<Entry[]>([])
   const [balance, setBalance] = useState(0)
+  const [dateRange, setDateRange] = useState<DateRangeInfo>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
@@ -57,6 +63,7 @@ export default function SharedProjectPage() {
       setProject(data.project)
       setEntries(data.entries)
       setBalance(data.balance)
+      setDateRange(data.dateRange)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid or expired link")
     } finally {
@@ -125,13 +132,23 @@ export default function SharedProjectPage() {
           <p className="text-sm text-muted-foreground">
             Created {new Date(project.createdAt).toLocaleDateString()}
           </p>
+          {dateRange && (dateRange.startDate || dateRange.endDate) && (
+            <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+              <Calendar className="h-4 w-4" />
+              <span>
+                Showing entries from{" "}
+                {dateRange.startDate ? new Date(dateRange.startDate).toLocaleDateString() : "beginning"} to{" "}
+                {dateRange.endDate ? new Date(dateRange.endDate).toLocaleDateString() : "end"}
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="mb-6 grid gap-4 md:grid-cols-2">
           <Card>
             <CardHeader>
               <CardTitle>Current Balance</CardTitle>
-              <CardDescription>Total of all entries</CardDescription>
+              <CardDescription>Total of all {dateRange ? "filtered" : ""} entries</CardDescription>
             </CardHeader>
             <CardContent>
               <div className={`text-3xl font-bold ${balance >= 0 ? "text-green-600" : "text-red-600"}`}>
@@ -172,7 +189,7 @@ export default function SharedProjectPage() {
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <p className="text-sm text-muted-foreground">
-                No entries yet
+                {dateRange ? "No entries in the selected date range" : "No entries yet"}
               </p>
             </CardContent>
           </Card>

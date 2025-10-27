@@ -13,8 +13,11 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { DateRangePicker } from "@/components/ui/date-range-picker"
 import { createSharedLink, getSharedLinks, deleteSharedLink } from "@/lib/actions/shared-links"
 import { Copy, Trash2, Check } from "lucide-react"
+import type { DateRange } from "react-day-picker"
 
 interface ShareProjectDialogProps {
   open: boolean
@@ -27,11 +30,15 @@ type SharedLink = {
   projectId: string
   token: string
   expiresAt: Date
+  startDate: Date | null
+  endDate: Date | null
   createdAt: Date
 }
 
 export function ShareProjectDialog({ open, onOpenChange, projectId }: ShareProjectDialogProps) {
-  const [expiresInDays, setExpiresInDays] = useState("7")
+  const [expiresValue, setExpiresValue] = useState("7")
+  const [expiresUnit, setExpiresUnit] = useState<"days" | "hours">("days")
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
   const [sharedLinks, setSharedLinks] = useState<SharedLink[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -58,14 +65,21 @@ export function ShareProjectDialog({ open, onOpenChange, projectId }: ShareProje
     setLoading(true)
 
     try {
-      const days = parseInt(expiresInDays)
-      if (isNaN(days) || days < 1) {
-        setError("Please enter a valid number of days")
+      const value = parseInt(expiresValue)
+      if (isNaN(value) || value < 1) {
+        setError(`Please enter a valid number of ${expiresUnit}`)
         return
       }
 
-      await createSharedLink(projectId, days)
-      setExpiresInDays("7")
+      const expiresInDays = expiresUnit === "days" ? value : undefined
+      const expiresInHours = expiresUnit === "hours" ? value : undefined
+      const startDate = dateRange?.from?.toISOString()
+      const endDate = dateRange?.to?.toISOString()
+
+      await createSharedLink(projectId, expiresInDays, expiresInHours, startDate, endDate)
+      setExpiresValue("7")
+      setExpiresUnit("days")
+      setDateRange(undefined)
       await loadSharedLinks()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create link")
@@ -113,21 +127,42 @@ export function ShareProjectDialog({ open, onOpenChange, projectId }: ShareProje
         <div className="space-y-4 py-4">
           <div className="flex gap-2">
             <div className="flex-1">
-              <Label htmlFor="days">Expires in (days)</Label>
-              <Input
-                id="days"
-                type="number"
-                min="1"
-                value={expiresInDays}
-                onChange={(e) => setExpiresInDays(e.target.value)}
-              />
-            </div>
-            <div className="flex items-end">
-              <Button onClick={handleCreateLink} disabled={loading}>
-                {loading ? "Creating..." : "Create Link"}
-              </Button>
+              <Label htmlFor="expires">Expires in</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="expires"
+                  type="number"
+                  min="1"
+                  value={expiresValue}
+                  onChange={(e) => setExpiresValue(e.target.value)}
+                  className="flex-1"
+                />
+                <Select value={expiresUnit} onValueChange={(value) => setExpiresUnit(value as "days" | "hours")}>
+                  <SelectTrigger className="w-[110px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="hours">Hours</SelectItem>
+                    <SelectItem value="days">Days</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
+
+          <div>
+            <Label>Date Range (Optional)</Label>
+            <div className="mt-2">
+              <DateRangePicker dateRange={dateRange} setDateRange={setDateRange} />
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Filter entries shown in the shared link to this date range
+            </p>
+          </div>
+
+          <Button onClick={handleCreateLink} disabled={loading} className="w-full">
+            {loading ? "Creating..." : "Create Link"}
+          </Button>
 
           {error && (
             <p className="text-sm text-destructive">{error}</p>
@@ -146,6 +181,11 @@ export function ShareProjectDialog({ open, onOpenChange, projectId }: ShareProje
                       <div className="text-xs text-muted-foreground">
                         Expires: {formatDate(link.expiresAt)}
                       </div>
+                      {link.startDate && link.endDate && (
+                        <div className="text-xs text-muted-foreground">
+                          Range: {new Date(link.startDate).toLocaleDateString()} - {new Date(link.endDate).toLocaleDateString()}
+                        </div>
+                      )}
                       <div className="mt-1 font-mono text-xs text-muted-foreground truncate">
                         {link.token.substring(0, 20)}...
                       </div>
