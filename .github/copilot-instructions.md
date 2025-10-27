@@ -237,15 +237,6 @@ Read-only sharing uses secure random tokens stored in `sharedLinks` table:
 - **Date handling:** date-fns 4.1.0 for formatting, react-day-picker 9.11.1 for date range selection
 - **IDs:** nanoid 5.1.6 for generating unique text IDs
 
-## Documentation Files
+## Testing & Validation
 
-- **SYSTEM_ARCHITECTURE.md:** Detailed business model and data flow explanation
-- **METRICS_IMPLEMENTATION.md:** How profit/revenue metrics are calculated
-- **API_DOCUMENTATION.md:** Server action reference
-- **VALIDATION.md:** Validation flow details
-- **DATABASE_SETUP.md:** Database setup and migration guide
-- **USER_GUIDE.md:** End-user feature documentation
-
-## Testing Notes
-
-Test script available at `test-metrics.ts` for verifying metrics calculations. Run with `bun run test-metrics.ts`. No formal test framework configured. For validation testing, use `validateSafe()` from `lib/db/validate.ts` which returns `{success, data}` or `{success, errors}`.
+No formal test framework configured. For validation testing, use `validateSafe()` from `lib/db/validate.ts` which returns `{success, data}` or `{success, errors}`.
