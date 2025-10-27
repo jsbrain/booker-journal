@@ -79,10 +79,6 @@ function DashboardContent() {
     loadProjects()
   }
 
-  const setActiveTab = (tab: "projects" | "metrics" | "inventory") => {
-    router.push(`/dashboard?tab=${tab}`)
-  }
-
   if (isPending || loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -99,7 +95,9 @@ function DashboardContent() {
     <div className="min-h-screen bg-background">
       <header className="border-b">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
-          <h1 className="text-xl font-bold">Booker Journal</h1>
+          <Link href="/dashboard">
+            <h1 className="text-xl font-bold cursor-pointer hover:text-primary transition-colors">Booker Journal</h1>
+          </Link>
           <div className="flex gap-2">
             <Link href="/dashboard/admin">
               <Button variant="outline" size="sm">
@@ -116,45 +114,48 @@ function DashboardContent() {
       </header>
       <main className="container mx-auto p-4 md:p-8">
         {/* Tab Navigation */}
-        <div className="mb-6 flex gap-2 border-b">
-          <button
-            onClick={() => setActiveTab("projects")}
-            className={`px-4 py-2 font-medium transition-colors ${
-              activeTab === "projects"
-                ? "border-b-2 border-primary text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <FolderOpen className="mr-2 inline h-4 w-4" />
-            Projects
-          </button>
-          <button
-            onClick={() => setActiveTab("metrics")}
-            className={`px-4 py-2 font-medium transition-colors ${
-              activeTab === "metrics"
-                ? "border-b-2 border-primary text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <TrendingUp className="mr-2 inline h-4 w-4" />
-            Global Metrics
-          </button>
-          <button
-            onClick={() => setActiveTab("inventory")}
-            className={`px-4 py-2 font-medium transition-colors ${
-              activeTab === "inventory"
-                ? "border-b-2 border-primary text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Package className="mr-2 inline h-4 w-4" />
-            Global Inventory
-          </button>
+        <div className="mb-6 flex flex-wrap gap-2 border-b">
+          <Link href="/dashboard?tab=projects" className="inline-block">
+            <button
+              className={`px-4 py-2 font-medium transition-colors ${
+                activeTab === "projects"
+                  ? "border-b-2 border-primary text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <FolderOpen className="mr-2 inline h-4 w-4" />
+              Projects
+            </button>
+          </Link>
+          <Link href="/dashboard?tab=metrics" className="inline-block">
+            <button
+              className={`px-4 py-2 font-medium transition-colors ${
+                activeTab === "metrics"
+                  ? "border-b-2 border-primary text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <TrendingUp className="mr-2 inline h-4 w-4" />
+              Global Metrics
+            </button>
+          </Link>
+          <Link href="/dashboard?tab=inventory" className="inline-block">
+            <button
+              className={`px-4 py-2 font-medium transition-colors ${
+                activeTab === "inventory"
+                  ? "border-b-2 border-primary text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Package className="mr-2 inline h-4 w-4" />
+              Global Inventory
+            </button>
+          </Link>
         </div>
 
         {activeTab === "projects" && (
           <>
-            <div className="mb-6 flex items-center justify-between">
+            <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
                 <h2 className="text-2xl font-bold">Projects</h2>
                 <p className="text-sm text-muted-foreground">
@@ -182,18 +183,18 @@ function DashboardContent() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {projects.map((project) => (
                   <Link key={project.id} href={`/dashboard/projects/${project.id}`}>
-                    <Card className="cursor-pointer transition-colors hover:bg-accent">
+                    <Card className="cursor-pointer transition-colors hover:bg-accent h-full">
                       <CardHeader>
-                        <CardTitle>{project.name}</CardTitle>
-                        <CardDescription>
+                        <CardTitle className="truncate">{project.name}</CardTitle>
+                        <CardDescription className="truncate">
                           Created {formatDate(project.createdAt)}
                         </CardDescription>
                       </CardHeader>
                       <CardContent>
-                        <div className="text-sm text-muted-foreground">
+                        <div className="text-sm text-muted-foreground truncate">
                           {project.entries.length > 0
                             ? `Last entry: ${formatDate(project.entries[0].timestamp)}`
                             : "No entries yet"}

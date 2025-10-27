@@ -13,7 +13,7 @@
 import { db } from "./index";
 import { user, account, products, entryTypes, projects, inventoryPurchases, journalEntries } from "./schema";
 import { hashPassword } from "better-auth/crypto";
-import { nanoid } from "nanoid";
+import { nanoid } from "@/lib/utils";
 
 // Seed data configuration
 const SEED_USER = {

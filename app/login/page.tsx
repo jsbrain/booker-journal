@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { signIn, signUp } from "@/lib/auth-client"
+import { signIn, signUp, useSession } from "@/lib/auth-client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -16,6 +16,14 @@ export default function LoginPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const { data: session, isPending } = useSession()
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (!isPending && session) {
+      router.push("/dashboard")
+    }
+  }, [session, isPending, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -46,6 +54,20 @@ export default function LoginPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Show loading while checking session
+  if (isPending) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    )
+  }
+
+  // Don't render login form if already logged in
+  if (session) {
+    return null
   }
 
   return (
