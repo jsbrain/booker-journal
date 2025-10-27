@@ -22,8 +22,15 @@ interface DateRangePickerProps {
 export function DateRangePicker({ dateRange, setDateRange }: DateRangePickerProps) {
   const [displayMonth, setDisplayMonth] = React.useState<Date>(dateRange?.from || new Date())
   const [open, setOpen] = React.useState(false)
+  // Local state for the temporary selection
+  const [tempDateRange, setTempDateRange] = React.useState<DateRange | undefined>(dateRange)
   const currentYear = displayMonth.getFullYear()
   const currentMonth = displayMonth.getMonth()
+
+  // Sync tempDateRange with dateRange when it changes externally
+  React.useEffect(() => {
+    setTempDateRange(dateRange)
+  }, [dateRange])
 
   // Generate year options (current year ± 10 years)
   const yearOptions = React.useMemo(() => {
@@ -91,9 +98,16 @@ export function DateRangePicker({ dateRange, setDateRange }: DateRangePickerProp
 
   const handlePresetClick = (preset: Preset) => {
     const newRange = preset.getValue()
-    setDateRange(newRange)
+    setTempDateRange(newRange)
     if (newRange.from) {
       setDisplayMonth(newRange.from)
+    }
+  }
+
+  const handleApply = () => {
+    if (tempDateRange?.from && tempDateRange?.to) {
+      setDateRange(tempDateRange)
+      setOpen(false)
     }
   }
 
@@ -176,8 +190,8 @@ export function DateRangePicker({ dateRange, setDateRange }: DateRangePickerProp
 
             <Calendar
               mode="range"
-              selected={dateRange}
-              onSelect={setDateRange}
+              selected={tempDateRange}
+              onSelect={setTempDateRange}
               numberOfMonths={2}
               month={displayMonth}
               onMonthChange={setDisplayMonth}
@@ -185,13 +199,13 @@ export function DateRangePicker({ dateRange, setDateRange }: DateRangePickerProp
 
             <div className="flex items-center justify-between border-t pt-3">
               <div className="text-xs text-muted-foreground">
-                {dateRange?.from ? (
-                  dateRange.to ? (
+                {tempDateRange?.from ? (
+                  tempDateRange.to ? (
                     <>
-                      {dateRange.from.toLocaleDateString()} → {dateRange.to.toLocaleDateString()}
+                      {tempDateRange.from.toLocaleDateString()} → {tempDateRange.to.toLocaleDateString()}
                     </>
                   ) : (
-                    <>From: {dateRange.from.toLocaleDateString()}</>
+                    <>From: {tempDateRange.from.toLocaleDateString()}</>
                   )
                 ) : (
                   <>No dates selected</>
@@ -200,8 +214,8 @@ export function DateRangePicker({ dateRange, setDateRange }: DateRangePickerProp
               <Button 
                 variant="default" 
                 size="sm" 
-                onClick={() => setOpen(false)}
-                disabled={!dateRange?.from || !dateRange?.to}
+                onClick={handleApply}
+                disabled={!tempDateRange?.from || !tempDateRange?.to}
               >
                 Apply
               </Button>
