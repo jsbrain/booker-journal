@@ -12,7 +12,7 @@ type Entry = {
   amount: string
   price: string
   typeId: string
-  productId: string
+  productId: string | null
   note: string | null
   timestamp: Date
   createdAt: Date
@@ -25,7 +25,7 @@ type Entry = {
     id: string
     key: string
     name: string
-  }
+  } | null
 }
 
 type Project = {
@@ -189,8 +189,12 @@ export default function SharedProjectPage() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{entry.type.name}</span>
-                        <span className="text-sm text-muted-foreground">•</span>
-                        <span className="text-sm text-muted-foreground">{entry.product.name}</span>
+                        {entry.product && (
+                          <>
+                            <span className="text-sm text-muted-foreground">•</span>
+                            <span className="text-sm text-muted-foreground">{entry.product.name}</span>
+                          </>
+                        )}
                         <span className="text-sm text-muted-foreground">
                           {formatDateTime(entry.timestamp)}
                         </span>

@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { journalEntries, projects, type EditHistoryEntry } from "@/lib/db/schema";
+import { journalEntries, projects, entryTypes, type EditHistoryEntry } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { eq, desc, and } from "drizzle-orm";
