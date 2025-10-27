@@ -3,9 +3,20 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Trash2, Plus } from "lucide-react"
 import { getInventoryPurchases, deleteInventoryPurchase, getCurrentInventory } from "@/lib/actions/inventory"
 import { CreateInventoryPurchaseDialog } from "./create-inventory-purchase-dialog"
+import { formatCurrency, formatDate, formatNumber } from "@/lib/utils/locale"
 
 type InventoryPurchase = {
   id: string
@@ -38,6 +49,8 @@ export function InventoryList() {
   const [inventorySummary, setInventorySummary] = useState<InventorySummary[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [purchaseToDelete, setPurchaseToDelete] = useState<string | null>(null)
 
   useEffect(() => {
     loadInventoryData()
@@ -60,37 +73,27 @@ export function InventoryList() {
     }
   }
 
-  const handleDelete = async (purchaseId: string) => {
-    if (!confirm("Are you sure you want to delete this purchase?")) {
-      return
-    }
+  const handleDelete = (purchaseId: string) => {
+    setPurchaseToDelete(purchaseId)
+    setShowDeleteDialog(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!purchaseToDelete) return
 
     try {
-      await deleteInventoryPurchase(purchaseId)
+      await deleteInventoryPurchase(purchaseToDelete)
       loadInventoryData()
     } catch (error) {
       console.error("Failed to delete purchase:", error)
     }
+    setShowDeleteDialog(false)
+    setPurchaseToDelete(null)
   }
 
   const handleSuccess = () => {
     setShowCreateDialog(false)
     loadInventoryData()
-  }
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "EUR",
-    }).format(value)
-  }
-
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    })
   }
 
   if (loading) {
@@ -129,12 +132,12 @@ export function InventoryList() {
                         Avg. buying price: {formatCurrency(item.averageBuyingPrice)}
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">
-                        Purchased: {item.totalPurchased.toFixed(2)} units • Sold: {item.totalSold.toFixed(2)} units
+                        Purchased: {formatNumber(item.totalPurchased)} units • Sold: {formatNumber(item.totalSold)} units
                       </div>
                     </div>
                     <div className="text-right">
                       <div className={`text-lg font-medium ${item.currentStock < 0 ? "text-red-600" : "text-green-600"}`}>
-                        {item.currentStock.toFixed(2)} units
+                        {formatNumber(item.currentStock)} units
                       </div>
                       <div className="text-sm text-muted-foreground">
                         Value: {formatCurrency(currentValue)}
@@ -181,7 +184,7 @@ export function InventoryList() {
                         <p className="text-sm text-muted-foreground">{purchase.note}</p>
                       )}
                       <div className="mt-1 text-sm text-muted-foreground">
-                        Quantity: {parseFloat(purchase.quantity).toFixed(2)} × {formatCurrency(parseFloat(purchase.buyingPrice))}
+                        Quantity: {formatNumber(parseFloat(purchase.quantity))} × {formatCurrency(parseFloat(purchase.buyingPrice))}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -211,6 +214,25 @@ export function InventoryList() {
         onOpenChange={setShowCreateDialog}
         onSuccess={handleSuccess}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Inventory Purchase</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this inventory purchase? This action cannot be undone
+              and will affect your inventory calculations.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { DateRangePicker } from "@/components/ui/date-range-picker"
 import type { DateRange } from "react-day-picker"
 import { getProjectMetrics, getGlobalMetrics, getCurrentMonthRange, type ProjectMetrics } from "@/lib/actions/metrics"
+import { formatCurrency } from "@/lib/utils/locale"
 import { TrendingUp, TrendingDown, DollarSign, Package, ShoppingCart } from "lucide-react"
 
 interface MetricsDashboardProps {
@@ -103,13 +104,6 @@ export function MetricsDashboard({ projectId }: MetricsDashboardProps) {
       // Preserve the tab parameter and other existing params
       router.push(`${pathname}?${params.toString()}`)
     }
-  }
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "EUR",
-    }).format(value)
   }
 
   if (loading) {

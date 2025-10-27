@@ -10,6 +10,7 @@ import { getProjects } from "@/lib/actions/projects"
 import { CreateProjectDialog } from "@/components/create-project-dialog"
 import { MetricsDashboard } from "@/components/metrics-dashboard"
 import { InventoryList } from "@/components/inventory-list"
+import { formatDate } from "@/lib/utils/locale"
 import Link from "next/link"
 
 type Project = {
@@ -188,13 +189,13 @@ function DashboardContent() {
                       <CardHeader>
                         <CardTitle>{project.name}</CardTitle>
                         <CardDescription>
-                          Created {new Date(project.createdAt).toLocaleDateString()}
+                          Created {formatDate(project.createdAt)}
                         </CardDescription>
                       </CardHeader>
                       <CardContent>
                         <div className="text-sm text-muted-foreground">
                           {project.entries.length > 0
-                            ? `Last entry: ${new Date(project.entries[0].timestamp).toLocaleDateString()}`
+                            ? `Last entry: ${formatDate(project.entries[0].timestamp)}`
                             : "No entries yet"}
                         </div>
                       </CardContent>

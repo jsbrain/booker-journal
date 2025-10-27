@@ -15,7 +15,18 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DateRangePicker } from "@/components/ui/date-range-picker"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { createSharedLink, getSharedLinks, deleteSharedLink } from "@/lib/actions/shared-links"
+import { formatDateTime, formatDate } from "@/lib/utils/locale"
 import { Copy, Trash2, Check } from "lucide-react"
 import type { DateRange } from "react-day-picker"
 
@@ -43,6 +54,8 @@ export function ShareProjectDialog({ open, onOpenChange, projectId }: ShareProje
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [copiedToken, setCopiedToken] = useState<string | null>(null)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [linkToDelete, setLinkToDelete] = useState<string | null>(null)
 
   useEffect(() => {
     if (open) {
@@ -88,13 +101,22 @@ export function ShareProjectDialog({ open, onOpenChange, projectId }: ShareProje
     }
   }
 
-  const handleDeleteLink = async (linkId: string) => {
+  const handleDeleteLink = (linkId: string) => {
+    setLinkToDelete(linkId)
+    setShowDeleteDialog(true)
+  }
+
+  const confirmDeleteLink = async () => {
+    if (!linkToDelete) return
+
     try {
-      await deleteSharedLink(linkId, projectId)
+      await deleteSharedLink(linkToDelete, projectId)
       await loadSharedLinks()
     } catch {
       setError("Failed to delete link")
     }
+    setShowDeleteDialog(false)
+    setLinkToDelete(null)
   }
 
   const handleCopyLink = async (token: string) => {
@@ -102,13 +124,6 @@ export function ShareProjectDialog({ open, onOpenChange, projectId }: ShareProje
     await navigator.clipboard.writeText(url)
     setCopiedToken(token)
     setTimeout(() => setCopiedToken(null), 2000)
-  }
-
-  const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat("en-US", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(new Date(date))
   }
 
   const isExpired = (date: Date) => {
@@ -179,11 +194,11 @@ export function ShareProjectDialog({ open, onOpenChange, projectId }: ShareProje
                         {isExpired(link.expiresAt) ? "Expired" : "Active"}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        Expires: {formatDate(link.expiresAt)}
+                        Expires: {formatDateTime(link.expiresAt)}
                       </div>
                       {link.startDate && link.endDate && (
                         <div className="text-xs text-muted-foreground">
-                          Range: {new Date(link.startDate).toLocaleDateString()} - {new Date(link.endDate).toLocaleDateString()}
+                          Range: {formatDate(link.startDate)} - {formatDate(link.endDate)}
                         </div>
                       )}
                       <div className="mt-1 font-mono text-xs text-muted-foreground truncate">
@@ -223,6 +238,24 @@ export function ShareProjectDialog({ open, onOpenChange, projectId }: ShareProje
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Delete Link Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Shared Link</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this shared link? Anyone with this link will no longer be able to access the project.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteLink} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   )
 }

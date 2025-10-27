@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Lock, Calendar } from "lucide-react"
 import { getProjectBySharedLink } from "@/lib/actions/shared-links"
 import { getBalanceColor, getBalanceStatus } from "@/lib/utils/balance"
+import { formatCurrency, formatDateTime, formatDate } from "@/lib/utils/locale"
 
 type Entry = {
   id: string
@@ -72,20 +73,6 @@ export default function SharedProjectPage() {
     }
   }
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "EUR",
-    }).format(value)
-  }
-
-  const formatDateTime = (date: Date) => {
-    return new Intl.DateTimeFormat("en-US", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(new Date(date))
-  }
-
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -131,15 +118,15 @@ export default function SharedProjectPage() {
         <div className="mb-6">
           <h2 className="text-2xl font-bold">{project.name}</h2>
           <p className="text-sm text-muted-foreground">
-            Created {new Date(project.createdAt).toLocaleDateString()}
+            Created {formatDate(project.createdAt)}
           </p>
           {dateRange && (dateRange.startDate || dateRange.endDate) && (
             <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
               <Calendar className="h-4 w-4" />
               <span>
                 Showing entries from{" "}
-                {dateRange.startDate ? new Date(dateRange.startDate).toLocaleDateString() : "beginning"} to{" "}
-                {dateRange.endDate ? new Date(dateRange.endDate).toLocaleDateString() : "end"}
+                {dateRange.startDate ? formatDate(dateRange.startDate) : "beginning"} to{" "}
+                {dateRange.endDate ? formatDate(dateRange.endDate) : "end"}
               </span>
             </div>
           )}
@@ -176,7 +163,7 @@ export default function SharedProjectPage() {
                   <span className="text-sm">Last Updated</span>
                   <span className="text-sm text-muted-foreground">
                     {entries.length > 0
-                      ? new Date(entries[0].timestamp).toLocaleDateString()
+                      ? formatDate(entries[0].timestamp)
                       : "N/A"}
                   </span>
                 </div>

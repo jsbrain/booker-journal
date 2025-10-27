@@ -12,9 +12,9 @@
  * credit) is shown in red as it represents money the business owes (bad).
  */
 export function getBalanceColor(balance: number): string {
-  if (balance > 0) return "text-green-600"
-  if (balance < 0) return "text-red-600"
-  return ""
+  if (balance > 0) return "text-green-600 dark:text-green-500"
+  if (balance < 0) return "text-red-600 dark:text-red-500"
+  return "text-muted-foreground"
 }
 
 /**
@@ -23,7 +23,7 @@ export function getBalanceColor(balance: number): string {
  * @returns Human-readable status text
  */
 export function getBalanceStatus(balance: number): string {
-  if (balance > 0) return "Customer owes money"
-  if (balance < 0) return "Customer has credit"
-  return "Account settled"
+  if (balance > 0) return "Customer owes money (receivable - shown as positive)"
+  if (balance < 0) return "Customer has credit (payable - shown as negative)"
+  return "Account settled (balanced)"
 }

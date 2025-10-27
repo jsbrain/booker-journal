@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { DateTimePicker } from "@/components/ui/date-time-picker"
 import { createInventoryPurchase } from "@/lib/actions/inventory"
 import { getProducts } from "@/lib/actions/products"
 
@@ -44,7 +45,7 @@ export function CreateInventoryPurchaseDialog({
   const [quantity, setQuantity] = useState("")
   const [buyingPrice, setBuyingPrice] = useState("")
   const [note, setNote] = useState("")
-  const [purchaseDate, setPurchaseDate] = useState("")
+  const [purchaseDate, setPurchaseDate] = useState<Date | undefined>(new Date())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
@@ -52,11 +53,7 @@ export function CreateInventoryPurchaseDialog({
     if (open) {
       loadProducts()
       // Set default timestamp to current date/time
-      const now = new Date()
-      const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
-        .toISOString()
-        .slice(0, 16)
-      setPurchaseDate(localDateTime)
+      setPurchaseDate(new Date())
     }
   }, [open])
 
@@ -83,8 +80,8 @@ export function CreateInventoryPurchaseDialog({
     setLoading(true)
 
     try {
-      // Convert local datetime to ISO string
-      const purchaseDateISO = purchaseDate ? new Date(purchaseDate).toISOString() : undefined
+      // Convert datetime to ISO string
+      const purchaseDateISO = purchaseDate ? purchaseDate.toISOString() : undefined
 
       await createInventoryPurchase(
         productId,
@@ -99,11 +96,7 @@ export function CreateInventoryPurchaseDialog({
       setQuantity("")
       setBuyingPrice("")
       setNote("")
-      const now = new Date()
-      const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
-        .toISOString()
-        .slice(0, 16)
-      setPurchaseDate(localDateTime)
+      setPurchaseDate(new Date())
       
       onSuccess()
     } catch (error) {
@@ -167,12 +160,10 @@ export function CreateInventoryPurchaseDialog({
 
           <div className="space-y-2">
             <Label htmlFor="purchaseDate">Purchase Date & Time</Label>
-            <Input
-              id="purchaseDate"
-              type="datetime-local"
-              value={purchaseDate}
-              onChange={(e) => setPurchaseDate(e.target.value)}
-              required
+            <DateTimePicker
+              date={purchaseDate}
+              setDate={setPurchaseDate}
+              placeholder="Select purchase date and time"
             />
             <p className="text-xs text-muted-foreground">
               When this purchase occurred (defaults to now)
