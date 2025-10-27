@@ -6,9 +6,12 @@ import { useSession, signOut } from "@/lib/auth-client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { DateRangePicker } from "@/components/ui/date-range-picker"
+import type { DateRange } from "react-day-picker"
 import { ArrowLeft, LogOut, Plus, Share2, Trash2, Edit2, History, TrendingUp, Search } from "lucide-react"
 import { getProject, deleteProject } from "@/lib/actions/projects"
 import { getEntries, getProjectBalance, deleteEntry } from "@/lib/actions/entries"
+import { getCurrentMonthRange } from "@/lib/actions/metrics"
 import { CreateEntryDialog } from "@/components/create-entry-dialog"
 import { EditEntryDialog } from "@/components/edit-entry-dialog"
 import { ShareProjectDialog } from "@/components/share-project-dialog"
@@ -104,6 +107,7 @@ function ProjectDetailContent() {
   const [showDeleteProjectDialog, setShowDeleteProjectDialog] = useState(false)
   const [showDeleteEntryDialog, setShowDeleteEntryDialog] = useState(false)
   const [entryToDelete, setEntryToDelete] = useState<string | null>(null)
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
   
   // Filter and sort states for journal entries
   const [searchQuery, setSearchQuery] = useState("")
@@ -122,9 +126,37 @@ function ProjectDetailContent() {
   useEffect(() => {
     if (session) {
       loadProjectData()
+      loadDefaultDates()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, projectId])
+
+  const loadDefaultDates = async () => {
+    const fromParam = searchParams.get("from")
+    const toParam = searchParams.get("to")
+    
+    if (fromParam && toParam) {
+      // Validate and use dates from URL
+      const fromDate = new Date(fromParam)
+      const toDate = new Date(toParam)
+      
+      // Check if dates are valid
+      if (!isNaN(fromDate.getTime()) && !isNaN(toDate.getTime())) {
+        setDateRange({
+          from: fromDate,
+          to: toDate,
+        })
+        return
+      }
+    }
+    
+    // Fall back to current month
+    const { startDate: start, endDate: end } = await getCurrentMonthRange()
+    setDateRange({
+      from: new Date(start),
+      to: new Date(end),
+    })
+  }
 
   const loadProjectData = async () => {
     try {
@@ -202,6 +234,18 @@ function ProjectDetailContent() {
     setShowHistoryDialog(true)
   }
 
+  const handleDateRangeChange = (newDateRange: DateRange | undefined) => {
+    setDateRange(newDateRange)
+    
+    // Update URL with new date range
+    if (newDateRange?.from && newDateRange?.to) {
+      const params = new URLSearchParams(searchParams.toString())
+      params.set("from", newDateRange.from.toISOString())
+      params.set("to", newDateRange.to.toISOString())
+      router.push(`/dashboard/projects/${projectId}?${params.toString()}`)
+    }
+  }
+
   // Get unique entry types for filter
   const uniqueTypes = useMemo(() => {
     const types = new Map<string, string>()
@@ -212,6 +256,19 @@ function ProjectDetailContent() {
   // Filter and sort entries
   const filteredAndSortedEntries = useMemo(() => {
     let filtered = entries
+
+    // Apply date range filter
+    if (dateRange?.from && dateRange?.to) {
+      const fromTime = dateRange.from.getTime()
+      const toDate = new Date(dateRange.to)
+      toDate.setHours(23, 59, 59, 999)
+      const toTime = toDate.getTime()
+      
+      filtered = filtered.filter(e => {
+        const entryTime = new Date(e.timestamp).getTime()
+        return entryTime >= fromTime && entryTime <= toTime
+      })
+    }
 
     // Apply search filter
     if (searchQuery.trim()) {
@@ -254,7 +311,19 @@ function ProjectDetailContent() {
     }
 
     return sorted
-  }, [entries, searchQuery, typeFilter, sortBy])
+  }, [entries, dateRange, searchQuery, typeFilter, sortBy])
+
+  // Calculate filtered total
+  const filteredTotal = useMemo(() => {
+    return filteredAndSortedEntries.reduce((sum, entry) => {
+      return sum + parseFloat(entry.amount) * parseFloat(entry.price)
+    }, 0)
+  }, [filteredAndSortedEntries])
+
+  // Check if search or type filters are active
+  const hasActiveFilters = useMemo(() => {
+    return searchQuery.trim() !== "" || typeFilter !== "all"
+  }, [searchQuery, typeFilter])
 
   if (isPending || loading) {
     return (
@@ -297,6 +366,7 @@ function ProjectDetailContent() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <DateRangePicker dateRange={dateRange} setDateRange={handleDateRangeChange} />
             <Button onClick={() => setShowShareDialog(true)} variant="outline" className="flex-1 sm:flex-none">
               <Share2 className="mr-2 h-4 w-4" />
               Share
@@ -400,6 +470,22 @@ function ProjectDetailContent() {
               </Card>
             ) : (
               <div className="space-y-4">
+                {/* Filtered Total - shown when filters are active */}
+                {hasActiveFilters && (
+                  <Card className="bg-muted/50">
+                    <CardContent className="py-3 px-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">
+                          Filtered Total ({filteredAndSortedEntries.length} {filteredAndSortedEntries.length === 1 ? 'entry' : 'entries'})
+                        </span>
+                        <span className={`text-lg font-bold ${filteredTotal >= 0 ? "text-green-600" : "text-red-600"}`}>
+                          {filteredTotal >= 0 ? "+" : ""}{formatCurrency(filteredTotal)}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                
                 {/* Filters and Search */}
                 <div className="flex flex-col sm:flex-row gap-3">
                   <div className="relative flex-1">
@@ -517,7 +603,7 @@ function ProjectDetailContent() {
         )}
 
         {activeTab === "metrics" && (
-          <MetricsDashboard projectId={projectId} />
+          <MetricsDashboard projectId={projectId} dateRange={dateRange} />
         )}
       </main>
 
