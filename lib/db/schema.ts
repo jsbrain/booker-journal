@@ -118,9 +118,10 @@ export type EditHistoryEntry = {
 };
 
 // Inventory purchases table - for tracking buying prices and inventory
+// NOTE: Inventory is GLOBAL per admin user, not per project/customer
 export const inventoryPurchases = pgTable("inventory_purchases", {
   id: text("id").primaryKey().$defaultFn(() => nanoid()),
-  projectId: text("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }), // Admin user who owns this inventory
   productId: text("product_id").notNull().references(() => products.id),
   quantity: numeric("quantity", { precision: 10, scale: 2 }).notNull(), // Amount purchased
   buyingPrice: numeric("buying_price", { precision: 10, scale: 2 }).notNull(), // Price per unit when purchased
@@ -144,7 +145,6 @@ export const sharedLinks = pgTable("shared_links", {
 export const projectsRelations = relations(projects, ({ many }) => ({
   entries: many(journalEntries),
   sharedLinks: many(sharedLinks),
-  inventoryPurchases: many(inventoryPurchases),
 }));
 
 export const journalEntriesRelations = relations(journalEntries, ({ one }) => ({
@@ -179,12 +179,16 @@ export const productsRelations = relations(products, ({ many }) => ({
 }));
 
 export const inventoryPurchasesRelations = relations(inventoryPurchases, ({ one }) => ({
-  project: one(projects, {
-    fields: [inventoryPurchases.projectId],
-    references: [projects.id],
+  user: one(user, {
+    fields: [inventoryPurchases.userId],
+    references: [user.id],
   }),
   product: one(products, {
     fields: [inventoryPurchases.productId],
     references: [products.id],
   }),
+}));
+
+export const userRelations = relations(user, ({ many }) => ({
+  inventoryPurchases: many(inventoryPurchases),
 }));
