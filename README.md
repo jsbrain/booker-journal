@@ -27,6 +27,7 @@ Booker Journal is designed for business owners to manage global inventory and tr
 - 🔒 Protected routes with session management
 - 💾 PostgreSQL database with Drizzle ORM
 - ✅ Type-safe validation with TypeBox
+- 🔧 Type-safe environment variables with @t3-oss/env-nextjs
 - 🐳 Docker Compose for local development
 
 ## Tech Stack
@@ -62,11 +63,12 @@ bun install
 
 3. **Set up environment variables:**
 
-Copy `.env.example` to `.env` and configure:
+Copy `.env.example` to `.env` and configure. **All environment variables are validated at startup using [@t3-oss/env-nextjs](https://env.t3.gg) for type safety.** Missing or invalid variables will cause the app to fail with clear error messages.
 
 ```env
 # Authentication
 BETTER_AUTH_SECRET=your-secret-key-change-in-production
+BETTER_AUTH_URL=http://localhost:3000  # Optional, defaults to NEXT_PUBLIC_APP_URL
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 # Database - PostgreSQL (Docker Compose)
