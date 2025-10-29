@@ -1,8 +1,9 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./schema";
+import { env } from "../env";
 
-const connectionString = process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:35432/booker_journal";
+const connectionString = env.DATABASE_URL;
 
 // Disable prefetch as it is not supported for "Transaction" pool mode
 const client = postgres(connectionString, { prepare: false });

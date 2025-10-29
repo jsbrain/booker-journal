@@ -4,6 +4,7 @@ import { db } from "./db"
 import * as schema from "./db/schema"
 import { config } from "dotenv"
 import { expand } from "dotenv-expand"
+import { env } from "./env"
 
 // Load environment variables with expansion
 expand(config())
@@ -21,7 +22,7 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
-  secret: process.env.BETTER_AUTH_SECRET || "my-super-secret-auth-key-change-in-production",
-  baseURL: process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+  secret: env.BETTER_AUTH_SECRET,
+  baseURL: env.BETTER_AUTH_URL || env.NEXT_PUBLIC_APP_URL,
   trustedOrigins: ["http://localhost:3000"],
 })
