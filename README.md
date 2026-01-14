@@ -71,7 +71,8 @@ Copy `.env.example` to `.env` and configure:
 ```env
 # Authentication
 BETTER_AUTH_SECRET=your-secret-key-change-in-production
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+PORT=3005
+NEXT_PUBLIC_APP_URL=http://localhost:${PORT}
 
 # Database - PostgreSQL (Docker Compose)
 POSTGRES_DB=booker_journal
@@ -111,7 +112,7 @@ bun run dev
 ```
 
 8. **Open your browser:**
-   Navigate to [http://localhost:3000](http://localhost:3000)
+   Navigate to [http://localhost:3005](http://localhost:3005) (or whatever `PORT` you set)
 
 ## Usage Guide
 

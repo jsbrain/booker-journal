@@ -1,18 +1,37 @@
-"use client"
+'use client'
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import type { DateRange } from "react-day-picker"
-import { getProjectMetrics, getGlobalMetrics, type ProjectMetrics } from "@/lib/actions/metrics"
-import { formatCurrency } from "@/lib/utils/locale"
-import { TrendingUp, TrendingDown, DollarSign, Package, ShoppingCart } from "lucide-react"
+import { useState, useEffect } from 'react'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import type { DateRange } from 'react-day-picker'
+import {
+  getProjectMetrics,
+  getGlobalMetrics,
+  type ProjectMetrics,
+} from '@/lib/actions/metrics'
+import { formatCurrency } from '@/lib/utils/locale'
+import {
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  Package,
+  ShoppingCart,
+} from 'lucide-react'
 
 interface MetricsDashboardProps {
-  projectId: string | null  // null means global metrics
+  projectId: string | null // null means global metrics
   dateRange: DateRange | undefined
 }
 
-export function MetricsDashboard({ projectId, dateRange }: MetricsDashboardProps) {
+export function MetricsDashboard({
+  projectId,
+  dateRange,
+}: MetricsDashboardProps) {
   const [metrics, setMetrics] = useState<ProjectMetrics | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -25,26 +44,26 @@ export function MetricsDashboard({ projectId, dateRange }: MetricsDashboardProps
 
   const loadMetrics = async () => {
     if (!dateRange?.from || !dateRange?.to) return
-    
+
     setLoading(true)
     try {
       // Create a copy of the end date and set time to end of day
       const endOfDay = new Date(dateRange.to)
       endOfDay.setHours(23, 59, 59, 999)
-      
+
       const data = projectId
         ? await getProjectMetrics(
             projectId,
             dateRange.from.toISOString(),
-            endOfDay.toISOString()
+            endOfDay.toISOString(),
           )
         : await getGlobalMetrics(
             dateRange.from.toISOString(),
-            endOfDay.toISOString()
+            endOfDay.toISOString(),
           )
       setMetrics(data)
     } catch (error) {
-      console.error("Failed to load metrics:", error)
+      console.error('Failed to load metrics:', error)
     } finally {
       setLoading(false)
     }
@@ -52,7 +71,37 @@ export function MetricsDashboard({ projectId, dateRange }: MetricsDashboardProps
 
   if (loading) {
     return (
-      <div className="text-muted-foreground">Loading metrics...</div>
+      <div className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <Card key={index}>
+              <CardHeader className="space-y-0 pb-2">
+                <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+              </CardHeader>
+              <CardContent>
+                <div className="h-7 w-32 animate-pulse rounded bg-muted" />
+                <div className="mt-2 h-3 w-40 animate-pulse rounded bg-muted" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <Card>
+          <CardHeader>
+            <div className="h-5 w-40 animate-pulse rounded bg-muted" />
+            <div className="mt-2 h-3 w-56 animate-pulse rounded bg-muted" />
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="h-10 animate-pulse rounded bg-muted"
+                />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     )
   }
 
@@ -60,9 +109,10 @@ export function MetricsDashboard({ projectId, dateRange }: MetricsDashboardProps
     return null
   }
 
-  const profitMargin = metrics.revenue > 0 
-    ? ((metrics.profit / metrics.revenue) * 100).toFixed(1)
-    : "0.0"
+  const profitMargin =
+    metrics.revenue > 0
+      ? ((metrics.profit / metrics.revenue) * 100).toFixed(1)
+      : '0.0'
 
   return (
     <div className="space-y-6">
@@ -92,9 +142,7 @@ export function MetricsDashboard({ projectId, dateRange }: MetricsDashboardProps
             <div className="text-2xl font-bold text-orange-600">
               {formatCurrency(metrics.cost)}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Cost of goods sold
-            </p>
+            <p className="text-xs text-muted-foreground">Cost of goods sold</p>
           </CardContent>
         </Card>
 
@@ -108,7 +156,10 @@ export function MetricsDashboard({ projectId, dateRange }: MetricsDashboardProps
             )}
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${metrics.profit >= 0 ? "text-green-600" : "text-red-600"}`}>
+            <div
+              className={`text-2xl font-bold ${
+                metrics.profit >= 0 ? 'text-green-600' : 'text-red-600'
+              }`}>
               {formatCurrency(metrics.profit)}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -140,8 +191,10 @@ export function MetricsDashboard({ projectId, dateRange }: MetricsDashboardProps
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {metrics.productBreakdown.map((product) => (
-                <div key={product.productId} className="border-b pb-4 last:border-0 last:pb-0">
+              {metrics.productBreakdown.map(product => (
+                <div
+                  key={product.productId}
+                  className="border-b pb-4 last:border-0 last:pb-0">
                   <div className="mb-2 flex items-center justify-between">
                     <h4 className="font-medium">{product.productName}</h4>
                     <span className="text-sm text-muted-foreground">
@@ -163,7 +216,12 @@ export function MetricsDashboard({ projectId, dateRange }: MetricsDashboardProps
                     </div>
                     <div>
                       <div className="text-muted-foreground">Profit</div>
-                      <div className={`font-medium ${product.profit >= 0 ? "text-green-600" : "text-red-600"}`}>
+                      <div
+                        className={`font-medium ${
+                          product.profit >= 0
+                            ? 'text-green-600'
+                            : 'text-red-600'
+                        }`}>
                         {formatCurrency(product.profit)}
                       </div>
                     </div>

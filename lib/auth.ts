@@ -14,15 +14,17 @@ if (isProduction && !process.env.BETTER_AUTH_SECRET) {
   throw new Error('Missing BETTER_AUTH_SECRET (required in production)')
 }
 
-const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-let appOrigin = 'http://localhost:3000'
+const appUrl =
+  process.env.NEXT_PUBLIC_APP_URL ||
+  `http://localhost:${process.env.PORT || '3005'}`
+let appOrigin = `http://localhost:${process.env.PORT || '3005'}`
 try {
   appOrigin = new URL(appUrl).origin
 } catch {
   // Keep localhost fallback; invalid NEXT_PUBLIC_APP_URL should be fixed in env.
 }
 
-const trustedOrigins = Array.from(new Set([appOrigin, 'http://localhost:3000']))
+const trustedOrigins = Array.from(new Set([appOrigin]))
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {

@@ -10,7 +10,7 @@
  * - Detailed transaction history from Jan-Oct 2025
  */
 
-import { db } from './index'
+import { db, client } from './index'
 import {
   user,
   account,
@@ -20,8 +20,8 @@ import {
   inventoryPurchases,
   journalEntries,
 } from './schema'
-import { eq } from 'drizzle-orm'
-import bcrypt from 'bcryptjs'
+import { and, eq } from 'drizzle-orm'
+import { hashPassword } from 'better-auth/crypto'
 import { nanoid } from '@/lib/utils'
 
 // Seed data configuration
@@ -258,8 +258,33 @@ export async function seedDatabase() {
     if (existingUser) {
       console.log('   User already exists, using existing user')
       userId = existingUser.id
+
+      // Ensure the seed user's credential password is in better-auth's expected format.
+      const hashedPassword = await hashPassword(SEED_USER.password)
+      const existingAccount = await db.query.account.findFirst({
+        where: and(
+          eq(account.userId, userId),
+          eq(account.providerId, 'credential'),
+          eq(account.accountId, SEED_USER.email),
+        ),
+      })
+
+      if (existingAccount) {
+        await db
+          .update(account)
+          .set({ password: hashedPassword })
+          .where(eq(account.id, existingAccount.id))
+      } else {
+        await db.insert(account).values({
+          id: nanoid(),
+          accountId: SEED_USER.email,
+          providerId: 'credential',
+          userId,
+          password: hashedPassword,
+        })
+      }
     } else {
-      const hashedPassword = await bcrypt.hash(SEED_USER.password, 10)
+      const hashedPassword = await hashPassword(SEED_USER.password)
       const newUserId = nanoid()
 
       await db.insert(user).values({
@@ -279,6 +304,27 @@ export async function seedDatabase() {
 
       userId = newUserId
       console.log('   ✓ Admin user created')
+    }
+
+    const forceSeed =
+      process.env.FORCE_SEED === '1' || process.env.FORCE_SEED === 'true'
+    if (!forceSeed) {
+      const existingProject = await db.query.projects.findFirst({
+        where: eq(projects.userId, userId),
+      })
+      const existingPurchase = await db.query.inventoryPurchases.findFirst({
+        where: eq(inventoryPurchases.userId, userId),
+      })
+
+      if (existingProject || existingPurchase) {
+        console.log(
+          '\nℹ️  Seed data already exists for this user; skipping the large seed run.',
+        )
+        console.log(
+          '   (Credential password was ensured/updated.) To reseed everything, run with FORCE_SEED=1.',
+        )
+        return { userId, success: true, skipped: true }
+      }
     }
 
     // 2. Create/verify entry types
@@ -571,13 +617,17 @@ export async function seedDatabase() {
 const isMain = Boolean((import.meta as unknown as { main?: boolean }).main)
 
 if (isMain) {
-  seedDatabase()
-    .then(() => {
+  ;(async () => {
+    try {
+      await seedDatabase()
       console.log('\n🎉 Seeding complete! You can now log in with:')
       console.log(`   Email: ${SEED_USER.email}`)
       console.log(`   Password: ${SEED_USER.password}`)
-    })
-    .catch(error => {
+    } catch (error) {
       console.error('Seeding failed:', error)
-    })
+    } finally {
+      // Close DB connection so the process can exit cleanly
+      await client.end({ timeout: 5 })
+    }
+  })()
 }

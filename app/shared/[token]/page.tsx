@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useEffect, useMemo, useState } from 'react'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import {
   Card,
   CardContent,
@@ -9,7 +9,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { Lock, Calendar } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Calendar, ChevronDown, ChevronUp, Lock, Printer } from 'lucide-react'
 import { getProjectBySharedLink } from '@/lib/actions/shared-links'
 import { getBalanceColor, getBalanceStatus } from '@/lib/utils/balance'
 import { formatCurrency, formatDateTime, formatDate } from '@/lib/utils/locale'
@@ -51,6 +52,8 @@ type DateRangeInfo = {
 
 export default function SharedProjectPage() {
   const params = useParams()
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const token = params.token as string
 
   const [project, setProject] = useState<Project | null>(null)
@@ -59,6 +62,26 @@ export default function SharedProjectPage() {
   const [dateRange, setDateRange] = useState<DateRangeInfo>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
+  const sortBy =
+    (searchParams.get('sort') as 'timestamp_desc' | 'timestamp_asc') ||
+    'timestamp_desc'
+
+  const sortedEntries = useMemo(() => {
+    const sorted = [...entries]
+    sorted.sort((a, b) => {
+      const diff =
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      return sortBy === 'timestamp_desc' ? diff : -diff
+    })
+    return sorted
+  }, [entries, sortBy])
+
+  const dataThrough = useMemo(() => {
+    if (entries.length === 0) return null
+    const maxTs = Math.max(...entries.map(e => new Date(e.timestamp).getTime()))
+    return new Date(maxTs)
+  }, [entries])
 
   useEffect(() => {
     loadProjectData()
@@ -109,9 +132,18 @@ export default function SharedProjectPage() {
     return null
   }
 
+  const toggleSort = () => {
+    const next = new URLSearchParams(searchParams.toString())
+    next.set(
+      'sort',
+      sortBy === 'timestamp_desc' ? 'timestamp_asc' : 'timestamp_desc',
+    )
+    router.replace(`/shared/${token}?${next.toString()}`)
+  }
+
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b">
+      <header className="border-b print:hidden">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <h1 className="text-xl font-bold">Booker Journal</h1>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -136,6 +168,11 @@ export default function SharedProjectPage() {
                   : 'beginning'}{' '}
                 to {dateRange.endDate ? formatDate(dateRange.endDate) : 'end'}
               </span>
+            </div>
+          )}
+          {dataThrough && (
+            <div className="mt-1 text-sm text-muted-foreground">
+              Data through {formatDateTime(dataThrough)}
             </div>
           )}
         </div>
@@ -183,7 +220,26 @@ export default function SharedProjectPage() {
         </div>
 
         <div className="mb-4">
-          <h3 className="text-lg font-semibold">Journal Entries</h3>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <h3 className="text-lg font-semibold">Journal Entries</h3>
+            <div className="flex flex-wrap gap-2 print:hidden">
+              <Button type="button" variant="outline" onClick={toggleSort}>
+                Date
+                {sortBy === 'timestamp_desc' ? (
+                  <ChevronDown className="ml-2 h-4 w-4" />
+                ) : (
+                  <ChevronUp className="ml-2 h-4 w-4" />
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => window.print()}>
+                <Printer className="mr-2 h-4 w-4" />
+                Print
+              </Button>
+            </div>
+          </div>
         </div>
 
         {entries.length === 0 ? (
@@ -198,7 +254,7 @@ export default function SharedProjectPage() {
           </Card>
         ) : (
           <div className="space-y-2">
-            {entries.map(entry => {
+            {sortedEntries.map(entry => {
               const amount = parseFloat(entry.amount)
               const price = parseFloat(entry.price)
               // Display totals in the same convention as the displayed balance:

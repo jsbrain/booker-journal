@@ -1,6 +1,13 @@
 'use client'
 
-import { useEffect, useState, Suspense, useMemo } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  Suspense,
+} from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { useSession, signOut } from '@/lib/auth-client'
 import { Button } from '@/components/ui/button'
@@ -16,16 +23,20 @@ import { DateRangePicker } from '@/components/ui/date-range-picker'
 import type { DateRange } from 'react-day-picker'
 import {
   ArrowLeft,
+  ChevronDown,
+  ChevronUp,
   LogOut,
   Plus,
+  RotateCcw,
   Share2,
   Trash2,
   Edit2,
   History,
   TrendingUp,
   Search,
+  X,
 } from 'lucide-react'
-import { getProject, deleteProject } from '@/lib/actions/projects'
+import { getProject, deleteProject, getProjects } from '@/lib/actions/projects'
 import {
   getEntries,
   getProjectBalance,
@@ -97,6 +108,54 @@ type Project = {
   updatedAt: Date
 }
 
+type ProjectSummary = {
+  id: string
+  name: string
+}
+
+type SortBy = 'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc'
+
+function parseSortParam(value: string | null): SortBy | null {
+  switch (value) {
+    case 'timestamp_desc':
+      return 'date-desc'
+    case 'timestamp_asc':
+      return 'date-asc'
+    case 'amount_desc':
+      return 'amount-desc'
+    case 'amount_asc':
+      return 'amount-asc'
+    default:
+      return null
+  }
+}
+
+function toSortParam(value: SortBy): string {
+  switch (value) {
+    case 'date-desc':
+      return 'timestamp_desc'
+    case 'date-asc':
+      return 'timestamp_asc'
+    case 'amount-desc':
+      return 'amount_desc'
+    case 'amount-asc':
+      return 'amount_asc'
+  }
+}
+
+function getSortLabel(value: SortBy): string {
+  switch (value) {
+    case 'date-desc':
+      return 'Date (Newest)'
+    case 'date-asc':
+      return 'Date (Oldest)'
+    case 'amount-desc':
+      return 'Amount (High)'
+    case 'amount-asc':
+      return 'Amount (Low)'
+  }
+}
+
 export default function ProjectDetailPage() {
   return (
     <Suspense
@@ -117,7 +176,10 @@ function ProjectDetailContent() {
   const searchParams = useSearchParams()
   const projectId = params.id as string
 
+  const initialisedFromUrlRef = useRef(false)
+
   const [project, setProject] = useState<Project | null>(null)
+  const [projectsList, setProjectsList] = useState<ProjectSummary[]>([])
   const [entries, setEntries] = useState<Entry[]>([])
   const [balance, setBalance] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -137,30 +199,33 @@ function ProjectDetailContent() {
   // Filter and sort states for journal entries
   const [searchQuery, setSearchQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState<string>('all')
-  const [sortBy, setSortBy] = useState<
-    'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc'
-  >('date-desc')
+  const [sortBy, setSortBy] = useState<SortBy>('date-desc')
 
   // Get active tab from URL search params, default to "entries"
   const activeTab =
     (searchParams.get('tab') as 'entries' | 'metrics' | 'inventory') ||
     'entries'
 
-  useEffect(() => {
-    if (!isPending && !session) {
-      router.push('/login')
-    }
-  }, [session, isPending, router])
+  const buildHref = useCallback(
+    (
+      basePath: string,
+      overrides: Record<string, string | null | undefined>,
+    ) => {
+      const next = new URLSearchParams(searchParams.toString())
+      for (const [key, value] of Object.entries(overrides)) {
+        if (value === null || value === undefined || value === '') {
+          next.delete(key)
+        } else {
+          next.set(key, value)
+        }
+      }
+      const queryString = next.toString()
+      return queryString ? `${basePath}?${queryString}` : basePath
+    },
+    [searchParams],
+  )
 
-  useEffect(() => {
-    if (session) {
-      loadProjectData()
-      loadDefaultDates()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session, projectId])
-
-  const loadDefaultDates = async () => {
+  const loadDefaultDates = useCallback(async () => {
     const fromParam = searchParams.get('from')
     const toParam = searchParams.get('to')
 
@@ -185,9 +250,9 @@ function ProjectDetailContent() {
       from: new Date(start),
       to: new Date(end),
     })
-  }
+  }, [searchParams])
 
-  const loadProjectData = async () => {
+  const loadProjectData = useCallback(async () => {
     try {
       const [projectData, entriesData, balanceData] = await Promise.all([
         getProject(projectId),
@@ -203,7 +268,100 @@ function ProjectDetailContent() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [projectId, router])
+
+  const loadProjectsList = useCallback(async () => {
+    try {
+      const projects = await getProjects()
+      setProjectsList(projects.map(p => ({ id: p.id, name: p.name })))
+    } catch (error) {
+      console.error('Failed to load projects list:', error)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isPending && !session) {
+      router.push('/login')
+    }
+  }, [session, isPending, router])
+
+  useEffect(() => {
+    if (session) {
+      loadProjectData()
+      loadProjectsList()
+      loadDefaultDates()
+    }
+  }, [session, projectId, loadDefaultDates, loadProjectData, loadProjectsList])
+
+  useEffect(() => {
+    if (initialisedFromUrlRef.current) return
+
+    const sortParam = parseSortParam(searchParams.get('sort'))
+    const qParam = searchParams.get('q')
+    const typeParam = searchParams.get('type')
+
+    if (typeof window !== 'undefined') {
+      if (!sortParam) {
+        const stored = window.localStorage.getItem('entriesSort')
+        const storedSort = parseSortParam(stored)
+        if (storedSort) setSortBy(storedSort)
+      } else {
+        setSortBy(sortParam)
+      }
+    } else if (sortParam) {
+      setSortBy(sortParam)
+    }
+
+    if (qParam) setSearchQuery(qParam)
+    if (typeParam) setTypeFilter(typeParam)
+
+    initialisedFromUrlRef.current = true
+  }, [searchParams])
+
+  useEffect(() => {
+    if (!initialisedFromUrlRef.current) return
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem('entriesSort', toSortParam(sortBy))
+  }, [sortBy])
+
+  useEffect(() => {
+    if (!initialisedFromUrlRef.current) return
+    const desired = toSortParam(sortBy)
+    const current = searchParams.get('sort')
+    if (current === desired) return
+
+    const next = new URLSearchParams(searchParams.toString())
+    next.set('sort', desired)
+    router.replace(`/dashboard/projects/${projectId}?${next.toString()}`)
+  }, [sortBy, projectId, router, searchParams])
+
+  useEffect(() => {
+    if (!initialisedFromUrlRef.current) return
+    const current = searchParams.get('type')
+    const desired = typeFilter === 'all' ? null : typeFilter
+    if ((current ?? null) === desired) return
+
+    const next = new URLSearchParams(searchParams.toString())
+    if (desired) next.set('type', desired)
+    else next.delete('type')
+    router.replace(`/dashboard/projects/${projectId}?${next.toString()}`)
+  }, [typeFilter, projectId, router, searchParams])
+
+  useEffect(() => {
+    if (!initialisedFromUrlRef.current) return
+    const handle = window.setTimeout(() => {
+      const desired = searchQuery.trim() ? searchQuery.trim() : null
+      const current = searchParams.get('q')
+      if ((current ?? null) === desired) return
+
+      const next = new URLSearchParams(searchParams.toString())
+      if (desired) next.set('q', desired)
+      else next.delete('q')
+      router.replace(`/dashboard/projects/${projectId}?${next.toString()}`)
+    }, 250)
+
+    return () => window.clearTimeout(handle)
+  }, [searchQuery, projectId, router, searchParams])
 
   const handleSignOut = async () => {
     await signOut()
@@ -273,6 +431,22 @@ function ProjectDetailContent() {
       params.set('to', newDateRange.to.toISOString())
       router.push(`/dashboard/projects/${projectId}?${params.toString()}`)
     }
+  }
+
+  const toggleDateSort = () => {
+    setSortBy(current => (current === 'date-desc' ? 'date-asc' : 'date-desc'))
+  }
+
+  const toggleAmountSort = () => {
+    setSortBy(current =>
+      current === 'amount-desc' ? 'amount-asc' : 'amount-desc',
+    )
+  }
+
+  const resetViewState = () => {
+    setSearchQuery('')
+    setTypeFilter('all')
+    setSortBy('date-desc')
   }
 
   // Get unique entry types for filter
@@ -378,12 +552,18 @@ function ProjectDetailContent() {
       <header className="border-b">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-4">
-            <Link href="/dashboard">
+            <Link
+              href={buildHref('/dashboard', {
+                tab: 'projects',
+              })}>
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             </Link>
-            <Link href="/dashboard">
+            <Link
+              href={buildHref('/dashboard', {
+                tab: 'projects',
+              })}>
               <h1 className="text-xl font-bold cursor-pointer hover:text-primary transition-colors">
                 Booker Journal
               </h1>
@@ -402,6 +582,28 @@ function ProjectDetailContent() {
             <p className="text-sm text-muted-foreground">
               Created {formatDate(project.createdAt)}
             </p>
+            {projectsList.length > 1 && (
+              <div className="mt-2 max-w-[320px]">
+                <Select
+                  value={projectId}
+                  onValueChange={nextProjectId => {
+                    router.push(
+                      buildHref(`/dashboard/projects/${nextProjectId}`, {}),
+                    )
+                  }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Switch project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projectsList.map(p => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <div className="flex flex-wrap gap-2">
             <DateRangePicker
@@ -471,7 +673,9 @@ function ProjectDetailContent() {
         {/* Tab Navigation */}
         <div className="mb-6 flex flex-wrap gap-2 border-b">
           <Link
-            href={`/dashboard/projects/${projectId}?tab=entries`}
+            href={buildHref(`/dashboard/projects/${projectId}`, {
+              tab: 'entries',
+            })}
             className="inline-block">
             <button
               className={`px-4 py-2 font-medium transition-colors ${
@@ -483,7 +687,9 @@ function ProjectDetailContent() {
             </button>
           </Link>
           <Link
-            href={`/dashboard/projects/${projectId}?tab=metrics`}
+            href={buildHref(`/dashboard/projects/${projectId}`, {
+              tab: 'metrics',
+            })}
             className="inline-block">
             <button
               className={`flex items-center gap-2 px-4 py-2 font-medium transition-colors ${
@@ -572,25 +778,96 @@ function ProjectDetailContent() {
                       ))}
                     </SelectContent>
                   </Select>
-                  <Select
-                    value={sortBy}
-                    onValueChange={(
-                      value:
-                        | 'date-desc'
-                        | 'date-asc'
-                        | 'amount-desc'
-                        | 'amount-asc',
-                    ) => setSortBy(value)}>
-                    <SelectTrigger className="w-full sm:w-[180px]">
-                      <SelectValue placeholder="Sort by" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="date-desc">Date (Newest)</SelectItem>
-                      <SelectItem value="date-asc">Date (Oldest)</SelectItem>
-                      <SelectItem value="amount-desc">Amount (High)</SelectItem>
-                      <SelectItem value="amount-asc">Amount (Low)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="flex flex-wrap gap-2 sm:justify-end">
+                    <Button
+                      type="button"
+                      variant={
+                        sortBy.startsWith('date') ? 'default' : 'outline'
+                      }
+                      onClick={toggleDateSort}
+                      className="h-10">
+                      Date
+                      {sortBy === 'date-desc' ? (
+                        <ChevronDown className="ml-2 h-4 w-4" />
+                      ) : (
+                        <ChevronUp className="ml-2 h-4 w-4" />
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={
+                        sortBy.startsWith('amount') ? 'default' : 'outline'
+                      }
+                      onClick={toggleAmountSort}
+                      className="h-10">
+                      Amount
+                      {sortBy === 'amount-desc' ? (
+                        <ChevronDown className="ml-2 h-4 w-4" />
+                      ) : (
+                        <ChevronUp className="ml-2 h-4 w-4" />
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setSortBy('date-desc')}
+                      title="Reset sort to default"
+                      className="h-10 px-3">
+                      <RotateCcw className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div className="text-sm text-muted-foreground">
+                    Sorted by{' '}
+                    <span className="font-medium">{getSortLabel(sortBy)}</span>
+                  </div>
+                  {(hasActiveFilters || sortBy !== 'date-desc') && (
+                    <div className="flex flex-wrap gap-2">
+                      {searchQuery.trim() && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSearchQuery('')}
+                          className="h-8">
+                          Search: {searchQuery.trim()}
+                          <X className="ml-2 h-3 w-3" />
+                        </Button>
+                      )}
+                      {typeFilter !== 'all' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setTypeFilter('all')}
+                          className="h-8">
+                          Type:{' '}
+                          {uniqueTypes.find(([k]) => k === typeFilter)?.[1] ||
+                            typeFilter}
+                          <X className="ml-2 h-3 w-3" />
+                        </Button>
+                      )}
+                      {sortBy !== 'date-desc' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSortBy('date-desc')}
+                          className="h-8">
+                          Sort: {getSortLabel(sortBy)}
+                          <X className="ml-2 h-3 w-3" />
+                        </Button>
+                      )}
+                      {(searchQuery.trim() || typeFilter !== 'all') && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={resetViewState}
+                          className="h-8">
+                          Clear all
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Entry List */}

@@ -242,13 +242,19 @@ export function InventoryList() {
                         {formatNumber(item.currentStock)} units
                       </div>
                       <div className="flex items-center text-sm text-muted-foreground">
-                        {/* TODO: Add shadcn tooltip describing how calculated */}
-                        <Info className="h-3 w-3 text-muted-foreground mr-1" />
+                        <span
+                          title="Calculated as current stock × average buying price (average cost method)"
+                          className="inline-flex">
+                          <Info className="h-3 w-3 text-muted-foreground mr-1" />
+                        </span>
                         Buying value: {formatCurrency(currentValue)}
                       </div>
                       <div className="flex items-center text-sm text-muted-foreground">
-                        {/* TODO: Add shadcn tooltip describing how calculated */}
-                        <Info className="h-3 w-3 text-muted-foreground mr-1" />
+                        <span
+                          title="Estimated as current stock × average selling price"
+                          className="inline-flex">
+                          <Info className="h-3 w-3 text-muted-foreground mr-1" />
+                        </span>
                         Apx. selling value: {formatCurrency(possibleValue)}{' '}
                       </div>
                     </div>
