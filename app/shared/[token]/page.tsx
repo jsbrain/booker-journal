@@ -1,12 +1,18 @@
-"use client"
+'use client'
 
-import { useEffect, useState } from "react"
-import { useParams } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Lock, Calendar } from "lucide-react"
-import { getProjectBySharedLink } from "@/lib/actions/shared-links"
-import { getBalanceColor, getBalanceStatus } from "@/lib/utils/balance"
-import { formatCurrency, formatDateTime, formatDate } from "@/lib/utils/locale"
+import { useEffect, useState } from 'react'
+import { useParams } from 'next/navigation'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Lock, Calendar } from 'lucide-react'
+import { getProjectBySharedLink } from '@/lib/actions/shared-links'
+import { getBalanceColor, getBalanceStatus } from '@/lib/utils/balance'
+import { formatCurrency, formatDateTime, formatDate } from '@/lib/utils/locale'
 
 type Entry = {
   id: string
@@ -46,13 +52,13 @@ type DateRangeInfo = {
 export default function SharedProjectPage() {
   const params = useParams()
   const token = params.token as string
-  
+
   const [project, setProject] = useState<Project | null>(null)
   const [entries, setEntries] = useState<Entry[]>([])
   const [balance, setBalance] = useState(0)
   const [dateRange, setDateRange] = useState<DateRangeInfo>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
+  const [error, setError] = useState('')
 
   useEffect(() => {
     loadProjectData()
@@ -67,7 +73,7 @@ export default function SharedProjectPage() {
       setBalance(data.balance)
       setDateRange(data.dateRange)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Invalid or expired link")
+      setError(err instanceof Error ? err.message : 'Invalid or expired link')
     } finally {
       setLoading(false)
     }
@@ -124,9 +130,11 @@ export default function SharedProjectPage() {
             <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
               <Calendar className="h-4 w-4" />
               <span>
-                Showing entries from{" "}
-                {dateRange.startDate ? formatDate(dateRange.startDate) : "beginning"} to{" "}
-                {dateRange.endDate ? formatDate(dateRange.endDate) : "end"}
+                Showing entries from{' '}
+                {dateRange.startDate
+                  ? formatDate(dateRange.startDate)
+                  : 'beginning'}{' '}
+                to {dateRange.endDate ? formatDate(dateRange.endDate) : 'end'}
               </span>
             </div>
           )}
@@ -136,7 +144,9 @@ export default function SharedProjectPage() {
           <Card>
             <CardHeader>
               <CardTitle>Current Balance</CardTitle>
-              <CardDescription>Amount owed by customer{dateRange ? " (filtered)" : ""}</CardDescription>
+              <CardDescription>
+                Amount owed by customer{dateRange ? ' (filtered)' : ''}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className={`text-3xl font-bold ${getBalanceColor(balance)}`}>
@@ -164,7 +174,7 @@ export default function SharedProjectPage() {
                   <span className="text-sm text-muted-foreground">
                     {entries.length > 0
                       ? formatDate(entries[0].timestamp)
-                      : "N/A"}
+                      : 'N/A'}
                   </span>
                 </div>
               </div>
@@ -180,17 +190,21 @@ export default function SharedProjectPage() {
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <p className="text-sm text-muted-foreground">
-                {dateRange ? "No entries in the selected date range" : "No entries yet"}
+                {dateRange
+                  ? 'No entries in the selected date range'
+                  : 'No entries yet'}
               </p>
             </CardContent>
           </Card>
         ) : (
           <div className="space-y-2">
-            {entries.map((entry) => {
+            {entries.map(entry => {
               const amount = parseFloat(entry.amount)
               const price = parseFloat(entry.price)
-              const total = amount * price
-              
+              // Display totals in the same convention as the displayed balance:
+              // balance = -Σ(amount×price) => displayTotal = -(amount×price)
+              const displayTotal = -(amount * price)
+
               return (
                 <Card key={entry.id}>
                   <CardContent className="flex items-center justify-between p-4">
@@ -199,8 +213,12 @@ export default function SharedProjectPage() {
                         <span className="font-medium">{entry.type.name}</span>
                         {entry.product && (
                           <>
-                            <span className="text-sm text-muted-foreground">•</span>
-                            <span className="text-sm text-muted-foreground">{entry.product.name}</span>
+                            <span className="text-sm text-muted-foreground">
+                              •
+                            </span>
+                            <span className="text-sm text-muted-foreground">
+                              {entry.product.name}
+                            </span>
                           </>
                         )}
                         <span className="text-sm text-muted-foreground">
@@ -208,14 +226,20 @@ export default function SharedProjectPage() {
                         </span>
                       </div>
                       {entry.note && (
-                        <p className="text-sm text-muted-foreground">{entry.note}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {entry.note}
+                        </p>
                       )}
                       <div className="mt-1 text-sm text-muted-foreground">
                         Amount: {amount} × {formatCurrency(price)}
                       </div>
                     </div>
-                    <div className={`text-xl font-bold ${total >= 0 ? "text-green-600" : "text-red-600"}`}>
-                      {total >= 0 ? "+" : ""}{formatCurrency(total)}
+                    <div
+                      className={`text-xl font-bold ${
+                        displayTotal >= 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                      {displayTotal >= 0 ? '+' : ''}
+                      {formatCurrency(displayTotal)}
                     </div>
                   </CardContent>
                 </Card>

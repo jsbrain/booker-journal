@@ -1,7 +1,7 @@
-"use client"
+'use client'
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
+import { useState, useEffect } from 'react'
+import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
@@ -9,12 +9,18 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { DateRangePicker } from "@/components/ui/date-range-picker"
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent } from '@/components/ui/card'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { DateRangePicker } from '@/components/ui/date-range-picker'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,11 +30,15 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { createSharedLink, getSharedLinks, deleteSharedLink } from "@/lib/actions/shared-links"
-import { formatDateTime, formatDate } from "@/lib/utils/locale"
-import { Copy, Trash2, Check } from "lucide-react"
-import type { DateRange } from "react-day-picker"
+} from '@/components/ui/alert-dialog'
+import {
+  createSharedLink,
+  getSharedLinks,
+  deleteSharedLink,
+} from '@/lib/actions/shared-links'
+import { formatDateTime, formatDate } from '@/lib/utils/locale'
+import { Copy, Trash2, Check } from 'lucide-react'
+import type { DateRange } from 'react-day-picker'
 
 interface ShareProjectDialogProps {
   open: boolean
@@ -46,16 +56,32 @@ type SharedLink = {
   createdAt: Date
 }
 
-export function ShareProjectDialog({ open, onOpenChange, projectId }: ShareProjectDialogProps) {
-  const [expiresValue, setExpiresValue] = useState("7")
-  const [expiresUnit, setExpiresUnit] = useState<"days" | "hours">("days")
+export function ShareProjectDialog({
+  open,
+  onOpenChange,
+  projectId,
+}: ShareProjectDialogProps) {
+  const [expiresValue, setExpiresValue] = useState('7')
+  const [expiresUnit, setExpiresUnit] = useState<'days' | 'hours'>('days')
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
   const [sharedLinks, setSharedLinks] = useState<SharedLink[]>([])
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
+  const [error, setError] = useState('')
   const [copiedToken, setCopiedToken] = useState<string | null>(null)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [linkToDelete, setLinkToDelete] = useState<string | null>(null)
+
+  const toStartOfDayIso = (date: Date) => {
+    const d = new Date(date)
+    d.setHours(0, 0, 0, 0)
+    return d.toISOString()
+  }
+
+  const toEndOfDayIso = (date: Date) => {
+    const d = new Date(date)
+    d.setHours(23, 59, 59, 999)
+    return d.toISOString()
+  }
 
   useEffect(() => {
     if (open) {
@@ -69,12 +95,12 @@ export function ShareProjectDialog({ open, onOpenChange, projectId }: ShareProje
       const links = await getSharedLinks(projectId)
       setSharedLinks(links)
     } catch {
-      setError("Failed to load shared links")
+      setError('Failed to load shared links')
     }
   }
 
   const handleCreateLink = async () => {
-    setError("")
+    setError('')
     setLoading(true)
 
     try {
@@ -84,18 +110,26 @@ export function ShareProjectDialog({ open, onOpenChange, projectId }: ShareProje
         return
       }
 
-      const expiresInDays = expiresUnit === "days" ? value : undefined
-      const expiresInHours = expiresUnit === "hours" ? value : undefined
-      const startDate = dateRange?.from?.toISOString()
-      const endDate = dateRange?.to?.toISOString()
+      const expiresInDays = expiresUnit === 'days' ? value : undefined
+      const expiresInHours = expiresUnit === 'hours' ? value : undefined
+      const startDate = dateRange?.from
+        ? toStartOfDayIso(dateRange.from)
+        : undefined
+      const endDate = dateRange?.to ? toEndOfDayIso(dateRange.to) : undefined
 
-      await createSharedLink(projectId, expiresInDays, expiresInHours, startDate, endDate)
-      setExpiresValue("7")
-      setExpiresUnit("days")
+      await createSharedLink(
+        projectId,
+        expiresInDays,
+        expiresInHours,
+        startDate,
+        endDate,
+      )
+      setExpiresValue('7')
+      setExpiresUnit('days')
       setDateRange(undefined)
       await loadSharedLinks()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create link")
+      setError(err instanceof Error ? err.message : 'Failed to create link')
     } finally {
       setLoading(false)
     }
@@ -113,7 +147,7 @@ export function ShareProjectDialog({ open, onOpenChange, projectId }: ShareProje
       await deleteSharedLink(linkToDelete, projectId)
       await loadSharedLinks()
     } catch {
-      setError("Failed to delete link")
+      setError('Failed to delete link')
     }
     setShowDeleteDialog(false)
     setLinkToDelete(null)
@@ -149,10 +183,14 @@ export function ShareProjectDialog({ open, onOpenChange, projectId }: ShareProje
                   type="number"
                   min="1"
                   value={expiresValue}
-                  onChange={(e) => setExpiresValue(e.target.value)}
+                  onChange={e => setExpiresValue(e.target.value)}
                   className="flex-1"
                 />
-                <Select value={expiresUnit} onValueChange={(value) => setExpiresUnit(value as "days" | "hours")}>
+                <Select
+                  value={expiresUnit}
+                  onValueChange={value =>
+                    setExpiresUnit(value as 'days' | 'hours')
+                  }>
                   <SelectTrigger className="w-[110px]">
                     <SelectValue />
                   </SelectTrigger>
@@ -168,37 +206,44 @@ export function ShareProjectDialog({ open, onOpenChange, projectId }: ShareProje
           <div>
             <Label>Date Range (Optional)</Label>
             <div className="mt-2">
-              <DateRangePicker dateRange={dateRange} setDateRange={setDateRange} />
+              <DateRangePicker
+                dateRange={dateRange}
+                setDateRange={setDateRange}
+              />
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Filter entries shown in the shared link to this date range
             </p>
           </div>
 
-          <Button onClick={handleCreateLink} disabled={loading} className="w-full">
-            {loading ? "Creating..." : "Create Link"}
+          <Button
+            onClick={handleCreateLink}
+            disabled={loading}
+            className="w-full">
+            {loading ? 'Creating...' : 'Create Link'}
           </Button>
 
-          {error && (
-            <p className="text-sm text-destructive">{error}</p>
-          )}
+          {error && <p className="text-sm text-destructive">{error}</p>}
 
           {sharedLinks.length > 0 && (
             <div className="space-y-2">
               <Label>Active Links</Label>
-              {sharedLinks.map((link) => (
-                <Card key={link.id} className={isExpired(link.expiresAt) ? "opacity-50" : ""}>
+              {sharedLinks.map(link => (
+                <Card
+                  key={link.id}
+                  className={isExpired(link.expiresAt) ? 'opacity-50' : ''}>
                   <CardContent className="flex items-center justify-between p-3">
                     <div className="flex-1">
                       <div className="text-sm font-medium">
-                        {isExpired(link.expiresAt) ? "Expired" : "Active"}
+                        {isExpired(link.expiresAt) ? 'Expired' : 'Active'}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         Expires: {formatDateTime(link.expiresAt)}
                       </div>
                       {link.startDate && link.endDate && (
                         <div className="text-xs text-muted-foreground">
-                          Range: {formatDate(link.startDate)} - {formatDate(link.endDate)}
+                          Range: {formatDate(link.startDate)} -{' '}
+                          {formatDate(link.endDate)}
                         </div>
                       )}
                       <div className="mt-1 font-mono text-xs text-muted-foreground truncate">
@@ -210,8 +255,7 @@ export function ShareProjectDialog({ open, onOpenChange, projectId }: ShareProje
                         size="sm"
                         variant="outline"
                         onClick={() => handleCopyLink(link.token)}
-                        disabled={isExpired(link.expiresAt)}
-                      >
+                        disabled={isExpired(link.expiresAt)}>
                         {copiedToken === link.token ? (
                           <Check className="h-4 w-4" />
                         ) : (
@@ -221,8 +265,7 @@ export function ShareProjectDialog({ open, onOpenChange, projectId }: ShareProje
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => handleDeleteLink(link.id)}
-                      >
+                        onClick={() => handleDeleteLink(link.id)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -245,12 +288,15 @@ export function ShareProjectDialog({ open, onOpenChange, projectId }: ShareProje
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Shared Link</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this shared link? Anyone with this link will no longer be able to access the project.
+              Are you sure you want to delete this shared link? Anyone with this
+              link will no longer be able to access the project.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteLink} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={confirmDeleteLink}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

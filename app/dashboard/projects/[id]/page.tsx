@@ -1,38 +1,58 @@
-"use client"
+'use client'
 
-import { useEffect, useState, Suspense, useMemo } from "react"
-import { useRouter, useParams, useSearchParams } from "next/navigation"
-import { useSession, signOut } from "@/lib/auth-client"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { DateRangePicker } from "@/components/ui/date-range-picker"
-import type { DateRange } from "react-day-picker"
-import { ArrowLeft, LogOut, Plus, Share2, Trash2, Edit2, History, TrendingUp, Search } from "lucide-react"
-import { getProject, deleteProject } from "@/lib/actions/projects"
-import { getEntries, getProjectBalance, deleteEntry } from "@/lib/actions/entries"
-import { getCurrentMonthRange } from "@/lib/actions/metrics"
-import { CreateEntryDialog } from "@/components/create-entry-dialog"
-import { EditEntryDialog } from "@/components/edit-entry-dialog"
-import { ShareProjectDialog } from "@/components/share-project-dialog"
-import { MetricsDashboard } from "@/components/metrics-dashboard"
-import { getBalanceColor, getBalanceStatus } from "@/lib/utils/balance"
-import { formatCurrency, formatDateTime, formatDate } from "@/lib/utils/locale"
-import Link from "next/link"
+import { useEffect, useState, Suspense, useMemo } from 'react'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
+import { useSession, signOut } from '@/lib/auth-client'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { DateRangePicker } from '@/components/ui/date-range-picker'
+import type { DateRange } from 'react-day-picker'
+import {
+  ArrowLeft,
+  LogOut,
+  Plus,
+  Share2,
+  Trash2,
+  Edit2,
+  History,
+  TrendingUp,
+  Search,
+} from 'lucide-react'
+import { getProject, deleteProject } from '@/lib/actions/projects'
+import {
+  getEntries,
+  getProjectBalance,
+  deleteEntry,
+} from '@/lib/actions/entries'
+import { getCurrentMonthRange } from '@/lib/actions/metrics'
+import { CreateEntryDialog } from '@/components/create-entry-dialog'
+import { EditEntryDialog } from '@/components/edit-entry-dialog'
+import { ShareProjectDialog } from '@/components/share-project-dialog'
+import { MetricsDashboard } from '@/components/metrics-dashboard'
+import { getBalanceColor, getBalanceStatus } from '@/lib/utils/balance'
+import { formatCurrency, formatDateTime, formatDate } from '@/lib/utils/locale'
+import Link from 'next/link'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
+} from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
+} from '@/components/ui/select'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,8 +62,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import type { EditHistoryEntry } from "@/lib/db/schema"
+} from '@/components/ui/alert-dialog'
+import type { EditHistoryEntry } from '@/lib/db/schema'
 
 type Entry = {
   id: string
@@ -79,9 +99,12 @@ type Project = {
 
 export default function ProjectDetailPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-screen items-center justify-center">
-      <div className="text-muted-foreground">Loading...</div>
-    </div>}>
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="text-muted-foreground">Loading...</div>
+        </div>
+      }>
       <ProjectDetailContent />
     </Suspense>
   )
@@ -93,7 +116,7 @@ function ProjectDetailContent() {
   const params = useParams()
   const searchParams = useSearchParams()
   const projectId = params.id as string
-  
+
   const [project, setProject] = useState<Project | null>(null)
   const [entries, setEntries] = useState<Entry[]>([])
   const [balance, setBalance] = useState(0)
@@ -103,23 +126,29 @@ function ProjectDetailContent() {
   const [showShareDialog, setShowShareDialog] = useState(false)
   const [showHistoryDialog, setShowHistoryDialog] = useState(false)
   const [editingEntry, setEditingEntry] = useState<Entry | null>(null)
-  const [viewingHistory, setViewingHistory] = useState<EditHistoryEntry[] | null>(null)
+  const [viewingHistory, setViewingHistory] = useState<
+    EditHistoryEntry[] | null
+  >(null)
   const [showDeleteProjectDialog, setShowDeleteProjectDialog] = useState(false)
   const [showDeleteEntryDialog, setShowDeleteEntryDialog] = useState(false)
   const [entryToDelete, setEntryToDelete] = useState<string | null>(null)
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
-  
+
   // Filter and sort states for journal entries
-  const [searchQuery, setSearchQuery] = useState("")
-  const [typeFilter, setTypeFilter] = useState<string>("all")
-  const [sortBy, setSortBy] = useState<"date-desc" | "date-asc" | "amount-desc" | "amount-asc">("date-desc")
-  
+  const [searchQuery, setSearchQuery] = useState('')
+  const [typeFilter, setTypeFilter] = useState<string>('all')
+  const [sortBy, setSortBy] = useState<
+    'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc'
+  >('date-desc')
+
   // Get active tab from URL search params, default to "entries"
-  const activeTab = (searchParams.get("tab") as "entries" | "metrics" | "inventory") || "entries"
+  const activeTab =
+    (searchParams.get('tab') as 'entries' | 'metrics' | 'inventory') ||
+    'entries'
 
   useEffect(() => {
     if (!isPending && !session) {
-      router.push("/login")
+      router.push('/login')
     }
   }, [session, isPending, router])
 
@@ -132,14 +161,14 @@ function ProjectDetailContent() {
   }, [session, projectId])
 
   const loadDefaultDates = async () => {
-    const fromParam = searchParams.get("from")
-    const toParam = searchParams.get("to")
-    
+    const fromParam = searchParams.get('from')
+    const toParam = searchParams.get('to')
+
     if (fromParam && toParam) {
       // Validate and use dates from URL
       const fromDate = new Date(fromParam)
       const toDate = new Date(toParam)
-      
+
       // Check if dates are valid
       if (!isNaN(fromDate.getTime()) && !isNaN(toDate.getTime())) {
         setDateRange({
@@ -149,7 +178,7 @@ function ProjectDetailContent() {
         return
       }
     }
-    
+
     // Fall back to current month
     const { startDate: start, endDate: end } = await getCurrentMonthRange()
     setDateRange({
@@ -169,8 +198,8 @@ function ProjectDetailContent() {
       setEntries(entriesData)
       setBalance(balanceData)
     } catch (error) {
-      console.error("Failed to load project:", error)
-      router.push("/dashboard")
+      console.error('Failed to load project:', error)
+      router.push('/dashboard')
     } finally {
       setLoading(false)
     }
@@ -178,7 +207,7 @@ function ProjectDetailContent() {
 
   const handleSignOut = async () => {
     await signOut()
-    router.push("/login")
+    router.push('/login')
   }
 
   const handleEntryCreated = () => {
@@ -199,9 +228,9 @@ function ProjectDetailContent() {
   const confirmDeleteProject = async () => {
     try {
       await deleteProject(projectId)
-      router.push("/dashboard")
+      router.push('/dashboard')
     } catch (error) {
-      console.error("Failed to delete project:", error)
+      console.error('Failed to delete project:', error)
     }
     setShowDeleteProjectDialog(false)
   }
@@ -218,7 +247,7 @@ function ProjectDetailContent() {
       await deleteEntry(entryToDelete, projectId)
       loadProjectData()
     } catch (error) {
-      console.error("Failed to delete entry:", error)
+      console.error('Failed to delete entry:', error)
     }
     setShowDeleteEntryDialog(false)
     setEntryToDelete(null)
@@ -236,12 +265,12 @@ function ProjectDetailContent() {
 
   const handleDateRangeChange = (newDateRange: DateRange | undefined) => {
     setDateRange(newDateRange)
-    
+
     // Update URL with new date range
     if (newDateRange?.from && newDateRange?.to) {
       const params = new URLSearchParams(searchParams.toString())
-      params.set("from", newDateRange.from.toISOString())
-      params.set("to", newDateRange.to.toISOString())
+      params.set('from', newDateRange.from.toISOString())
+      params.set('to', newDateRange.to.toISOString())
       router.push(`/dashboard/projects/${projectId}?${params.toString()}`)
     }
   }
@@ -263,7 +292,7 @@ function ProjectDetailContent() {
       const toDate = new Date(dateRange.to)
       toDate.setHours(23, 59, 59, 999)
       const toTime = toDate.getTime()
-      
+
       filtered = filtered.filter(e => {
         const entryTime = new Date(e.timestamp).getTime()
         return entryTime >= fromTime && entryTime <= toTime
@@ -273,38 +302,45 @@ function ProjectDetailContent() {
     // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
-      filtered = filtered.filter(e => 
-        e.type.name.toLowerCase().includes(query) ||
-        (e.product && e.product.name.toLowerCase().includes(query)) ||
-        (e.note && e.note.toLowerCase().includes(query))
+      filtered = filtered.filter(
+        e =>
+          e.type.name.toLowerCase().includes(query) ||
+          (e.product && e.product.name.toLowerCase().includes(query)) ||
+          (e.note && e.note.toLowerCase().includes(query)),
       )
     }
 
     // Apply type filter
-    if (typeFilter !== "all") {
+    if (typeFilter !== 'all') {
       filtered = filtered.filter(e => e.type.key === typeFilter)
     }
 
     // Apply sorting
     const sorted = [...filtered]
     switch (sortBy) {
-      case "date-desc":
-        sorted.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      case 'date-desc':
+        sorted.sort(
+          (a, b) =>
+            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+        )
         break
-      case "date-asc":
-        sorted.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+      case 'date-asc':
+        sorted.sort(
+          (a, b) =>
+            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+        )
         break
-      case "amount-desc":
+      case 'amount-desc':
         sorted.sort((a, b) => {
-          const totalA = parseFloat(a.amount) * parseFloat(a.price)
-          const totalB = parseFloat(b.amount) * parseFloat(b.price)
+          const totalA = -(parseFloat(a.amount) * parseFloat(a.price))
+          const totalB = -(parseFloat(b.amount) * parseFloat(b.price))
           return Math.abs(totalB) - Math.abs(totalA)
         })
         break
-      case "amount-asc":
+      case 'amount-asc':
         sorted.sort((a, b) => {
-          const totalA = parseFloat(a.amount) * parseFloat(a.price)
-          const totalB = parseFloat(b.amount) * parseFloat(b.price)
+          const totalA = -(parseFloat(a.amount) * parseFloat(a.price))
+          const totalB = -(parseFloat(b.amount) * parseFloat(b.price))
           return Math.abs(totalA) - Math.abs(totalB)
         })
         break
@@ -315,14 +351,14 @@ function ProjectDetailContent() {
 
   // Calculate filtered total
   const filteredTotal = useMemo(() => {
-    return filteredAndSortedEntries.reduce((sum, entry) => {
+    return -filteredAndSortedEntries.reduce((sum, entry) => {
       return sum + parseFloat(entry.amount) * parseFloat(entry.price)
     }, 0)
   }, [filteredAndSortedEntries])
 
   // Check if search or type filters are active
   const hasActiveFilters = useMemo(() => {
-    return searchQuery.trim() !== "" || typeFilter !== "all"
+    return searchQuery.trim() !== '' || typeFilter !== 'all'
   }, [searchQuery, typeFilter])
 
   if (isPending || loading) {
@@ -348,7 +384,9 @@ function ProjectDetailContent() {
               </Button>
             </Link>
             <Link href="/dashboard">
-              <h1 className="text-xl font-bold cursor-pointer hover:text-primary transition-colors">Booker Journal</h1>
+              <h1 className="text-xl font-bold cursor-pointer hover:text-primary transition-colors">
+                Booker Journal
+              </h1>
             </Link>
           </div>
           <Button onClick={handleSignOut} variant="outline" size="sm">
@@ -366,12 +404,21 @@ function ProjectDetailContent() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <DateRangePicker dateRange={dateRange} setDateRange={handleDateRangeChange} />
-            <Button onClick={() => setShowShareDialog(true)} variant="outline" className="flex-1 sm:flex-none">
+            <DateRangePicker
+              dateRange={dateRange}
+              setDateRange={handleDateRangeChange}
+            />
+            <Button
+              onClick={() => setShowShareDialog(true)}
+              variant="outline"
+              className="flex-1 sm:flex-none">
               <Share2 className="mr-2 h-4 w-4" />
               Share
             </Button>
-            <Button onClick={handleDeleteProject} variant="outline" className="flex-1 sm:flex-none">
+            <Button
+              onClick={handleDeleteProject}
+              variant="outline"
+              className="flex-1 sm:flex-none">
               <Trash2 className="mr-2 h-4 w-4" />
               Delete
             </Button>
@@ -385,7 +432,10 @@ function ProjectDetailContent() {
               <CardDescription>Amount owed by customer</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className={`text-3xl font-bold break-words ${getBalanceColor(balance)}`}>
+              <div
+                className={`text-3xl font-bold wrap-break-word ${getBalanceColor(
+                  balance,
+                )}`}>
                 {formatCurrency(balance)}
               </div>
               <p className="mt-2 text-sm text-muted-foreground">
@@ -410,7 +460,7 @@ function ProjectDetailContent() {
                   <span className="text-sm text-muted-foreground truncate">
                     {entries.length > 0
                       ? formatDate(entries[0].timestamp)
-                      : "N/A"}
+                      : 'N/A'}
                   </span>
                 </div>
               </div>
@@ -420,25 +470,27 @@ function ProjectDetailContent() {
 
         {/* Tab Navigation */}
         <div className="mb-6 flex flex-wrap gap-2 border-b">
-          <Link href={`/dashboard/projects/${projectId}?tab=entries`} className="inline-block">
+          <Link
+            href={`/dashboard/projects/${projectId}?tab=entries`}
+            className="inline-block">
             <button
               className={`px-4 py-2 font-medium transition-colors ${
-                activeTab === "entries"
-                  ? "border-b-2 border-primary text-primary"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
+                activeTab === 'entries'
+                  ? 'border-b-2 border-primary text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}>
               Journal Entries
             </button>
           </Link>
-          <Link href={`/dashboard/projects/${projectId}?tab=metrics`} className="inline-block">
+          <Link
+            href={`/dashboard/projects/${projectId}?tab=metrics`}
+            className="inline-block">
             <button
               className={`flex items-center gap-2 px-4 py-2 font-medium transition-colors ${
-                activeTab === "metrics"
-                  ? "border-b-2 border-primary text-primary"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
+                activeTab === 'metrics'
+                  ? 'border-b-2 border-primary text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}>
               <TrendingUp className="h-4 w-4" />
               Metrics
             </button>
@@ -446,7 +498,7 @@ function ProjectDetailContent() {
         </div>
 
         {/* Tab Content */}
-        {activeTab === "entries" && (
+        {activeTab === 'entries' && (
           <>
             <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <h3 className="text-lg font-semibold">Journal Entries</h3>
@@ -476,16 +528,26 @@ function ProjectDetailContent() {
                     <CardContent className="py-3 px-4">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground">
-                          Filtered Total ({filteredAndSortedEntries.length} {filteredAndSortedEntries.length === 1 ? 'entry' : 'entries'})
+                          Filtered Total ({filteredAndSortedEntries.length}{' '}
+                          {filteredAndSortedEntries.length === 1
+                            ? 'entry'
+                            : 'entries'}
+                          )
                         </span>
-                        <span className={`text-lg font-bold ${filteredTotal >= 0 ? "text-green-600" : "text-red-600"}`}>
-                          {filteredTotal >= 0 ? "+" : ""}{formatCurrency(filteredTotal)}
+                        <span
+                          className={`text-lg font-bold ${
+                            filteredTotal >= 0
+                              ? 'text-green-600'
+                              : 'text-red-600'
+                          }`}>
+                          {filteredTotal >= 0 ? '+' : ''}
+                          {formatCurrency(filteredTotal)}
                         </span>
                       </div>
                     </CardContent>
                   </Card>
                 )}
-                
+
                 {/* Filters and Search */}
                 <div className="flex flex-col sm:flex-row gap-3">
                   <div className="relative flex-1">
@@ -493,7 +555,7 @@ function ProjectDetailContent() {
                     <Input
                       placeholder="Search entries, products, or notes..."
                       value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onChange={e => setSearchQuery(e.target.value)}
                       className="pl-9"
                     />
                   </div>
@@ -510,7 +572,15 @@ function ProjectDetailContent() {
                       ))}
                     </SelectContent>
                   </Select>
-                  <Select value={sortBy} onValueChange={(value: "date-desc" | "date-asc" | "amount-desc" | "amount-asc") => setSortBy(value)}>
+                  <Select
+                    value={sortBy}
+                    onValueChange={(
+                      value:
+                        | 'date-desc'
+                        | 'date-asc'
+                        | 'amount-desc'
+                        | 'amount-asc',
+                    ) => setSortBy(value)}>
                     <SelectTrigger className="w-full sm:w-[180px]">
                       <SelectValue placeholder="Sort by" />
                     </SelectTrigger>
@@ -530,31 +600,39 @@ function ProjectDetailContent() {
                       No entries match your filters
                     </p>
                   ) : (
-                    filteredAndSortedEntries.map((entry) => {
+                    filteredAndSortedEntries.map(entry => {
                       const amount = parseFloat(entry.amount)
                       const price = parseFloat(entry.price)
-                      const total = amount * price
-                      const hasEditHistory = entry.editHistory && entry.editHistory.length > 0
-                      
+                      const displayTotal = -(amount * price)
+                      const hasEditHistory =
+                        entry.editHistory && entry.editHistory.length > 0
+
                       return (
                         <Card key={entry.id}>
                           <CardContent className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 gap-3">
                             <div className="flex-1 min-w-0">
                               <div className="flex flex-wrap items-center gap-2">
-                                <span className="font-medium">{entry.type.name}</span>
+                                <span className="font-medium">
+                                  {entry.type.name}
+                                </span>
                                 {entry.product && (
                                   <>
-                                    <span className="text-sm text-muted-foreground">•</span>
-                                    <span className="text-sm text-muted-foreground truncate">{entry.product.name}</span>
+                                    <span className="text-sm text-muted-foreground">
+                                      •
+                                    </span>
+                                    <span className="text-sm text-muted-foreground truncate">
+                                      {entry.product.name}
+                                    </span>
                                   </>
                                 )}
                                 {hasEditHistory && (
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => handleViewHistory(entry.editHistory)}
-                                    className="h-6 px-2 text-xs"
-                                  >
+                                    onClick={() =>
+                                      handleViewHistory(entry.editHistory)
+                                    }
+                                    className="h-6 px-2 text-xs">
                                     <History className="mr-1 h-3 w-3" />
                                     Edited ({entry.editHistory!.length})
                                   </Button>
@@ -564,29 +642,35 @@ function ProjectDetailContent() {
                                 {formatDateTime(entry.timestamp)}
                               </span>
                               {entry.note && (
-                                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{entry.note}</p>
+                                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                                  {entry.note}
+                                </p>
                               )}
                               <div className="mt-1 text-sm text-muted-foreground">
                                 Amount: {amount} × {formatCurrency(price)}
                               </div>
                             </div>
                             <div className="flex items-center gap-2 justify-between sm:justify-end">
-                              <div className={`text-xl font-bold ${total >= 0 ? "text-green-600" : "text-red-600"}`}>
-                                {total >= 0 ? "+" : ""}{formatCurrency(total)}
+                              <div
+                                className={`text-xl font-bold ${
+                                  displayTotal >= 0
+                                    ? 'text-green-600'
+                                    : 'text-red-600'
+                                }`}>
+                                {displayTotal >= 0 ? '+' : ''}
+                                {formatCurrency(displayTotal)}
                               </div>
                               <div className="flex gap-1 shrink-0">
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => handleEditEntry(entry)}
-                                >
+                                  onClick={() => handleEditEntry(entry)}>
                                   <Edit2 className="h-4 w-4" />
                                 </Button>
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => handleDeleteEntry(entry.id)}
-                                >
+                                  onClick={() => handleDeleteEntry(entry.id)}>
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </div>
@@ -602,7 +686,7 @@ function ProjectDetailContent() {
           </>
         )}
 
-        {activeTab === "metrics" && (
+        {activeTab === 'metrics' && (
           <MetricsDashboard projectId={projectId} dateRange={dateRange} />
         )}
       </main>
@@ -652,35 +736,48 @@ function ProjectDetailContent() {
                   <div className="space-y-1">
                     {edit.changes.map((change, changeIndex) => (
                       <div key={changeIndex} className="text-sm">
-                        <span className="font-medium capitalize">{change.field}:</span>{" "}
-                        <span className="text-muted-foreground">{String(change.oldValue)}</span>
-                        {" → "}
-                        <span className="text-foreground">{String(change.newValue)}</span>
+                        <span className="font-medium capitalize">
+                          {change.field}:
+                        </span>{' '}
+                        <span className="text-muted-foreground">
+                          {String(change.oldValue)}
+                        </span>
+                        {' → '}
+                        <span className="text-foreground">
+                          {String(change.newValue)}
+                        </span>
                       </div>
                     ))}
                   </div>
                 </div>
               ))
             ) : (
-              <p className="text-sm text-muted-foreground">No edit history available</p>
+              <p className="text-sm text-muted-foreground">
+                No edit history available
+              </p>
             )}
           </div>
         </DialogContent>
       </Dialog>
 
       {/* Delete Project Confirmation Dialog */}
-      <AlertDialog open={showDeleteProjectDialog} onOpenChange={setShowDeleteProjectDialog}>
+      <AlertDialog
+        open={showDeleteProjectDialog}
+        onOpenChange={setShowDeleteProjectDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Project</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this project? This action cannot be undone.
-              All entries and associated data will be permanently deleted.
+              Are you sure you want to delete this project? This action cannot
+              be undone. All entries and associated data will be permanently
+              deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteProject} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={confirmDeleteProject}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -688,17 +785,22 @@ function ProjectDetailContent() {
       </AlertDialog>
 
       {/* Delete Entry Confirmation Dialog */}
-      <AlertDialog open={showDeleteEntryDialog} onOpenChange={setShowDeleteEntryDialog}>
+      <AlertDialog
+        open={showDeleteEntryDialog}
+        onOpenChange={setShowDeleteEntryDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Entry</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this entry? This action cannot be undone.
+              Are you sure you want to delete this entry? This action cannot be
+              undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteEntry} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={confirmDeleteEntry}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
