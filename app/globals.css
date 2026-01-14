@@ -76,4 +76,18 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Consistent pointer cursor for interactive elements */
+  a,
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='menuitem']:not([aria-disabled='true']),
+  [role='option']:not([aria-disabled='true']) {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [aria-disabled='true'] {
+    cursor: not-allowed;
+  }
 }

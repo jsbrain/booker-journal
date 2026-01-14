@@ -556,7 +556,7 @@ function ProjectDetailContent() {
               href={buildHref('/dashboard', {
                 tab: 'projects',
               })}>
-              <Button variant="ghost" size="sm">
+              <Button variant="ghost" size="sm" aria-label="Back to projects" title="Back to projects">
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             </Link>
@@ -676,30 +676,24 @@ function ProjectDetailContent() {
             href={buildHref(`/dashboard/projects/${projectId}`, {
               tab: 'entries',
             })}
-            className="inline-block">
-            <button
-              className={`px-4 py-2 font-medium transition-colors ${
-                activeTab === 'entries'
-                  ? 'border-b-2 border-primary text-primary'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}>
-              Journal Entries
-            </button>
+            className={`inline-flex items-center px-4 py-2 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm ${
+              activeTab === 'entries'
+                ? 'border-b-2 border-primary text-primary'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}>
+            Journal Entries
           </Link>
           <Link
             href={buildHref(`/dashboard/projects/${projectId}`, {
               tab: 'metrics',
             })}
-            className="inline-block">
-            <button
-              className={`flex items-center gap-2 px-4 py-2 font-medium transition-colors ${
-                activeTab === 'metrics'
-                  ? 'border-b-2 border-primary text-primary'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}>
-              <TrendingUp className="h-4 w-4" />
-              Metrics
-            </button>
+            className={`inline-flex items-center gap-2 px-4 py-2 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm ${
+              activeTab === 'metrics'
+                ? 'border-b-2 border-primary text-primary'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}>
+            <TrendingUp className="h-4 w-4" />
+            Metrics
           </Link>
         </div>
 
@@ -941,13 +935,17 @@ function ProjectDetailContent() {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => handleEditEntry(entry)}>
+                                  onClick={() => handleEditEntry(entry)}
+                                  aria-label="Edit entry"
+                                  title="Edit entry">
                                   <Edit2 className="h-4 w-4" />
                                 </Button>
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => handleDeleteEntry(entry.id)}>
+                                  onClick={() => handleDeleteEntry(entry.id)}
+                                  aria-label="Delete entry"
+                                  title="Delete entry">
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </div>

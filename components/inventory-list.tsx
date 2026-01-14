@@ -371,7 +371,9 @@ export function InventoryList() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleDelete(purchase.id)}>
+                            onClick={() => handleDelete(purchase.id)}
+                            aria-label="Delete purchase"
+                            title="Delete purchase">
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>

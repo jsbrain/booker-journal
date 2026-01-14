@@ -198,42 +198,33 @@ function DashboardContent() {
         <div className="mb-6 flex flex-wrap gap-2 border-b">
           <Link
             href={buildHref('/dashboard', { tab: 'projects' })}
-            className="inline-block">
-            <button
-              className={`px-4 py-2 font-medium transition-colors ${
-                activeTab === 'projects'
-                  ? 'border-b-2 border-primary text-primary'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}>
-              <FolderOpen className="mr-2 inline h-4 w-4" />
-              Projects
-            </button>
+            className={`inline-flex items-center px-4 py-2 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm ${
+              activeTab === 'projects'
+                ? 'border-b-2 border-primary text-primary'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}>
+            <FolderOpen className="mr-2 inline h-4 w-4" />
+            Projects
           </Link>
           <Link
             href={buildHref('/dashboard', { tab: 'metrics' })}
-            className="inline-block">
-            <button
-              className={`px-4 py-2 font-medium transition-colors ${
-                activeTab === 'metrics'
-                  ? 'border-b-2 border-primary text-primary'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}>
-              <TrendingUp className="mr-2 inline h-4 w-4" />
-              Global Metrics
-            </button>
+            className={`inline-flex items-center px-4 py-2 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm ${
+              activeTab === 'metrics'
+                ? 'border-b-2 border-primary text-primary'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}>
+            <TrendingUp className="mr-2 inline h-4 w-4" />
+            Global Metrics
           </Link>
           <Link
             href={buildHref('/dashboard', { tab: 'inventory' })}
-            className="inline-block">
-            <button
-              className={`px-4 py-2 font-medium transition-colors ${
-                activeTab === 'inventory'
-                  ? 'border-b-2 border-primary text-primary'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}>
-              <Package className="mr-2 inline h-4 w-4" />
-              Global Inventory
-            </button>
+            className={`inline-flex items-center px-4 py-2 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm ${
+              activeTab === 'inventory'
+                ? 'border-b-2 border-primary text-primary'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}>
+            <Package className="mr-2 inline h-4 w-4" />
+            Global Inventory
           </Link>
         </div>
 
@@ -275,7 +266,8 @@ function DashboardContent() {
                     key={project.id}
                     href={buildHref(`/dashboard/projects/${project.id}`, {
                       tab: 'entries',
-                    })}>
+                    })}
+                    className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
                     <Card className="cursor-pointer transition-colors hover:bg-accent h-full">
                       <CardHeader>
                         <CardTitle className="truncate">

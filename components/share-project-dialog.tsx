@@ -255,7 +255,17 @@ export function ShareProjectDialog({
                         size="sm"
                         variant="outline"
                         onClick={() => handleCopyLink(link.token)}
-                        disabled={isExpired(link.expiresAt)}>
+                        disabled={isExpired(link.expiresAt)}
+                        aria-label={
+                          copiedToken === link.token
+                            ? 'Copied link'
+                            : 'Copy share link'
+                        }
+                        title={
+                          copiedToken === link.token
+                            ? 'Copied'
+                            : 'Copy share link'
+                        }>
                         {copiedToken === link.token ? (
                           <Check className="h-4 w-4" />
                         ) : (
@@ -265,7 +275,9 @@ export function ShareProjectDialog({
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => handleDeleteLink(link.id)}>
+                        onClick={() => handleDeleteLink(link.id)}
+                        aria-label="Delete share link"
+                        title="Delete share link">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>

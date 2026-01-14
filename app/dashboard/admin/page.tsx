@@ -1,16 +1,22 @@
-"use client"
+'use client'
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { useSession, signOut } from "@/lib/auth-client"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { ArrowLeft, LogOut, Plus, Trash2, Edit2 } from "lucide-react"
-import { getProducts, createProduct, updateProductName, updateProductBuyingPrice, deleteProduct } from "@/lib/actions/products"
-import { formatCurrency, formatDate } from "@/lib/utils/locale"
-import Link from "next/link"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useSession, signOut } from '@/lib/auth-client'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { ArrowLeft, LogOut, Plus, Trash2, Edit2 } from 'lucide-react'
+import {
+  getProducts,
+  createProduct,
+  updateProductName,
+  updateProductBuyingPrice,
+  deleteProduct,
+} from '@/lib/actions/products'
+import { formatCurrency, formatDate } from '@/lib/utils/locale'
+import Link from 'next/link'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogContent,
@@ -18,7 +24,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
+} from '@/components/ui/dialog'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,7 +34,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+} from '@/components/ui/alert-dialog'
 
 type Product = {
   id: string
@@ -42,7 +48,7 @@ type Product = {
 export default function AdminPage() {
   const { data: session, isPending } = useSession()
   const router = useRouter()
-  
+
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
@@ -51,16 +57,16 @@ export default function AdminPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [productToDelete, setProductToDelete] = useState<Product | null>(null)
-  
-  const [newProductKey, setNewProductKey] = useState("")
-  const [newProductName, setNewProductName] = useState("")
-  const [editProductName, setEditProductName] = useState("")
-  const [editProductBuyingPrice, setEditProductBuyingPrice] = useState("")
-  const [error, setError] = useState("")
+
+  const [newProductKey, setNewProductKey] = useState('')
+  const [newProductName, setNewProductName] = useState('')
+  const [editProductName, setEditProductName] = useState('')
+  const [editProductBuyingPrice, setEditProductBuyingPrice] = useState('')
+  const [error, setError] = useState('')
 
   useEffect(() => {
     if (!isPending && !session) {
-      router.push("/login")
+      router.push('/login')
     }
   }, [session, isPending, router])
 
@@ -75,7 +81,7 @@ export default function AdminPage() {
       const allProducts = await getProducts()
       setProducts(allProducts)
     } catch (error) {
-      console.error("Failed to load products:", error)
+      console.error('Failed to load products:', error)
     } finally {
       setLoading(false)
     }
@@ -83,38 +89,38 @@ export default function AdminPage() {
 
   const handleSignOut = async () => {
     await signOut()
-    router.push("/login")
+    router.push('/login')
   }
 
   const handleCreateProduct = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
-    
+    setError('')
+
     try {
       await createProduct(newProductKey, newProductName)
-      setNewProductKey("")
-      setNewProductName("")
+      setNewProductKey('')
+      setNewProductName('')
       setShowCreateDialog(false)
       loadProducts()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create product")
+      setError(err instanceof Error ? err.message : 'Failed to create product')
     }
   }
 
   const handleUpdateProduct = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
-    
+    setError('')
+
     if (!editingProduct) return
-    
+
     try {
       await updateProductName(editingProduct.id, editProductName)
       setShowEditDialog(false)
       setEditingProduct(null)
-      setEditProductName("")
+      setEditProductName('')
       loadProducts()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update product")
+      setError(err instanceof Error ? err.message : 'Failed to update product')
     }
   }
 
@@ -130,8 +136,8 @@ export default function AdminPage() {
       await deleteProduct(productToDelete.id)
       loadProducts()
     } catch (error) {
-      console.error("Failed to delete product:", error)
-      alert("Failed to delete product. It may be in use by existing entries.")
+      console.error('Failed to delete product:', error)
+      alert('Failed to delete product. It may be in use by existing entries.')
     }
     setShowDeleteDialog(false)
     setProductToDelete(null)
@@ -145,24 +151,29 @@ export default function AdminPage() {
 
   const openEditPriceDialog = (product: Product) => {
     setEditingProduct(product)
-    setEditProductBuyingPrice(product.defaultBuyingPrice || "")
+    setEditProductBuyingPrice(product.defaultBuyingPrice || '')
     setShowEditPriceDialog(true)
   }
 
   const handleUpdateBuyingPrice = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
-    
+    setError('')
+
     if (!editingProduct) return
-    
+
     try {
-      await updateProductBuyingPrice(editingProduct.id, parseFloat(editProductBuyingPrice))
+      await updateProductBuyingPrice(
+        editingProduct.id,
+        parseFloat(editProductBuyingPrice),
+      )
       setShowEditPriceDialog(false)
       setEditingProduct(null)
-      setEditProductBuyingPrice("")
+      setEditProductBuyingPrice('')
       loadProducts()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update buying price")
+      setError(
+        err instanceof Error ? err.message : 'Failed to update buying price',
+      )
     }
   }
 
@@ -211,34 +222,39 @@ export default function AdminPage() {
         </div>
 
         <div className="space-y-2">
-          {products.map((product) => (
+          {products.map(product => (
             <Card key={product.id}>
               <CardContent className="flex items-center justify-between p-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <span className="font-medium">{product.name}</span>
-                    <span className="text-sm text-muted-foreground">({product.key})</span>
+                    <span className="text-sm text-muted-foreground">
+                      ({product.key})
+                    </span>
                   </div>
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <span>Created {formatDate(product.createdAt)}</span>
                     <span>•</span>
-                    <span>Default buying price: {product.defaultBuyingPrice ? formatCurrency(parseFloat(product.defaultBuyingPrice)) : "Not set"}</span>
+                    <span>
+                      Default buying price:{' '}
+                      {product.defaultBuyingPrice
+                        ? formatCurrency(parseFloat(product.defaultBuyingPrice))
+                        : 'Not set'}
+                    </span>
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => openEditDialog(product)}
-                  >
+                    onClick={() => openEditDialog(product)}>
                     <Edit2 className="mr-1 h-3 w-3" />
                     Name
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => openEditPriceDialog(product)}
-                  >
+                    onClick={() => openEditPriceDialog(product)}>
                     <Edit2 className="mr-1 h-3 w-3" />
                     Price
                   </Button>
@@ -246,7 +262,8 @@ export default function AdminPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => handleDeleteProduct(product)}
-                  >
+                    aria-label="Delete product"
+                    title="Delete product">
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
@@ -273,7 +290,7 @@ export default function AdminPage() {
                   id="key"
                   placeholder="e.g., custom_product"
                   value={newProductKey}
-                  onChange={(e) => setNewProductKey(e.target.value)}
+                  onChange={e => setNewProductKey(e.target.value)}
                   pattern="^[a-z_]+$"
                   title="Only lowercase letters and underscores"
                   required
@@ -288,16 +305,17 @@ export default function AdminPage() {
                   id="name"
                   placeholder="e.g., Custom Product"
                   value={newProductName}
-                  onChange={(e) => setNewProductName(e.target.value)}
+                  onChange={e => setNewProductName(e.target.value)}
                   required
                 />
               </div>
-              {error && (
-                <p className="text-sm text-destructive">{error}</p>
-              )}
+              {error && <p className="text-sm text-destructive">{error}</p>}
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setShowCreateDialog(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowCreateDialog(false)}>
                 Cancel
               </Button>
               <Button type="submit">Create Product</Button>
@@ -323,16 +341,17 @@ export default function AdminPage() {
                   id="edit-name"
                   placeholder="e.g., Custom Product"
                   value={editProductName}
-                  onChange={(e) => setEditProductName(e.target.value)}
+                  onChange={e => setEditProductName(e.target.value)}
                   required
                 />
               </div>
-              {error && (
-                <p className="text-sm text-destructive">{error}</p>
-              )}
+              {error && <p className="text-sm text-destructive">{error}</p>}
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setShowEditDialog(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowEditDialog(false)}>
                 Cancel
               </Button>
               <Button type="submit">Save Changes</Button>
@@ -348,7 +367,8 @@ export default function AdminPage() {
             <DialogHeader>
               <DialogTitle>Edit Default Buying Price</DialogTitle>
               <DialogDescription>
-                Set the default buying price for this product (used as default in inventory purchases)
+                Set the default buying price for this product (used as default
+                in inventory purchases)
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -360,19 +380,21 @@ export default function AdminPage() {
                   step="0.01"
                   placeholder="e.g., 10.50"
                   value={editProductBuyingPrice}
-                  onChange={(e) => setEditProductBuyingPrice(e.target.value)}
+                  onChange={e => setEditProductBuyingPrice(e.target.value)}
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  This price will be used as the default when adding inventory purchases
+                  This price will be used as the default when adding inventory
+                  purchases
                 </p>
               </div>
-              {error && (
-                <p className="text-sm text-destructive">{error}</p>
-              )}
+              {error && <p className="text-sm text-destructive">{error}</p>}
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setShowEditPriceDialog(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowEditPriceDialog(false)}>
                 Cancel
               </Button>
               <Button type="submit">Save Price</Button>
@@ -387,13 +409,15 @@ export default function AdminPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Product</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete &quot;{productToDelete?.name}&quot;? This may affect existing entries
-              and cannot be undone.
+              Are you sure you want to delete &quot;{productToDelete?.name}
+              &quot;? This may affect existing entries and cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteProduct} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={confirmDeleteProduct}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
