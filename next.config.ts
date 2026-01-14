@@ -1,7 +1,10 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  /* config options here */
-};
+  turbopack: {
+    // Avoid Turbopack mis-detecting the repo root due to unrelated lockfiles
+    root: __dirname,
+  },
+}
 
-export default nextConfig;
+export default nextConfig

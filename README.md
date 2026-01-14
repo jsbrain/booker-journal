@@ -9,6 +9,7 @@ Booker Journal is designed for business owners to manage global inventory and tr
 ## Features
 
 ### Core Features
+
 - 🔐 **Email/password authentication** with better-auth
 - 📊 **Customer ledger tracking** - Each project represents a customer
 - 🏪 **Global inventory management** - Track product purchases centrally
@@ -21,6 +22,7 @@ Booker Journal is designed for business owners to manage global inventory and tr
 - ⚡ **Immediate payment option** - Create sale + payment in one action
 
 ### Technical Features
+
 - 🎨 Beautiful dark mode UI with shadcn-ui components
 - 🚀 Next.js 16 with App Router and Turbopack
 - 📱 Fully responsive design with Tailwind CSS v4
@@ -50,12 +52,14 @@ Booker Journal is designed for business owners to manage global inventory and tr
 ### Installation
 
 1. **Clone the repository:**
+
 ```bash
 git clone https://github.com/jsbrain/booker-journal.git
 cd booker-journal
 ```
 
 2. **Install dependencies:**
+
 ```bash
 bun install
 ```
@@ -67,7 +71,8 @@ Copy `.env.example` to `.env` and configure:
 ```env
 # Authentication
 BETTER_AUTH_SECRET=your-secret-key-change-in-production
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+PORT=3005
+NEXT_PUBLIC_APP_URL=http://localhost:${PORT}
 
 # Database - PostgreSQL (Docker Compose)
 POSTGRES_DB=booker_journal
@@ -80,17 +85,20 @@ DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POST
 ```
 
 4. **Start PostgreSQL with Docker:**
+
 ```bash
-docker compose up -d
+docker compose -f docker-compose.dev.yaml up -d
 ```
 
 5. **Run database migrations:**
+
 ```bash
 bun run db:generate
 bun run db:migrate
 ```
 
 6. **Seed initial data (optional):**
+
 ```bash
 bun run db:seed
 ```
@@ -98,12 +106,13 @@ bun run db:seed
 This seeds entry types (Sale, Payment, Refund, Adjustment) and sample products.
 
 7. **Start the development server:**
+
 ```bash
 bun run dev
 ```
 
 8. **Open your browser:**
-Navigate to [http://localhost:3000](http://localhost:3000)
+   Navigate to [http://localhost:3005](http://localhost:3005) (or whatever `PORT` you set)
 
 ## Usage Guide
 
@@ -121,8 +130,8 @@ Each project represents a customer:
 1. Click "New Project" in the dashboard
 2. Enter customer name (e.g., "John Doe" or "ABC Company")
 3. Set initial balance:
-   - **Negative** = customer owes you (e.g., -100 for €100 debt)
-   - **Positive** = you owe customer (e.g., 100 for €100 credit)
+   - **Positive** = customer owes you (e.g., 100 for €100 debt)
+   - **Negative** = you owe customer (e.g., -100 for €100 credit)
    - **Zero** = fresh start
 
 ### Recording Sales & Transactions
@@ -139,7 +148,7 @@ Each project represents a customer:
 6. Optionally add notes and timestamp
 7. For purchases, check "Paid immediately" to auto-create payment entry
 
-**Balance Calculation:** Balance = Σ(amount × price) for all entries
+**Balance Calculation (displayed):** Balance = -Σ(amount × price) for all entries
 
 ### Managing Inventory
 
@@ -167,6 +176,7 @@ See revenue, costs, and profits:
    - **Product breakdown** - Profitability per product
 
 **Profit Calculation:**
+
 - Average buying price = Total inventory cost ÷ Total quantity purchased
 - COGS = Quantity sold × Average buying price
 - Profit = Revenue - COGS
@@ -234,7 +244,7 @@ booker-journal/
 │   ├── auth.ts                    # Better-auth server config
 │   ├── auth-client.ts             # Auth client hooks
 │   └── utils.ts
-├── docker-compose.yml             # PostgreSQL container
+├── docker-compose.dev.yaml        # PostgreSQL container (local dev)
 ├── drizzle.config.ts              # Drizzle configuration
 └── .env                           # Environment variables
 ```
@@ -244,33 +254,40 @@ booker-journal/
 ### Core Tables
 
 **users** (managed by better-auth)
+
 - Authentication and user data
 
 **projects**
+
 - Customer ledgers
 - Each project = one customer
 - Tracks customer name and ownership
 
 **journal_entries**
+
 - Sales, payments, refunds, adjustments
 - Links to products for sales
 - Edit history tracked in JSONB
 
 **products**
+
 - Product catalog
 - Optional default buying prices
 - Used for both sales and inventory
 
 **entry_types**
+
 - Transaction categories (Sale, Payment, Refund, Adjustment)
 - Pre-seeded during initialization
 
 **inventory_purchases**
+
 - Global inventory tracking (not per-customer)
 - Records quantity and buying price at purchase time
 - Used for COGS and profit calculations
 
 **shared_links**
+
 - Shareable read-only customer views
 - Secure token-based access
 - Automatic expiration
@@ -334,8 +351,8 @@ async function getCurrentUser() {
 }
 
 export async function createProject(name: string, amount: number) {
-  validate(createProjectInputSchema, { name, amount })  // 1. Validate
-  const user = await getCurrentUser()  // 2. Authenticate
+  validate(createProjectInputSchema, { name, amount }) // 1. Validate
+  const user = await getCurrentUser() // 2. Authenticate
   // 3. Execute operation
 }
 ```
@@ -356,24 +373,30 @@ Both `drizzle.config.ts` and `lib/auth.ts` use `expand(config())` to resolve var
 ## Key Concepts
 
 ### Balance Calculation
-Balance = Σ(amount × price) for all entries
+
+Displayed Balance = -Σ(amount × price) for all entries
+
 - Positive balance = customer owes you money
 - Negative balance = you owe customer (credit)
 - Zero = account settled
 
 ### Profit Calculation (Average Cost Method)
+
 1. Calculate weighted average buying price across all inventory purchases
 2. COGS = Quantity sold × Average buying price
 3. Profit = Revenue - COGS
 
 ### Global Inventory Model
+
 - Admin purchases inventory globally (not per-customer)
 - Inventory is tracked centrally across all sales
 - When selling to customers, stock is deducted from global pool
 - Buying prices from purchases are used for COGS calculation
 
 ### Numeric Fields
+
 Drizzle `numeric` columns return strings. Always parse:
+
 ```typescript
 const total = parseFloat(entry.amount) * parseFloat(entry.price)
 ```
@@ -408,6 +431,7 @@ DATABASE_URL=<your-postgres-connection-string>
 ```
 
 **Database Options:**
+
 - Vercel Postgres
 - Supabase
 - Neon
