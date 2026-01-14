@@ -19,7 +19,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { DateRangePicker } from '@/components/ui/date-range-picker'
+import { DateRangePicker } from '@/components/date-range-picker'
 import type { DateRange } from 'react-day-picker'
 import {
   ArrowLeft,
@@ -556,7 +556,11 @@ function ProjectDetailContent() {
               href={buildHref('/dashboard', {
                 tab: 'projects',
               })}>
-              <Button variant="ghost" size="sm" aria-label="Back to projects" title="Back to projects">
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="Back to projects"
+                title="Back to projects">
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             </Link>

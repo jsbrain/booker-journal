@@ -1,26 +1,26 @@
-"use client"
+'use client'
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
+import { useState, useEffect } from 'react'
+import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { DateTimePicker } from "@/components/ui/date-time-picker"
-import { createInventoryPurchase } from "@/lib/actions/inventory"
-import { getProducts } from "@/lib/actions/products"
+} from '@/components/ui/select'
+import { DateTimePicker } from '@/components/date-time-picker'
+import { createInventoryPurchase } from '@/lib/actions/inventory'
+import { getProducts } from '@/lib/actions/products'
 
 interface CreateInventoryPurchaseDialogProps {
   open: boolean
@@ -41,13 +41,13 @@ export function CreateInventoryPurchaseDialog({
   onSuccess,
 }: CreateInventoryPurchaseDialogProps) {
   const [products, setProducts] = useState<Product[]>([])
-  const [productId, setProductId] = useState("")
-  const [quantity, setQuantity] = useState("")
-  const [buyingPrice, setBuyingPrice] = useState("")
-  const [note, setNote] = useState("")
+  const [productId, setProductId] = useState('')
+  const [quantity, setQuantity] = useState('')
+  const [buyingPrice, setBuyingPrice] = useState('')
+  const [note, setNote] = useState('')
   const [purchaseDate, setPurchaseDate] = useState<Date | undefined>(new Date())
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
+  const [error, setError] = useState('')
 
   useEffect(() => {
     if (open) {
@@ -62,13 +62,13 @@ export function CreateInventoryPurchaseDialog({
       const data = await getProducts()
       setProducts(data)
     } catch (error) {
-      console.error("Failed to load products:", error)
+      console.error('Failed to load products:', error)
     }
   }
 
   const handleProductChange = (value: string) => {
     setProductId(value)
-    const product = products.find((p) => p.id === value)
+    const product = products.find(p => p.id === value)
     if (product?.defaultBuyingPrice) {
       setBuyingPrice(parseFloat(product.defaultBuyingPrice).toString())
     }
@@ -76,31 +76,35 @@ export function CreateInventoryPurchaseDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
+    setError('')
     setLoading(true)
 
     try {
       // Convert datetime to ISO string
-      const purchaseDateISO = purchaseDate ? purchaseDate.toISOString() : undefined
+      const purchaseDateISO = purchaseDate
+        ? purchaseDate.toISOString()
+        : undefined
 
       await createInventoryPurchase(
         productId,
         parseFloat(quantity),
         parseFloat(buyingPrice),
         note || undefined,
-        purchaseDateISO
+        purchaseDateISO,
       )
-      
+
       // Reset form
-      setProductId("")
-      setQuantity("")
-      setBuyingPrice("")
-      setNote("")
+      setProductId('')
+      setQuantity('')
+      setBuyingPrice('')
+      setNote('')
       setPurchaseDate(new Date())
-      
+
       onSuccess()
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to create purchase")
+      setError(
+        error instanceof Error ? error.message : 'Failed to create purchase',
+      )
     } finally {
       setLoading(false)
     }
@@ -123,7 +127,7 @@ export function CreateInventoryPurchaseDialog({
                 <SelectValue placeholder="Select a product" />
               </SelectTrigger>
               <SelectContent>
-                {products.map((product) => (
+                {products.map(product => (
                   <SelectItem key={product.id} value={product.id}>
                     {product.name}
                   </SelectItem>
@@ -139,7 +143,7 @@ export function CreateInventoryPurchaseDialog({
               type="number"
               step="0.01"
               value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
+              onChange={e => setQuantity(e.target.value)}
               placeholder="e.g., 100"
               required
             />
@@ -152,7 +156,7 @@ export function CreateInventoryPurchaseDialog({
               type="number"
               step="0.01"
               value={buyingPrice}
-              onChange={(e) => setBuyingPrice(e.target.value)}
+              onChange={e => setBuyingPrice(e.target.value)}
               placeholder="e.g., 10.50"
               required
             />
@@ -175,27 +179,22 @@ export function CreateInventoryPurchaseDialog({
             <Input
               id="note"
               value={note}
-              onChange={(e) => setNote(e.target.value)}
+              onChange={e => setNote(e.target.value)}
               placeholder="Add any notes about this purchase"
             />
           </div>
 
-          {error && (
-            <div className="text-sm text-red-600">
-              {error}
-            </div>
-          )}
+          {error && <div className="text-sm text-red-600">{error}</div>}
 
           <div className="flex justify-end gap-2">
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
+              onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Creating..." : "Create Purchase"}
+              {loading ? 'Creating...' : 'Create Purchase'}
             </Button>
           </div>
         </form>

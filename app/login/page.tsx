@@ -1,19 +1,25 @@
-"use client"
+'use client'
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { signIn, signUp, useSession } from "@/lib/auth-client"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { signIn, signUp, useSession } from '@/lib/auth-client'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [name, setName] = useState("")
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [name, setName] = useState('')
   const [isSignUp, setIsSignUp] = useState(false)
-  const [error, setError] = useState("")
+  const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const { data: session, isPending } = useSession()
@@ -21,13 +27,13 @@ export default function LoginPage() {
   // Redirect if already logged in
   useEffect(() => {
     if (!isPending && session) {
-      router.push("/dashboard")
+      router.push('/dashboard')
     }
   }, [session, isPending, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
+    setError('')
     setLoading(true)
 
     try {
@@ -48,9 +54,9 @@ export default function LoginPage() {
           password,
         })
       }
-      router.push("/dashboard")
+      router.push('/dashboard')
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Authentication failed")
+      setError(err instanceof Error ? err.message : 'Authentication failed')
     } finally {
       setLoading(false)
     }
@@ -74,11 +80,11 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>{isSignUp ? "Create Account" : "Login"}</CardTitle>
+          <CardTitle>{isSignUp ? 'Create Account' : 'Login'}</CardTitle>
           <CardDescription>
             {isSignUp
-              ? "Enter your details to create a new account"
-              : "Enter your credentials to access your dashboard"}
+              ? 'Enter your details to create a new account'
+              : 'Enter your credentials to access your dashboard'}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -91,7 +97,7 @@ export default function LoginPage() {
                   type="text"
                   placeholder="John Doe"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={e => setName(e.target.value)}
                   required
                 />
               </div>
@@ -103,7 +109,7 @@ export default function LoginPage() {
                 type="email"
                 placeholder="you@example.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={e => setEmail(e.target.value)}
                 required
               />
             </div>
@@ -114,7 +120,7 @@ export default function LoginPage() {
                 type="password"
                 placeholder="••••••••"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={e => setPassword(e.target.value)}
                 required
               />
             </div>
@@ -124,29 +130,27 @@ export default function LoginPage() {
               </div>
             )}
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Loading..." : isSignUp ? "Sign Up" : "Sign In"}
+              {loading ? 'Loading...' : isSignUp ? 'Sign Up' : 'Sign In'}
             </Button>
           </form>
           <div className="mt-4 text-center text-sm">
             {isSignUp ? (
               <>
-                Already have an account?{" "}
+                Already have an account?{' '}
                 <button
                   type="button"
                   onClick={() => setIsSignUp(false)}
-                  className="text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
-                >
+                  className="text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm">
                   Sign in
                 </button>
               </>
             ) : (
               <>
-                Don&apos;t have an account?{" "}
+                Don&apos;t have an account?{' '}
                 <button
                   type="button"
                   onClick={() => setIsSignUp(true)}
-                  className="text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
-                >
+                  className="text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm">
                   Sign up
                 </button>
               </>

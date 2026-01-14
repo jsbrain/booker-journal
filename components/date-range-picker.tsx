@@ -1,15 +1,27 @@
-"use client"
+'use client'
 
-import * as React from "react"
-import { Calendar } from "@/components/ui/calendar"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Button } from "@/components/ui/button"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import type { DateRange } from "react-day-picker"
-import { ChevronLeftIcon, ChevronRightIcon, CalendarIcon } from "lucide-react"
-import { cn } from "@/lib/utils"
+import * as React from 'react'
+import type { DateRange } from 'react-day-picker'
+import { CalendarIcon, ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
 
-// Default start year for "All Time" preset
+import { Button } from '@/components/ui/button'
+import { Calendar } from '@/components/ui/calendar'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { cn } from '@/lib/utils'
+
+// Custom component (NOT provided by shadcn/ui registry).
+// Kept outside `components/ui/*` so shadcn CLI can safely overwrite that folder.
 const ALL_TIME_START_YEAR = 2000
 
 type Preset = {
@@ -22,22 +34,27 @@ interface DateRangePickerProps {
   setDateRange: (range: DateRange | undefined) => void
 }
 
-export function DateRangePicker({ dateRange, setDateRange }: DateRangePickerProps) {
-  const [displayMonth, setDisplayMonth] = React.useState<Date>(dateRange?.from || new Date())
+export function DateRangePicker({
+  dateRange,
+  setDateRange,
+}: DateRangePickerProps) {
+  const [displayMonth, setDisplayMonth] = React.useState<Date>(
+    dateRange?.from || new Date(),
+  )
   const [open, setOpen] = React.useState(false)
-  // Local state for the temporary selection
-  const [tempDateRange, setTempDateRange] = React.useState<DateRange | undefined>(dateRange)
+  const [tempDateRange, setTempDateRange] = React.useState<
+    DateRange | undefined
+  >(dateRange)
+
   const currentYear = displayMonth.getFullYear()
   const currentMonth = displayMonth.getMonth()
 
-  // Sync tempDateRange with dateRange when it changes externally
   React.useEffect(() => {
     setTempDateRange(dateRange)
   }, [dateRange])
 
-  // Generate year options (current year ± 10 years)
   const yearOptions = React.useMemo(() => {
-    const years = []
+    const years: number[] = []
     const baseYear = new Date().getFullYear()
     for (let i = baseYear - 10; i <= baseYear + 10; i++) {
       years.push(i)
@@ -51,28 +68,28 @@ export function DateRangePicker({ dateRange, setDateRange }: DateRangePickerProp
 
     return [
       {
-        label: "All Time",
+        label: 'All Time',
         getValue: () => ({
           from: new Date(ALL_TIME_START_YEAR, 0, 1),
           to: today,
         }),
       },
       {
-        label: "Last Year",
+        label: 'Last Year',
         getValue: () => ({
           from: new Date(now.getFullYear() - 1, 0, 1),
           to: new Date(now.getFullYear() - 1, 11, 31),
         }),
       },
       {
-        label: "This Year",
+        label: 'This Year',
         getValue: () => ({
           from: new Date(now.getFullYear(), 0, 1),
           to: new Date(now.getFullYear(), 11, 31),
         }),
       },
       {
-        label: "Last Month",
+        label: 'Last Month',
         getValue: () => {
           const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
           const lastDay = new Date(now.getFullYear(), now.getMonth(), 0)
@@ -83,21 +100,21 @@ export function DateRangePicker({ dateRange, setDateRange }: DateRangePickerProp
         },
       },
       {
-        label: "This Month",
+        label: 'This Month',
         getValue: () => ({
           from: new Date(now.getFullYear(), now.getMonth(), 1),
           to: new Date(now.getFullYear(), now.getMonth() + 1, 0),
         }),
       },
       {
-        label: "Last 30 Days",
+        label: 'Last 30 Days',
         getValue: () => ({
           from: new Date(today.getTime() - 29 * 24 * 60 * 60 * 1000),
           to: today,
         }),
       },
       {
-        label: "Last 14 Days",
+        label: 'Last 14 Days',
         getValue: () => ({
           from: new Date(today.getTime() - 13 * 24 * 60 * 60 * 1000),
           to: today,
@@ -125,8 +142,8 @@ export function DateRangePicker({ dateRange, setDateRange }: DateRangePickerProp
     setDisplayMonth(new Date(parseInt(year), currentMonth, 1))
   }
 
-  const handleMonthChange = (direction: "prev" | "next") => {
-    if (direction === "prev") {
+  const handleMonthChange = (direction: 'prev' | 'next') => {
+    if (direction === 'prev') {
       setDisplayMonth(new Date(currentYear, currentMonth - 1, 1))
     } else {
       setDisplayMonth(new Date(currentYear, currentMonth + 1, 1))
@@ -134,7 +151,7 @@ export function DateRangePicker({ dateRange, setDateRange }: DateRangePickerProp
   }
 
   const formatDateRange = () => {
-    if (!dateRange?.from) return "Select date range"
+    if (!dateRange?.from) return 'Select date range'
     if (!dateRange.to) return dateRange.from.toLocaleDateString()
     return `${dateRange.from.toLocaleDateString()} - ${dateRange.to.toLocaleDateString()}`
   }
@@ -145,10 +162,9 @@ export function DateRangePicker({ dateRange, setDateRange }: DateRangePickerProp
         <Button
           variant="outline"
           className={cn(
-            "w-full justify-start text-left font-normal",
-            !dateRange?.from && "text-muted-foreground"
-          )}
-        >
+            'w-full justify-start text-left font-normal',
+            !dateRange?.from && 'text-muted-foreground',
+          )}>
           <CalendarIcon className="mr-2 h-4 w-4" />
           {formatDateRange()}
         </Button>
@@ -157,13 +173,12 @@ export function DateRangePicker({ dateRange, setDateRange }: DateRangePickerProp
         <div className="flex">
           <div className="flex flex-col gap-1 border-r p-3 min-w-[160px]">
             <div className="text-sm font-semibold px-2 py-1.5">Presets</div>
-            {presets.map((preset) => (
+            {presets.map(preset => (
               <Button
                 key={preset.label}
                 variant="ghost"
                 className="justify-start text-sm font-normal h-9 px-2"
-                onClick={() => handlePresetClick(preset)}
-              >
+                onClick={() => handlePresetClick(preset)}>
                 {preset.label}
               </Button>
             ))}
@@ -171,20 +186,26 @@ export function DateRangePicker({ dateRange, setDateRange }: DateRangePickerProp
 
           <div className="flex flex-col gap-3 p-4">
             <div className="flex items-center justify-between gap-2">
-              <Button variant="outline" size="icon" onClick={() => handleMonthChange("prev")} className="size-7">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => handleMonthChange('prev')}
+                className="size-7">
                 <ChevronLeftIcon className="size-4" />
               </Button>
 
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium min-w-[100px] text-center">
-                  {displayMonth.toLocaleString("default", { month: "long" })}
+                  {displayMonth.toLocaleString('default', { month: 'long' })}
                 </span>
-                <Select value={currentYear.toString()} onValueChange={handleYearChange}>
+                <Select
+                  value={currentYear.toString()}
+                  onValueChange={handleYearChange}>
                   <SelectTrigger className="w-[90px] h-7 text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {yearOptions.map((year) => (
+                    {yearOptions.map(year => (
                       <SelectItem key={year} value={year.toString()}>
                         {year}
                       </SelectItem>
@@ -193,7 +214,11 @@ export function DateRangePicker({ dateRange, setDateRange }: DateRangePickerProp
                 </Select>
               </div>
 
-              <Button variant="outline" size="icon" onClick={() => handleMonthChange("next")} className="size-7">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => handleMonthChange('next')}
+                className="size-7">
                 <ChevronRightIcon className="size-4" />
               </Button>
             </div>
@@ -212,7 +237,8 @@ export function DateRangePicker({ dateRange, setDateRange }: DateRangePickerProp
                 {tempDateRange?.from ? (
                   tempDateRange.to ? (
                     <>
-                      {tempDateRange.from.toLocaleDateString()} → {tempDateRange.to.toLocaleDateString()}
+                      {tempDateRange.from.toLocaleDateString()} →{' '}
+                      {tempDateRange.to.toLocaleDateString()}
                     </>
                   ) : (
                     <>From: {tempDateRange.from.toLocaleDateString()}</>
@@ -221,12 +247,11 @@ export function DateRangePicker({ dateRange, setDateRange }: DateRangePickerProp
                   <>No dates selected</>
                 )}
               </div>
-              <Button 
-                variant="default" 
-                size="sm" 
+              <Button
+                variant="default"
+                size="sm"
                 onClick={handleApply}
-                disabled={!tempDateRange?.from || !tempDateRange?.to}
-              >
+                disabled={!tempDateRange?.from || !tempDateRange?.to}>
                 Apply
               </Button>
             </div>

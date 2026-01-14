@@ -1,7 +1,7 @@
-"use client"
+'use client'
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
+import { useState, useEffect } from 'react'
+import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
@@ -9,7 +9,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
+} from '@/components/ui/dialog'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,21 +19,21 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+} from '@/components/ui/alert-dialog'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Checkbox } from "@/components/ui/checkbox"
-import { DateTimePicker } from "@/components/ui/date-time-picker"
-import { createEntry, createEntryWithPayment } from "@/lib/actions/entries"
-import { getEntryTypes } from "@/lib/actions/entry-types"
-import { getProducts } from "@/lib/actions/products"
+} from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
+import { DateTimePicker } from '@/components/date-time-picker'
+import { createEntry, createEntryWithPayment } from '@/lib/actions/entries'
+import { getEntryTypes } from '@/lib/actions/entry-types'
+import { getProducts } from '@/lib/actions/products'
 
 interface CreateEntryDialogProps {
   open: boolean
@@ -54,20 +54,25 @@ type Product = {
   name: string
 }
 
-export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: CreateEntryDialogProps) {
-  const [amount, setAmount] = useState("")
-  const [price, setPrice] = useState("")
-  const [typeId, setTypeId] = useState("")
-  const [productId, setProductId] = useState("")
-  const [note, setNote] = useState("")
+export function CreateEntryDialog({
+  open,
+  onOpenChange,
+  projectId,
+  onSuccess,
+}: CreateEntryDialogProps) {
+  const [amount, setAmount] = useState('')
+  const [price, setPrice] = useState('')
+  const [typeId, setTypeId] = useState('')
+  const [productId, setProductId] = useState('')
+  const [note, setNote] = useState('')
   const [timestamp, setTimestamp] = useState<Date | undefined>(new Date())
   const [paidImmediately, setPaidImmediately] = useState(false)
   const [entryTypes, setEntryTypes] = useState<EntryType[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
+  const [error, setError] = useState('')
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
-  const [selectedTypeKey, setSelectedTypeKey] = useState("")
+  const [selectedTypeKey, setSelectedTypeKey] = useState('')
 
   useEffect(() => {
     if (open) {
@@ -76,20 +81,17 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
       setTimestamp(new Date())
     } else {
       // Reset form when dialog closes
-      setAmount("")
-      setPrice("")
-      setNote("")
+      setAmount('')
+      setPrice('')
+      setNote('')
       setPaidImmediately(false)
-      setError("")
+      setError('')
     }
   }, [open])
 
   const loadData = async () => {
     try {
-      const [types, prods] = await Promise.all([
-        getEntryTypes(),
-        getProducts(),
-      ])
+      const [types, prods] = await Promise.all([getEntryTypes(), getProducts()])
       setEntryTypes(types)
       setProducts(prods)
       if (types.length > 0) {
@@ -100,17 +102,17 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
         setProductId(prods[0].id)
       }
     } catch {
-      setError("Failed to load data")
+      setError('Failed to load data')
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     // Check if this is a Sale entry with "Paid Immediately" checked
     const selectedType = entryTypes.find(t => t.id === typeId)
     const isSaleWithPayment = selectedType?.key === 'sale' && paidImmediately
-    
+
     if (isSaleWithPayment) {
       // Show confirmation dialog
       setShowConfirmDialog(true)
@@ -119,9 +121,9 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
       await createEntryInternal(false)
     }
   }
-  
+
   const createEntryInternal = async (isSaleWithPayment: boolean) => {
-    setError("")
+    setError('')
     setLoading(true)
 
     try {
@@ -129,7 +131,7 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
       const priceNum = parseFloat(price)
 
       if (isNaN(amountNum) || isNaN(priceNum)) {
-        setError("Please enter valid numbers")
+        setError('Please enter valid numbers')
         return
       }
 
@@ -138,16 +140,32 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
 
       if (isSaleWithPayment) {
         // Create both sale and payment entries
-        await createEntryWithPayment(projectId, amountNum, priceNum, typeId, selectedTypeKey === "sale" ? productId : undefined, note || undefined, timestampISO)
+        await createEntryWithPayment(
+          projectId,
+          amountNum,
+          priceNum,
+          typeId,
+          selectedTypeKey === 'sale' ? productId : undefined,
+          note || undefined,
+          timestampISO,
+        )
       } else {
         // Create single entry
-        await createEntry(projectId, amountNum, priceNum, typeId, selectedTypeKey === "sale" ? productId : undefined, note || undefined, timestampISO)
+        await createEntry(
+          projectId,
+          amountNum,
+          priceNum,
+          typeId,
+          selectedTypeKey === 'sale' ? productId : undefined,
+          note || undefined,
+          timestampISO,
+        )
       }
-      
+
       // Reset form
-      setAmount("")
-      setPrice("")
-      setNote("")
+      setAmount('')
+      setPrice('')
+      setNote('')
       setTimestamp(new Date())
       setPaidImmediately(false)
       if (entryTypes.length > 0) {
@@ -156,11 +174,11 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
       if (products.length > 0) {
         setProductId(products[0].id)
       }
-      
+
       setShowConfirmDialog(false)
       onSuccess()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create entry")
+      setError(err instanceof Error ? err.message : 'Failed to create entry')
     } finally {
       setLoading(false)
     }
@@ -182,20 +200,19 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
                 <Label htmlFor="type">Type</Label>
                 <Select
                   value={typeId}
-                  onValueChange={(value) => {
+                  onValueChange={value => {
                     setTypeId(value)
                     const type = entryTypes.find(t => t.id === value)
                     if (type) {
                       setSelectedTypeKey(type.key)
                     }
                   }}
-                  required
-                >
+                  required>
                   <SelectTrigger>
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
-                    {entryTypes.map((type) => (
+                    {entryTypes.map(type => (
                       <SelectItem key={type.id} value={type.id}>
                         {type.name}
                       </SelectItem>
@@ -203,15 +220,18 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
                   </SelectContent>
                 </Select>
               </div>
-              {selectedTypeKey === "sale" && (
+              {selectedTypeKey === 'sale' && (
                 <div className="grid gap-2">
                   <Label htmlFor="product">Product</Label>
-                  <Select value={productId} onValueChange={setProductId} required>
+                  <Select
+                    value={productId}
+                    onValueChange={setProductId}
+                    required>
                     <SelectTrigger>
                       <SelectValue placeholder="Select product" />
                     </SelectTrigger>
                     <SelectContent>
-                      {products.map((product) => (
+                      {products.map(product => (
                         <SelectItem key={product.id} value={product.id}>
                           {product.name}
                         </SelectItem>
@@ -231,7 +251,7 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
                   step="0.01"
                   placeholder="e.g., 5"
                   value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
+                  onChange={e => setAmount(e.target.value)}
                   required
                 />
               </div>
@@ -243,11 +263,12 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
                   step="0.01"
                   placeholder="e.g., -20"
                   value={price}
-                  onChange={(e) => setPrice(e.target.value)}
+                  onChange={e => setPrice(e.target.value)}
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  For sales: negative (customer owes). For payments: positive (customer pays)
+                  For sales: negative (customer owes). For payments: positive
+                  (customer pays)
                 </p>
               </div>
               <div className="grid gap-2">
@@ -267,7 +288,7 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
                   id="note"
                   placeholder="Add a note..."
                   value={note}
-                  onChange={(e) => setNote(e.target.value)}
+                  onChange={e => setNote(e.target.value)}
                 />
               </div>
               {entryTypes.find(t => t.id === typeId)?.key === 'sale' && (
@@ -275,26 +296,28 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
                   <Checkbox
                     id="paidImmediately"
                     checked={paidImmediately}
-                    onCheckedChange={(checked) => setPaidImmediately(checked === true)}
+                    onCheckedChange={checked =>
+                      setPaidImmediately(checked === true)
+                    }
                   />
-                  <Label 
+                  <Label
                     htmlFor="paidImmediately"
-                    className="text-sm font-normal cursor-pointer"
-                  >
+                    className="text-sm font-normal cursor-pointer">
                     Paid immediately (creates automatic payment entry)
                   </Label>
                 </div>
               )}
-              {error && (
-                <p className="text-sm text-destructive">{error}</p>
-              )}
+              {error && <p className="text-sm text-destructive">{error}</p>}
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={loading}>
-                {loading ? "Creating..." : "Create Entry"}
+                {loading ? 'Creating...' : 'Create Entry'}
               </Button>
             </DialogFooter>
           </form>
@@ -316,8 +339,10 @@ export function CreateEntryDialog({ open, onOpenChange, projectId, onSuccess }: 
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => createEntryInternal(true)} disabled={loading}>
-              {loading ? "Creating..." : "Confirm"}
+            <AlertDialogAction
+              onClick={() => createEntryInternal(true)}
+              disabled={loading}>
+              {loading ? 'Creating...' : 'Confirm'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
