@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import type { DateRange } from 'react-day-picker'
-import { CalendarIcon, ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
+import { CalendarIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
@@ -11,13 +11,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 
 // Custom component (NOT provided by shadcn/ui registry).
@@ -46,21 +39,11 @@ export function DateRangePicker({
     DateRange | undefined
   >(dateRange)
 
-  const currentYear = displayMonth.getFullYear()
-  const currentMonth = displayMonth.getMonth()
-
   React.useEffect(() => {
     setTempDateRange(dateRange)
   }, [dateRange])
 
-  const yearOptions = React.useMemo(() => {
-    const years: number[] = []
-    const baseYear = new Date().getFullYear()
-    for (let i = baseYear - 10; i <= baseYear + 10; i++) {
-      years.push(i)
-    }
-    return years
-  }, [])
+  const toYear = React.useMemo(() => new Date().getFullYear() + 1, [])
 
   const presets: Preset[] = React.useMemo(() => {
     const now = new Date()
@@ -138,18 +121,6 @@ export function DateRangePicker({
     }
   }
 
-  const handleYearChange = (year: string) => {
-    setDisplayMonth(new Date(parseInt(year), currentMonth, 1))
-  }
-
-  const handleMonthChange = (direction: 'prev' | 'next') => {
-    if (direction === 'prev') {
-      setDisplayMonth(new Date(currentYear, currentMonth - 1, 1))
-    } else {
-      setDisplayMonth(new Date(currentYear, currentMonth + 1, 1))
-    }
-  }
-
   const formatDateRange = () => {
     if (!dateRange?.from) return 'Select date range'
     if (!dateRange.to) return dateRange.from.toLocaleDateString()
@@ -162,7 +133,7 @@ export function DateRangePicker({
         <Button
           variant="outline"
           className={cn(
-            'w-full justify-start text-left font-normal',
+            'w-full justify-start text-left font-normal sm:w-72',
             !dateRange?.from && 'text-muted-foreground',
           )}>
           <CalendarIcon className="mr-2 h-4 w-4" />
@@ -171,7 +142,7 @@ export function DateRangePicker({
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
         <div className="flex">
-          <div className="flex flex-col gap-1 border-r p-3 min-w-[160px]">
+          <div className="flex flex-col gap-1 border-r p-3 min-w-40">
             <div className="text-sm font-semibold px-2 py-1.5">Presets</div>
             {presets.map(preset => (
               <Button
@@ -185,49 +156,15 @@ export function DateRangePicker({
           </div>
 
           <div className="flex flex-col gap-3 p-4">
-            <div className="flex items-center justify-between gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => handleMonthChange('prev')}
-                className="size-7">
-                <ChevronLeftIcon className="size-4" />
-              </Button>
-
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium min-w-[100px] text-center">
-                  {displayMonth.toLocaleString('default', { month: 'long' })}
-                </span>
-                <Select
-                  value={currentYear.toString()}
-                  onValueChange={handleYearChange}>
-                  <SelectTrigger className="w-[90px] h-7 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {yearOptions.map(year => (
-                      <SelectItem key={year} value={year.toString()}>
-                        {year}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => handleMonthChange('next')}
-                className="size-7">
-                <ChevronRightIcon className="size-4" />
-              </Button>
-            </div>
-
             <Calendar
               mode="range"
               selected={tempDateRange}
               onSelect={setTempDateRange}
               numberOfMonths={2}
+              captionLayout="dropdown"
+              fromYear={ALL_TIME_START_YEAR}
+              toYear={toYear}
+              showOutsideDays={false}
               month={displayMonth}
               onMonthChange={setDisplayMonth}
             />

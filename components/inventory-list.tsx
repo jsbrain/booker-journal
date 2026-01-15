@@ -325,7 +325,7 @@ export function InventoryList() {
                   <Select
                     value={productFilter}
                     onValueChange={setProductFilter}>
-                    <SelectTrigger className="w-full sm:w-[180px]">
+                    <SelectTrigger className="w-full sm:w-45">
                       <SelectValue placeholder="Filter by product" />
                     </SelectTrigger>
                     <SelectContent>
@@ -346,7 +346,7 @@ export function InventoryList() {
                         | 'amount-desc'
                         | 'amount-asc',
                     ) => setSortBy(value)}>
-                    <SelectTrigger className="w-full sm:w-[180px]">
+                    <SelectTrigger className="w-full sm:w-45">
                       <SelectValue placeholder="Sort by" />
                     </SelectTrigger>
                     <SelectContent>

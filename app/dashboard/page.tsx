@@ -201,25 +201,30 @@ function DashboardContent() {
         {errorMessage && (
           <div className="mb-4 text-sm text-destructive">{errorMessage}</div>
         )}
-        <Tabs value={activeTab} className="w-full">
-          <TabsList className="mb-6 flex h-auto w-full flex-wrap justify-start gap-1">
-            <TabsTrigger value="projects" asChild>
-              <Link href={buildHref('/dashboard', { tab: 'projects' })}>
-                <FolderOpen className="mr-2 inline h-4 w-4" />
-                Projects
-              </Link>
+        <Tabs
+          value={activeTab}
+          onValueChange={value =>
+            router.push(buildHref('/dashboard', { tab: value }))
+          }
+          className="w-full">
+          <TabsList className="mb-6 grid w-full grid-cols-1 gap-1 sm:w-fit sm:grid-cols-3">
+            <TabsTrigger
+              value="projects"
+              className="justify-start sm:justify-center">
+              <FolderOpen className="mr-2 h-4 w-4" />
+              Projects
             </TabsTrigger>
-            <TabsTrigger value="metrics" asChild>
-              <Link href={buildHref('/dashboard', { tab: 'metrics' })}>
-                <TrendingUp className="mr-2 inline h-4 w-4" />
-                Global Metrics
-              </Link>
+            <TabsTrigger
+              value="metrics"
+              className="justify-start sm:justify-center">
+              <TrendingUp className="mr-2 h-4 w-4" />
+              Global Metrics
             </TabsTrigger>
-            <TabsTrigger value="inventory" asChild>
-              <Link href={buildHref('/dashboard', { tab: 'inventory' })}>
-                <Package className="mr-2 inline h-4 w-4" />
-                Global Inventory
-              </Link>
+            <TabsTrigger
+              value="inventory"
+              className="justify-start sm:justify-center">
+              <Package className="mr-2 h-4 w-4" />
+              Global Inventory
             </TabsTrigger>
           </TabsList>
 
@@ -288,8 +293,8 @@ function DashboardContent() {
           </TabsContent>
 
           <TabsContent value="metrics" className="mt-0">
-            <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-              <div>
+            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
                 <h2 className="text-2xl font-bold">Global Metrics</h2>
                 <p className="text-sm text-muted-foreground">
                   Metrics across all your projects

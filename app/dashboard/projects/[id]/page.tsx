@@ -220,8 +220,7 @@ function ProjectDetailContent() {
 
   // Get active tab from URL search params, default to "entries"
   const activeTab =
-    (searchParams.get('tab') as 'entries' | 'metrics' | 'inventory') ||
-    'entries'
+    (searchParams.get('tab') as 'entries' | 'metrics') || 'entries'
 
   const buildHref = useCallback(
     (
@@ -707,24 +706,28 @@ function ProjectDetailContent() {
           </Card>
         </div>
 
-        <Tabs value={activeTab} className="w-full">
-          <TabsList className="mb-6 flex h-auto w-full flex-wrap justify-start gap-1">
-            <TabsTrigger value="entries" asChild>
-              <Link
-                href={buildHref(`/dashboard/projects/${projectId}`, {
-                  tab: 'entries',
-                })}>
-                Journal Entries
-              </Link>
+        <Tabs
+          value={activeTab}
+          onValueChange={value =>
+            router.push(
+              buildHref(`/dashboard/projects/${projectId}`, {
+                tab: value,
+              }),
+            )
+          }
+          className="w-full">
+          <TabsList className="mb-6 grid w-full grid-cols-2 gap-1 sm:w-fit">
+            <TabsTrigger
+              value="entries"
+              className="justify-start sm:justify-center">
+              <History className="mr-2 h-4 w-4" />
+              Journal Entries
             </TabsTrigger>
-            <TabsTrigger value="metrics" asChild>
-              <Link
-                href={buildHref(`/dashboard/projects/${projectId}`, {
-                  tab: 'metrics',
-                })}>
-                <TrendingUp className="mr-2 h-4 w-4" />
-                Metrics
-              </Link>
+            <TabsTrigger
+              value="metrics"
+              className="justify-start sm:justify-center">
+              <TrendingUp className="mr-2 h-4 w-4" />
+              Metrics
             </TabsTrigger>
           </TabsList>
 
@@ -789,7 +792,7 @@ function ProjectDetailContent() {
                     />
                   </div>
                   <Select value={typeFilter} onValueChange={setTypeFilter}>
-                    <SelectTrigger className="w-full sm:w-[180px]">
+                    <SelectTrigger className="w-full sm:w-45">
                       <SelectValue placeholder="Filter by type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -807,8 +810,7 @@ function ProjectDetailContent() {
                       variant={
                         sortBy.startsWith('date') ? 'default' : 'outline'
                       }
-                      onClick={toggleDateSort}
-                      className="h-10">
+                      onClick={toggleDateSort}>
                       Date
                       {sortBy === 'date-desc' ? (
                         <ChevronDown className="ml-2 h-4 w-4" />
@@ -821,8 +823,7 @@ function ProjectDetailContent() {
                       variant={
                         sortBy.startsWith('amount') ? 'default' : 'outline'
                       }
-                      onClick={toggleAmountSort}
-                      className="h-10">
+                      onClick={toggleAmountSort}>
                       Amount
                       {sortBy === 'amount-desc' ? (
                         <ChevronDown className="ml-2 h-4 w-4" />
@@ -836,9 +837,9 @@ function ProjectDetailContent() {
                           <Button
                             type="button"
                             variant="outline"
+                            size="icon"
                             onClick={() => setSortBy('date-desc')}
-                            aria-label="Reset sort"
-                            className="h-10 px-3">
+                            aria-label="Reset sort">
                             <RotateCcw className="h-4 w-4" />
                           </Button>
                         </TooltipTrigger>
@@ -1037,7 +1038,7 @@ function ProjectDetailContent() {
 
       {/* Edit History Dialog */}
       <Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-150">
           <DialogHeader>
             <DialogTitle>Edit History</DialogTitle>
             <DialogDescription>
