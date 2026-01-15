@@ -15,6 +15,8 @@ import { getProjectBySharedLink } from '@/lib/actions/shared-links'
 import { getBalanceColor, getBalanceStatus } from '@/lib/utils/balance'
 import { formatCurrency, formatDateTime, formatDate } from '@/lib/utils/locale'
 import { devLogError, getPublicErrorMessage } from '@/lib/utils/public-error'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 type Entry = {
   id: string
@@ -51,6 +53,109 @@ type DateRangeInfo = {
   endDate: Date | null
 } | null
 
+type EncryptedPackage = {
+  encrypted: true
+  expiresAt: string | Date
+  startDate: string | Date | null
+  endDate: string | Date | null
+  payload: { enc: string; iv: string; aad: string }
+  keyUser: {
+    enc: string
+    iv: string
+    salt: string
+    iterations: number
+  }
+}
+
+type PayloadResponse =
+  | EncryptedPackage
+  | {
+      encrypted: false
+      expiresAt: string | Date
+      startDate: string | Date | null
+      endDate: string | Date | null
+    }
+
+const textEncoder = new TextEncoder()
+const textDecoder = new TextDecoder()
+
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const out = new ArrayBuffer(bytes.byteLength)
+  new Uint8Array(out).set(bytes)
+  return out
+}
+
+function b64ToBytes(b64: string): Uint8Array {
+  const bin = atob(b64)
+  const out = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
+  return out
+}
+
+function xorBytes(a: Uint8Array, b: Uint8Array): Uint8Array {
+  if (a.length !== b.length) throw new Error('xorBytes: length mismatch')
+  const out = new Uint8Array(a.length)
+  for (let i = 0; i < a.length; i++) out[i] = a[i] ^ b[i]
+  return out
+}
+
+async function pbkdf2Sha256(
+  password: string,
+  salt: Uint8Array,
+  iterations: number,
+  lengthBytes: number,
+): Promise<Uint8Array> {
+  const baseKey = await crypto.subtle.importKey(
+    'raw',
+    toArrayBuffer(textEncoder.encode(password)),
+    'PBKDF2',
+    false,
+    ['deriveBits'],
+  )
+
+  const bits = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      hash: 'SHA-256',
+      salt: toArrayBuffer(salt),
+      iterations,
+    },
+    baseKey,
+    lengthBytes * 8,
+  )
+
+  return new Uint8Array(bits)
+}
+
+async function aesGcmDecrypt(
+  keyBytes: Uint8Array,
+  ciphertext: Uint8Array,
+  iv: Uint8Array,
+  additionalData?: Uint8Array,
+): Promise<Uint8Array> {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    toArrayBuffer(keyBytes),
+    'AES-GCM',
+    false,
+    ['decrypt'],
+  )
+
+  const plain = await crypto.subtle.decrypt(
+    {
+      name: 'AES-GCM',
+      iv: toArrayBuffer(iv),
+      ...(additionalData
+        ? { additionalData: toArrayBuffer(additionalData) }
+        : {}),
+    },
+    key,
+    toArrayBuffer(ciphertext),
+  )
+
+  return new Uint8Array(plain)
+}
+
 export default function SharedProjectPage() {
   const params = useParams()
   const router = useRouter()
@@ -63,6 +168,10 @@ export default function SharedProjectPage() {
   const [dateRange, setDateRange] = useState<DateRangeInfo>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [encryptedPackage, setEncryptedPackage] =
+    useState<EncryptedPackage | null>(null)
+  const [password, setPassword] = useState('')
+  const [unlocking, setUnlocking] = useState(false)
 
   const sortBy =
     (searchParams.get('sort') as 'timestamp_desc' | 'timestamp_asc') ||
@@ -91,6 +200,31 @@ export default function SharedProjectPage() {
 
   const loadProjectData = async () => {
     try {
+      setError('')
+      setEncryptedPackage(null)
+      setProject(null)
+      setEntries([])
+      setBalance(0)
+      setDateRange(null)
+
+      const res = await fetch(`/api/shared/${token}/payload`, {
+        cache: 'no-store',
+      })
+      if (!res.ok) {
+        const msg = (await res.json().catch(() => null)) as {
+          error?: string
+        } | null
+        throw new Error(msg?.error || 'Invalid or expired link')
+      }
+
+      const payload = (await res.json()) as PayloadResponse
+
+      if (payload.encrypted) {
+        setEncryptedPackage(payload)
+        return
+      }
+
+      // Legacy (plaintext) share fallback
       const data = await getProjectBySharedLink(token)
       setProject(data.project)
       setEntries(data.entries)
@@ -101,6 +235,150 @@ export default function SharedProjectPage() {
       setError(getPublicErrorMessage(err, 'Invalid or expired link'))
     } finally {
       setLoading(false)
+    }
+  }
+
+  const unlockAndDecrypt = async () => {
+    if (!encryptedPackage) return
+    setUnlocking(true)
+    setError('')
+
+    try {
+      const unlockRes = await fetch(`/api/shared/${token}/unlock`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        cache: 'no-store',
+        body: JSON.stringify({ password }),
+      })
+
+      const unlockJson = (await unlockRes.json().catch(() => null)) as
+        | { accessToken: string; expiresAt: string }
+        | { error?: string }
+        | null
+
+      if (!unlockRes.ok || !unlockJson || !('accessToken' in unlockJson)) {
+        const unlockError =
+          unlockJson && 'error' in unlockJson && unlockJson.error
+            ? unlockJson.error
+            : 'Invalid password'
+        throw new Error(unlockError)
+      }
+
+      const keyRes = await fetch(`/api/shared/${token}/key`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        cache: 'no-store',
+        body: JSON.stringify({ accessToken: unlockJson.accessToken }),
+      })
+
+      const keyJson = (await keyRes.json().catch(() => null)) as
+        | { keyServer: string }
+        | { error?: string }
+        | null
+
+      if (!keyRes.ok || !keyJson || !('keyServer' in keyJson)) {
+        const keyError =
+          keyJson && 'error' in keyJson && keyJson.error
+            ? keyJson.error
+            : 'Unable to unlock link'
+        throw new Error(keyError)
+      }
+
+      const aadBytes = textEncoder.encode(encryptedPackage.payload.aad)
+
+      const salt = b64ToBytes(encryptedPackage.keyUser.salt)
+      const iterations = encryptedPackage.keyUser.iterations
+      const derivedKey = await pbkdf2Sha256(password, salt, iterations, 32)
+
+      const userShareEnc = b64ToBytes(encryptedPackage.keyUser.enc)
+      const userShareIv = b64ToBytes(encryptedPackage.keyUser.iv)
+      const userShare = await aesGcmDecrypt(
+        derivedKey,
+        userShareEnc,
+        userShareIv,
+        aadBytes,
+      )
+
+      const serverShare = b64ToBytes(keyJson.keyServer)
+      const dek = xorBytes(userShare, serverShare)
+
+      const payloadEnc = b64ToBytes(encryptedPackage.payload.enc)
+      const payloadIv = b64ToBytes(encryptedPackage.payload.iv)
+      const payloadBytes = await aesGcmDecrypt(
+        dek,
+        payloadEnc,
+        payloadIv,
+        aadBytes,
+      )
+
+      const payloadText = textDecoder.decode(payloadBytes)
+      const parsed = JSON.parse(payloadText) as {
+        project: {
+          id: string
+          name: string
+          userId: string
+          createdAt: string
+          updatedAt: string
+        }
+        entries: Array<{
+          id: string
+          projectId: string
+          amount: string
+          price: string
+          typeId: string
+          productId: string | null
+          note: string | null
+          timestamp: string
+          createdAt: string
+          type: Entry['type']
+          product: Entry['product']
+        }>
+        balance: number
+        dateRange: { startDate: string | null; endDate: string | null } | null
+      }
+
+      setProject({
+        id: parsed.project.id,
+        name: parsed.project.name,
+        userId: parsed.project.userId,
+        createdAt: new Date(parsed.project.createdAt),
+        updatedAt: new Date(parsed.project.updatedAt),
+      })
+      setEntries(
+        parsed.entries.map(e => ({
+          id: e.id,
+          projectId: e.projectId,
+          amount: e.amount,
+          price: e.price,
+          typeId: e.typeId,
+          productId: e.productId,
+          note: e.note,
+          timestamp: new Date(e.timestamp),
+          createdAt: new Date(e.createdAt),
+          type: e.type,
+          product: e.product,
+        })),
+      )
+      setBalance(parsed.balance)
+      setDateRange(
+        parsed.dateRange
+          ? {
+              startDate: parsed.dateRange.startDate
+                ? new Date(parsed.dateRange.startDate)
+                : null,
+              endDate: parsed.dateRange.endDate
+                ? new Date(parsed.dateRange.endDate)
+                : null,
+            }
+          : null,
+      )
+
+      setPassword('')
+    } catch (err) {
+      devLogError('Failed to decrypt shared link:', err)
+      setError(getPublicErrorMessage(err, 'Unable to unlock link'))
+    } finally {
+      setUnlocking(false)
     }
   }
 
@@ -131,6 +409,44 @@ export default function SharedProjectPage() {
   }
 
   if (!project) {
+    if (encryptedPackage) {
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-background p-4">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Lock className="h-5 w-5" />
+                Password Required
+              </CardTitle>
+              <CardDescription>
+                Enter the password to decrypt this shared view.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="share-password">Password</Label>
+                <Input
+                  id="share-password"
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                />
+              </div>
+              {error && <p className="text-sm text-destructive">{error}</p>}
+              <Button
+                type="button"
+                className="w-full"
+                disabled={unlocking || password.length === 0}
+                onClick={unlockAndDecrypt}>
+                {unlocking ? 'Unlocking…' : 'Unlock'}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )
+    }
+
     return null
   }
 
