@@ -73,6 +73,7 @@ export function ShareProjectDialog({
   const [expiresValue, setExpiresValue] = useState('7')
   const [expiresUnit, setExpiresUnit] = useState<'days' | 'hours'>('days')
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
+  const [sharePassword, setSharePassword] = useState('')
   const [sharedLinks, setSharedLinks] = useState<SharedLink[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -126,6 +127,12 @@ export function ShareProjectDialog({
       const expiresInDays = expiresUnit === 'days' ? value : undefined
       const expiresInHours = expiresUnit === 'hours' ? value : undefined
 
+      const normalizedPassword = sharePassword.trim()
+      if (normalizedPassword.length < 6) {
+        setError('Password must be at least 6 characters')
+        return
+      }
+
       const startDate = dateRange?.from
         ? toStartOfDayIso(dateRange.from)
         : undefined
@@ -133,6 +140,7 @@ export function ShareProjectDialog({
 
       await createSharedLink(
         projectId,
+        normalizedPassword,
         expiresInDays,
         expiresInHours,
         startDate,
@@ -142,6 +150,7 @@ export function ShareProjectDialog({
       setExpiresValue('7')
       setExpiresUnit('days')
       setDateRange(undefined)
+      setSharePassword('')
       await loadSharedLinks()
     } catch (err) {
       devLogError('Failed to create link:', err)
@@ -182,7 +191,7 @@ export function ShareProjectDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[550px]">
+      <DialogContent className="sm:max-w-137.5">
         <DialogHeader>
           <DialogTitle>Share Project</DialogTitle>
           <DialogDescription>
@@ -207,7 +216,7 @@ export function ShareProjectDialog({
                   onValueChange={value =>
                     setExpiresUnit(value as 'days' | 'hours')
                   }>
-                  <SelectTrigger className="w-[110px]">
+                  <SelectTrigger className="w-27.5">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -229,6 +238,22 @@ export function ShareProjectDialog({
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
               Filter entries shown in the shared link to this date range
+            </p>
+          </div>
+
+          <div>
+            <Label htmlFor="share-password">Password</Label>
+            <Input
+              id="share-password"
+              type="password"
+              value={sharePassword}
+              onChange={e => setSharePassword(e.target.value)}
+              placeholder="Required"
+              autoComplete="new-password"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Required to open this link. If you forget it, you’ll need to
+              create a new link.
             </p>
           </div>
 

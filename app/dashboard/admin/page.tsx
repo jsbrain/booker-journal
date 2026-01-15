@@ -37,6 +37,13 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 
+import {
+  getActiveSharedLinksForUser,
+  deleteSharedLink,
+} from '@/lib/actions/shared-links'
+import { Check, Copy, ExternalLink } from 'lucide-react'
+import { formatDateTime } from '@/lib/utils/locale'
+
 type Product = {
   id: string
   key: string
@@ -46,24 +53,42 @@ type Product = {
   updatedAt: Date
 }
 
+type ActiveSharedLink = {
+  id: string
+  projectId: string
+  projectName: string
+  token: string
+  expiresAt: Date
+  startDate: Date | null
+  endDate: Date | null
+  createdAt: Date
+  encrypted: boolean
+}
+
 export default function AdminPage() {
   const { data: session, isPending } = useSession()
   const router = useRouter()
 
   const [products, setProducts] = useState<Product[]>([])
+  const [activeLinks, setActiveLinks] = useState<ActiveSharedLink[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [showEditPriceDialog, setShowEditPriceDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showDeleteLinkDialog, setShowDeleteLinkDialog] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [productToDelete, setProductToDelete] = useState<Product | null>(null)
+  const [linkToDelete, setLinkToDelete] = useState<ActiveSharedLink | null>(
+    null,
+  )
 
   const [newProductKey, setNewProductKey] = useState('')
   const [newProductName, setNewProductName] = useState('')
   const [editProductName, setEditProductName] = useState('')
   const [editProductBuyingPrice, setEditProductBuyingPrice] = useState('')
   const [error, setError] = useState('')
+  const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isPending && !session) {
@@ -74,6 +99,7 @@ export default function AdminPage() {
   useEffect(() => {
     if (session) {
       loadProducts()
+      loadActiveLinks()
     }
   }, [session])
 
@@ -86,6 +112,42 @@ export default function AdminPage() {
       setError(getPublicErrorMessage(error, 'Failed to load products'))
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadActiveLinks = async () => {
+    try {
+      const links = await getActiveSharedLinksForUser()
+      setActiveLinks(links)
+    } catch (error) {
+      devLogError('Failed to load shared links:', error)
+      setError(getPublicErrorMessage(error, 'Failed to load shared links'))
+    }
+  }
+
+  const handleCopySharedLink = async (token: string, linkId: string) => {
+    const url = `${window.location.origin}/shared/${token}`
+    await navigator.clipboard.writeText(url)
+    setCopiedLinkId(linkId)
+    setTimeout(() => setCopiedLinkId(null), 1500)
+  }
+
+  const handleRevokeSharedLink = (link: ActiveSharedLink) => {
+    setLinkToDelete(link)
+    setShowDeleteLinkDialog(true)
+  }
+
+  const confirmRevokeSharedLink = async () => {
+    if (!linkToDelete) return
+    try {
+      await deleteSharedLink(linkToDelete.id, linkToDelete.projectId)
+      await loadActiveLinks()
+    } catch (error) {
+      devLogError('Failed to delete shared link:', error)
+      setError(getPublicErrorMessage(error, 'Failed to delete shared link'))
+    } finally {
+      setShowDeleteLinkDialog(false)
+      setLinkToDelete(null)
     }
   }
 
@@ -280,11 +342,115 @@ export default function AdminPage() {
             </Card>
           ))}
         </div>
+
+        <div className="mt-10">
+          <div className="mb-4">
+            <h2 className="text-2xl font-bold">Active Shared Links</h2>
+            <p className="text-sm text-muted-foreground">
+              All unexpired shared links across your projects
+            </p>
+          </div>
+
+          {activeLinks.length === 0 ? (
+            <Card>
+              <CardContent className="p-4 text-sm text-muted-foreground">
+                No active shared links.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {activeLinks.map(link => {
+                const url = `/shared/${link.token}`
+                return (
+                  <Card key={link.id}>
+                    <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <Link
+                            href={`/dashboard/projects/${link.projectId}`}
+                            className="truncate font-medium hover:underline">
+                            {link.projectName}
+                          </Link>
+                          {link.encrypted ? (
+                            <span className="rounded-full bg-muted px-2 py-0.5 text-xs">
+                              Encrypted
+                            </span>
+                          ) : (
+                            <span className="rounded-full bg-muted px-2 py-0.5 text-xs">
+                              Public
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                          <span>Expires {formatDateTime(link.expiresAt)}</span>
+                          <span>•</span>
+                          <span>Created {formatDate(link.createdAt)}</span>
+                          {(link.startDate || link.endDate) && (
+                            <>
+                              <span>•</span>
+                              <span>
+                                Range:{' '}
+                                {link.startDate
+                                  ? formatDate(link.startDate)
+                                  : '…'}
+                                {' — '}
+                                {link.endDate ? formatDate(link.endDate) : '…'}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        <div className="mt-2 truncate text-xs text-muted-foreground">
+                          /shared/{link.token}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            handleCopySharedLink(link.token, link.id)
+                          }>
+                          {copiedLinkId === link.id ? (
+                            <>
+                              <Check className="mr-2 h-4 w-4" />
+                              Copied
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="mr-2 h-4 w-4" />
+                              Copy
+                            </>
+                          )}
+                        </Button>
+
+                        <Button variant="outline" size="sm" asChild>
+                          <a href={url} target="_blank" rel="noreferrer">
+                            <ExternalLink className="mr-2 h-4 w-4" />
+                            Open
+                          </a>
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleRevokeSharedLink(link)}>
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Revoke
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </main>
 
       {/* Create Product Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-106.25">
           <form onSubmit={handleCreateProduct}>
             <DialogHeader>
               <DialogTitle>Create Product</DialogTitle>
@@ -335,7 +501,7 @@ export default function AdminPage() {
 
       {/* Edit Product Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-106.25">
           <form onSubmit={handleUpdateProduct}>
             <DialogHeader>
               <DialogTitle>Edit Product</DialogTitle>
@@ -371,7 +537,7 @@ export default function AdminPage() {
 
       {/* Edit Buying Price Dialog */}
       <Dialog open={showEditPriceDialog} onOpenChange={setShowEditPriceDialog}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-106.25">
           <form onSubmit={handleUpdateBuyingPrice}>
             <DialogHeader>
               <DialogTitle>Edit Default Buying Price</DialogTitle>
@@ -428,6 +594,29 @@ export default function AdminPage() {
               onClick={confirmDeleteProduct}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Shared Link Confirmation Dialog */}
+      <AlertDialog
+        open={showDeleteLinkDialog}
+        onOpenChange={setShowDeleteLinkDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revoke Shared Link</AlertDialogTitle>
+            <AlertDialogDescription>
+              Revoke this shared link for &quot;{linkToDelete?.projectName}
+              &quot;? Anyone with the URL will lose access.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmRevokeSharedLink}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Revoke
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

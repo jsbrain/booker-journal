@@ -12,6 +12,7 @@ import {
   entryTypes,
   products,
   sharedLinks,
+  sharedLinkAccessSessions,
   inventoryPurchases,
 } from './schema'
 
@@ -38,6 +39,13 @@ export const insertInventoryPurchaseSchema =
 
 export const selectSharedLinkSchema = createSelectSchema(sharedLinks)
 export const insertSharedLinkSchema = createInsertSchema(sharedLinks)
+
+export const selectSharedLinkAccessSessionSchema = createSelectSchema(
+  sharedLinkAccessSessions,
+)
+export const insertSharedLinkAccessSessionSchema = createInsertSchema(
+  sharedLinkAccessSessions,
+)
 
 // ========================================
 // Extended schemas for API validation
@@ -146,6 +154,7 @@ export const getMetricsInputSchema = Type.Object({
 // Shared link creation input validation
 export const createSharedLinkInputSchema = Type.Object({
   projectId: Type.String({ minLength: 1 }),
+  password: Type.String({ minLength: 6, maxLength: 256 }),
   expiresInDays: Type.Optional(Type.Integer({ minimum: 1, maximum: 365 })),
   expiresInHours: Type.Optional(Type.Integer({ minimum: 1, maximum: 8760 })), // max 365 days in hours
   startDate: Type.Optional(Type.String()), // ISO date string
@@ -155,6 +164,17 @@ export const createSharedLinkInputSchema = Type.Object({
 // Shared link token validation
 export const sharedLinkTokenSchema = Type.Object({
   token: Type.String({ minLength: 1, maxLength: 128 }),
+})
+
+// Encrypted share: unlock + key release
+export const sharedLinkUnlockInputSchema = Type.Object({
+  token: Type.String({ minLength: 1, maxLength: 128 }),
+  password: Type.String({ minLength: 1, maxLength: 256 }),
+})
+
+export const sharedLinkKeyReleaseInputSchema = Type.Object({
+  token: Type.String({ minLength: 1, maxLength: 128 }),
+  accessToken: Type.String({ minLength: 1, maxLength: 256 }),
 })
 
 // Delete operations validation
@@ -207,6 +227,13 @@ export type InsertInventoryPurchase = Static<
 export type SelectSharedLink = Static<typeof selectSharedLinkSchema>
 export type InsertSharedLink = Static<typeof insertSharedLinkSchema>
 
+export type SelectSharedLinkAccessSession = Static<
+  typeof selectSharedLinkAccessSessionSchema
+>
+export type InsertSharedLinkAccessSession = Static<
+  typeof insertSharedLinkAccessSessionSchema
+>
+
 // Input types
 export type CreateProjectInput = Static<typeof createProjectInputSchema>
 export type UpdateProjectInput = Static<typeof updateProjectInputSchema>
@@ -232,6 +259,10 @@ export type DeleteInventoryPurchaseInput = Static<
 export type GetMetricsInput = Static<typeof getMetricsInputSchema>
 export type CreateSharedLinkInput = Static<typeof createSharedLinkInputSchema>
 export type SharedLinkToken = Static<typeof sharedLinkTokenSchema>
+export type SharedLinkUnlockInput = Static<typeof sharedLinkUnlockInputSchema>
+export type SharedLinkKeyReleaseInput = Static<
+  typeof sharedLinkKeyReleaseInputSchema
+>
 export type DeleteProjectInput = Static<typeof deleteProjectInputSchema>
 export type DeleteEntryInput = Static<typeof deleteEntryInputSchema>
 export type DeleteSharedLinkInput = Static<typeof deleteSharedLinkInputSchema>
