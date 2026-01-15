@@ -13,6 +13,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createProject } from '@/lib/actions/projects'
+import { devLogError, getPublicErrorMessage } from '@/lib/utils/public-error'
 
 interface CreateProjectDialogProps {
   open: boolean
@@ -47,7 +48,8 @@ export function CreateProjectDialog({
       setInitialAmount('')
       onSuccess()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create project')
+      devLogError('Failed to create project:', err)
+      setError(getPublicErrorMessage(err, 'Failed to create project'))
     } finally {
       setLoading(false)
     }

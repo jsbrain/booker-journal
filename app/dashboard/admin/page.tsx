@@ -14,6 +14,7 @@ import {
   deleteProduct,
 } from '@/lib/actions/products'
 import { formatCurrency, formatDate } from '@/lib/utils/locale'
+import { devLogError, getPublicErrorMessage } from '@/lib/utils/public-error'
 import Link from 'next/link'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -81,7 +82,8 @@ export default function AdminPage() {
       const allProducts = await getProducts()
       setProducts(allProducts)
     } catch (error) {
-      console.error('Failed to load products:', error)
+      devLogError('Failed to load products:', error)
+      setError(getPublicErrorMessage(error, 'Failed to load products'))
     } finally {
       setLoading(false)
     }
@@ -103,7 +105,8 @@ export default function AdminPage() {
       setShowCreateDialog(false)
       loadProducts()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create product')
+      devLogError('Failed to create product:', err)
+      setError(getPublicErrorMessage(err, 'Failed to create product'))
     }
   }
 
@@ -120,7 +123,8 @@ export default function AdminPage() {
       setEditProductName('')
       loadProducts()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update product')
+      devLogError('Failed to update product:', err)
+      setError(getPublicErrorMessage(err, 'Failed to update product'))
     }
   }
 
@@ -136,8 +140,13 @@ export default function AdminPage() {
       await deleteProduct(productToDelete.id)
       loadProducts()
     } catch (error) {
-      console.error('Failed to delete product:', error)
-      alert('Failed to delete product. It may be in use by existing entries.')
+      devLogError('Failed to delete product:', error)
+      setError(
+        getPublicErrorMessage(
+          error,
+          'Failed to delete product. It may be in use by existing entries.',
+        ),
+      )
     }
     setShowDeleteDialog(false)
     setProductToDelete(null)
@@ -171,9 +180,8 @@ export default function AdminPage() {
       setEditProductBuyingPrice('')
       loadProducts()
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Failed to update buying price',
-      )
+      devLogError('Failed to update buying price:', err)
+      setError(getPublicErrorMessage(err, 'Failed to update buying price'))
     }
   }
 
@@ -208,6 +216,7 @@ export default function AdminPage() {
         </div>
       </header>
       <main className="container mx-auto p-4 md:p-8">
+        {error && <div className="mb-4 text-sm text-destructive">{error}</div>}
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold">Products</h2>

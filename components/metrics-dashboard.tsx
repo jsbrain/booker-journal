@@ -22,6 +22,7 @@ import {
   Package,
   ShoppingCart,
 } from 'lucide-react'
+import { devLogError, getPublicErrorMessage } from '@/lib/utils/public-error'
 
 interface MetricsDashboardProps {
   projectId: string | null // null means global metrics
@@ -34,6 +35,7 @@ export function MetricsDashboard({
 }: MetricsDashboardProps) {
   const [metrics, setMetrics] = useState<ProjectMetrics | null>(null)
   const [loading, setLoading] = useState(true)
+  const [errorMessage, setErrorMessage] = useState('')
 
   useEffect(() => {
     if (dateRange?.from && dateRange?.to) {
@@ -46,6 +48,7 @@ export function MetricsDashboard({
     if (!dateRange?.from || !dateRange?.to) return
 
     setLoading(true)
+    setErrorMessage('')
     try {
       // Create a copy of the end date and set time to end of day
       const endOfDay = new Date(dateRange.to)
@@ -63,7 +66,8 @@ export function MetricsDashboard({
           )
       setMetrics(data)
     } catch (error) {
-      console.error('Failed to load metrics:', error)
+      devLogError('Failed to load metrics:', error)
+      setErrorMessage(getPublicErrorMessage(error, 'Failed to load metrics'))
     } finally {
       setLoading(false)
     }
@@ -106,6 +110,9 @@ export function MetricsDashboard({
   }
 
   if (!metrics) {
+    if (errorMessage) {
+      return <div className="text-sm text-destructive">{errorMessage}</div>
+    }
     return null
   }
 

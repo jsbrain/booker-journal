@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession, signOut } from '@/lib/auth-client'
 import { Button } from '@/components/ui/button'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Card,
   CardContent,
@@ -27,6 +28,7 @@ import { CreateProjectDialog } from '@/components/create-project-dialog'
 import { MetricsDashboard } from '@/components/metrics-dashboard'
 import { InventoryList } from '@/components/inventory-list'
 import { formatDate } from '@/lib/utils/locale'
+import { devLogError, getPublicErrorMessage } from '@/lib/utils/public-error'
 import Link from 'next/link'
 
 type Project = {
@@ -60,6 +62,7 @@ function DashboardContent() {
   const searchParams = useSearchParams()
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
+  const [errorMessage, setErrorMessage] = useState('')
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
 
@@ -130,7 +133,8 @@ function DashboardContent() {
       const data = await getProjects()
       setProjects(data)
     } catch (error) {
-      console.error('Failed to load projects:', error)
+      devLogError('Failed to load projects:', error)
+      setErrorMessage(getPublicErrorMessage(error, 'Failed to load projects'))
     } finally {
       setLoading(false)
     }
@@ -180,12 +184,12 @@ function DashboardContent() {
             </h1>
           </Link>
           <div className="flex gap-2">
-            <Link href="/dashboard/admin">
-              <Button variant="outline" size="sm">
+            <Button asChild variant="outline" size="sm">
+              <Link href="/dashboard/admin">
                 <Settings className="mr-2 h-4 w-4" />
                 Admin
-              </Button>
-            </Link>
+              </Link>
+            </Button>
             <Button onClick={handleSignOut} variant="outline" size="sm">
               <LogOut className="mr-2 h-4 w-4" />
               Sign Out
@@ -194,42 +198,32 @@ function DashboardContent() {
         </div>
       </header>
       <main className="container mx-auto p-4 md:p-8">
-        {/* Tab Navigation */}
-        <div className="mb-6 flex flex-wrap gap-2 border-b">
-          <Link
-            href={buildHref('/dashboard', { tab: 'projects' })}
-            className={`inline-flex items-center px-4 py-2 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm ${
-              activeTab === 'projects'
-                ? 'border-b-2 border-primary text-primary'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}>
-            <FolderOpen className="mr-2 inline h-4 w-4" />
-            Projects
-          </Link>
-          <Link
-            href={buildHref('/dashboard', { tab: 'metrics' })}
-            className={`inline-flex items-center px-4 py-2 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm ${
-              activeTab === 'metrics'
-                ? 'border-b-2 border-primary text-primary'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}>
-            <TrendingUp className="mr-2 inline h-4 w-4" />
-            Global Metrics
-          </Link>
-          <Link
-            href={buildHref('/dashboard', { tab: 'inventory' })}
-            className={`inline-flex items-center px-4 py-2 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm ${
-              activeTab === 'inventory'
-                ? 'border-b-2 border-primary text-primary'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}>
-            <Package className="mr-2 inline h-4 w-4" />
-            Global Inventory
-          </Link>
-        </div>
+        {errorMessage && (
+          <div className="mb-4 text-sm text-destructive">{errorMessage}</div>
+        )}
+        <Tabs value={activeTab} className="w-full">
+          <TabsList className="mb-6 flex h-auto w-full flex-wrap justify-start gap-1">
+            <TabsTrigger value="projects" asChild>
+              <Link href={buildHref('/dashboard', { tab: 'projects' })}>
+                <FolderOpen className="mr-2 inline h-4 w-4" />
+                Projects
+              </Link>
+            </TabsTrigger>
+            <TabsTrigger value="metrics" asChild>
+              <Link href={buildHref('/dashboard', { tab: 'metrics' })}>
+                <TrendingUp className="mr-2 inline h-4 w-4" />
+                Global Metrics
+              </Link>
+            </TabsTrigger>
+            <TabsTrigger value="inventory" asChild>
+              <Link href={buildHref('/dashboard', { tab: 'inventory' })}>
+                <Package className="mr-2 inline h-4 w-4" />
+                Global Inventory
+              </Link>
+            </TabsTrigger>
+          </TabsList>
 
-        {activeTab === 'projects' && (
-          <>
+          <TabsContent value="projects" className="mt-0">
             <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
                 <h2 className="text-2xl font-bold">Projects</h2>
@@ -291,11 +285,9 @@ function DashboardContent() {
                 ))}
               </div>
             )}
-          </>
-        )}
+          </TabsContent>
 
-        {activeTab === 'metrics' && (
-          <div>
+          <TabsContent value="metrics" className="mt-0">
             <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
               <div>
                 <h2 className="text-2xl font-bold">Global Metrics</h2>
@@ -309,11 +301,9 @@ function DashboardContent() {
               />
             </div>
             <MetricsDashboard projectId={null} dateRange={dateRange} />
-          </div>
-        )}
+          </TabsContent>
 
-        {activeTab === 'inventory' && (
-          <div>
+          <TabsContent value="inventory" className="mt-0">
             <div className="mb-6">
               <h2 className="text-2xl font-bold">Global Inventory</h2>
               <p className="text-sm text-muted-foreground">
@@ -321,8 +311,8 @@ function DashboardContent() {
               </p>
             </div>
             <InventoryList />
-          </div>
-        )}
+          </TabsContent>
+        </Tabs>
       </main>
 
       <CreateProjectDialog

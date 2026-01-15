@@ -8,6 +8,7 @@
  * - Multiple inventory purchases throughout 2025 showing price changes
  * - 3 customer projects with realistic sales and payment patterns
  * - Detailed transaction history from Jan-Oct 2025
+ * - A small deterministic metrics verification dataset (Nov 2025–Jan 2026)
  */
 
 import { db, client } from './index'
@@ -43,6 +44,44 @@ const SEED_ENTRY_TYPES = [
   { key: 'refund', name: 'Refund' },
   { key: 'adjustment', name: 'Adjustment' },
 ]
+
+const METRICS_SCENARIO = {
+  product: {
+    key: 'metrics_scenario_flower',
+    name: 'Metrics Scenario Flower',
+  },
+  project: {
+    name: 'Metrics Scenario Customer',
+  },
+  purchases: [
+    {
+      purchaseDate: '2025-11-15T10:00:00Z',
+      quantity: 100,
+      buyingPrice: 1.0,
+      note: 'Scenario: 100 @ 1.00 (Nov)',
+    },
+    {
+      purchaseDate: '2026-01-10T10:00:00Z',
+      quantity: 100,
+      buyingPrice: 2.0,
+      note: 'Scenario: 100 @ 2.00 (Jan)',
+    },
+  ],
+  sales: [
+    {
+      timestamp: '2025-12-05T12:00:00Z',
+      amount: 50,
+      price: -3.0,
+      note: 'Scenario: sell 50 @ -3.00 (Dec)',
+    },
+    {
+      timestamp: '2026-01-12T12:00:00Z',
+      amount: 50,
+      price: -3.0,
+      note: 'Scenario: sell 50 @ -3.00 (Jan)',
+    },
+  ],
+}
 
 // Type for buying patterns
 type BuyingPattern = 'blumen' | 'schokolade' | 'pfanne'
@@ -191,6 +230,111 @@ export async function seedProducts() {
   }
 }
 
+async function seedMetricsVerificationData(params: {
+  userId: string
+  saleTypeId: string
+}) {
+  const { userId, saleTypeId } = params
+
+  // Ensure scenario product exists
+  const existingScenarioProduct = await db.query.products.findFirst({
+    where: eq(products.key, METRICS_SCENARIO.product.key),
+  })
+
+  const scenarioProductId = existingScenarioProduct
+    ? existingScenarioProduct.id
+    : (
+        await db
+          .insert(products)
+          .values({
+            key: METRICS_SCENARIO.product.key,
+            name: METRICS_SCENARIO.product.name,
+          })
+          .returning()
+      )[0].id
+
+  // Ensure scenario project exists
+  const existingScenarioProject = await db.query.projects.findFirst({
+    where: and(
+      eq(projects.userId, userId),
+      eq(projects.name, METRICS_SCENARIO.project.name),
+    ),
+  })
+
+  const scenarioProjectId = existingScenarioProject
+    ? existingScenarioProject.id
+    : (
+        await db
+          .insert(projects)
+          .values({
+            name: METRICS_SCENARIO.project.name,
+            userId,
+          })
+          .returning()
+      )[0].id
+
+  // Insert purchases (idempotent-ish: skip if same note already exists)
+  for (const p of METRICS_SCENARIO.purchases) {
+    const exists = await db.query.inventoryPurchases.findFirst({
+      where: and(
+        eq(inventoryPurchases.userId, userId),
+        eq(inventoryPurchases.productId, scenarioProductId),
+        eq(inventoryPurchases.note, p.note),
+      ),
+    })
+
+    if (exists) continue
+
+    const totalCost = p.quantity * p.buyingPrice
+    await db.insert(inventoryPurchases).values({
+      userId,
+      productId: scenarioProductId,
+      quantity: p.quantity.toString(),
+      buyingPrice: p.buyingPrice.toFixed(2),
+      totalCost: totalCost.toFixed(2),
+      purchaseDate: new Date(p.purchaseDate),
+      note: p.note,
+    })
+  }
+
+  // Insert sales (idempotent-ish: skip if same note already exists)
+  for (const s of METRICS_SCENARIO.sales) {
+    const exists = await db.query.journalEntries.findFirst({
+      where: and(
+        eq(journalEntries.projectId, scenarioProjectId),
+        eq(journalEntries.typeId, saleTypeId),
+        eq(journalEntries.note, s.note),
+      ),
+    })
+
+    if (exists) continue
+
+    await db.insert(journalEntries).values({
+      projectId: scenarioProjectId,
+      amount: s.amount.toString(),
+      price: s.price.toFixed(2),
+      typeId: saleTypeId,
+      productId: scenarioProductId,
+      note: s.note,
+      timestamp: new Date(s.timestamp),
+    })
+  }
+
+  console.log('\n🧪 Metrics verification dataset:')
+  console.log(`   Project: ${METRICS_SCENARIO.project.name}`)
+  console.log(`   Product: ${METRICS_SCENARIO.product.name}`)
+  console.log('   Suggested checks in UI:')
+  console.log(
+    '   - Date range 2025-12-01 → 2025-12-31: revenue ≈ 150, cost ≈ 50, profit ≈ 100',
+  )
+  console.log(
+    '   - Date range 2026-01-01 → 2026-01-31: revenue ≈ 150, cost ≈ 83.33, profit ≈ 66.67',
+  )
+  console.log(
+    '   - Date range 2025-12-01 → 2026-01-31: revenue ≈ 300, cost ≈ 133.33, profit ≈ 166.67',
+  )
+}
+
 // Helper to generate realistic sale prices based on buying price
 function generateSalePrice(buyingPrice: number, productKey: string): number {
   let margin: number
@@ -245,7 +389,9 @@ function generateTransactionNote(
 
 export async function seedDatabase() {
   console.log('🌱 Starting sophisticated database seeding...')
-  console.log('   Creating realistic business scenario for 2025')
+  console.log(
+    '   Creating realistic business scenario for 2025 (+ metrics verification dataset)',
+  )
 
   try {
     // 1. Create/verify user
@@ -355,6 +501,9 @@ export async function seedDatabase() {
         productMap[product.key] = { id: existing.id, name: existing.name }
       }
     }
+
+    // Add a deterministic dataset for verifying date-range COGS behavior.
+    await seedMetricsVerificationData({ userId, saleTypeId: saleType.id })
 
     // 4. Create comprehensive inventory purchases
     console.log('\n📥 Creating inventory purchase history (Jan-Oct 2025)...')
@@ -599,7 +748,7 @@ export async function seedDatabase() {
         Object.values(INVENTORY_TIMELINE).flat().length
       } inventory purchases showing price evolution`,
     )
-    console.log(`   • Transactions spanning Jan-Oct 2025`)
+    console.log(`   • Transactions spanning Jan 2025–Jan 2026`)
     console.log(`   • Different payment behaviors per customer`)
     console.log(`   • Varied sales quantities and pricing`)
 
@@ -622,7 +771,13 @@ if (isMain) {
       await seedDatabase()
       console.log('\n🎉 Seeding complete! You can now log in with:')
       console.log(`   Email: ${SEED_USER.email}`)
-      console.log(`   Password: ${SEED_USER.password}`)
+      if (process.env.SHOW_SEED_CREDENTIALS === 'true') {
+        console.log(`   Password: ${SEED_USER.password}`)
+      } else {
+        console.log(
+          '   Password: [hidden] (set SHOW_SEED_CREDENTIALS=true to print)',
+        )
+      }
     } catch (error) {
       console.error('Seeding failed:', error)
     } finally {

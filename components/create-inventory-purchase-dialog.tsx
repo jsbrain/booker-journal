@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -21,6 +22,7 @@ import {
 import { DateTimePicker } from '@/components/date-time-picker'
 import { createInventoryPurchase } from '@/lib/actions/inventory'
 import { getProducts } from '@/lib/actions/products'
+import { devLogError, getPublicErrorMessage } from '@/lib/utils/public-error'
 
 interface CreateInventoryPurchaseDialogProps {
   open: boolean
@@ -62,7 +64,8 @@ export function CreateInventoryPurchaseDialog({
       const data = await getProducts()
       setProducts(data)
     } catch (error) {
-      console.error('Failed to load products:', error)
+      devLogError('Failed to load products:', error)
+      setError(getPublicErrorMessage(error, 'Failed to load products'))
     }
   }
 
@@ -102,9 +105,8 @@ export function CreateInventoryPurchaseDialog({
 
       onSuccess()
     } catch (error) {
-      setError(
-        error instanceof Error ? error.message : 'Failed to create purchase',
-      )
+      devLogError('Failed to create purchase:', error)
+      setError(getPublicErrorMessage(error, 'Failed to create purchase'))
     } finally {
       setLoading(false)
     }
@@ -176,11 +178,12 @@ export function CreateInventoryPurchaseDialog({
 
           <div className="space-y-2">
             <Label htmlFor="note">Note (optional)</Label>
-            <Input
+            <Textarea
               id="note"
               value={note}
               onChange={e => setNote(e.target.value)}
               placeholder="Add any notes about this purchase"
+              rows={3}
             />
           </div>
 

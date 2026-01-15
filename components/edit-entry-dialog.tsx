@@ -1,7 +1,7 @@
-"use client"
+'use client'
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
+import { useState, useEffect } from 'react'
+import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
@@ -9,19 +9,21 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
+} from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { updateEntry } from "@/lib/actions/entries"
-import { getEntryTypes } from "@/lib/actions/entry-types"
-import { getProducts } from "@/lib/actions/products"
+} from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { updateEntry } from '@/lib/actions/entries'
+import { getEntryTypes } from '@/lib/actions/entry-types'
+import { getProducts } from '@/lib/actions/products'
+import { devLogError, getPublicErrorMessage } from '@/lib/utils/public-error'
 
 interface EditEntryDialogProps {
   open: boolean
@@ -53,17 +55,23 @@ type Product = {
   name: string
 }
 
-export function EditEntryDialog({ open, onOpenChange, projectId, entry, onSuccess }: EditEntryDialogProps) {
-  const [amount, setAmount] = useState("")
-  const [price, setPrice] = useState("")
-  const [typeId, setTypeId] = useState("")
-  const [productId, setProductId] = useState("")
-  const [note, setNote] = useState("")
+export function EditEntryDialog({
+  open,
+  onOpenChange,
+  projectId,
+  entry,
+  onSuccess,
+}: EditEntryDialogProps) {
+  const [amount, setAmount] = useState('')
+  const [price, setPrice] = useState('')
+  const [typeId, setTypeId] = useState('')
+  const [productId, setProductId] = useState('')
+  const [note, setNote] = useState('')
   const [entryTypes, setEntryTypes] = useState<EntryType[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [selectedTypeKey, setSelectedTypeKey] = useState("")
+  const [error, setError] = useState('')
+  const [selectedTypeKey, setSelectedTypeKey] = useState('')
 
   useEffect(() => {
     if (open) {
@@ -71,28 +79,25 @@ export function EditEntryDialog({ open, onOpenChange, projectId, entry, onSucces
       setAmount(entry.amount)
       setPrice(entry.price)
       setTypeId(entry.typeId)
-      setProductId(entry.productId || "")
-      setNote(entry.note || "")
+      setProductId(entry.productId || '')
+      setNote(entry.note || '')
       setSelectedTypeKey(entry.type.key)
     }
   }, [open, entry])
 
   const loadData = async () => {
     try {
-      const [types, prods] = await Promise.all([
-        getEntryTypes(),
-        getProducts(),
-      ])
+      const [types, prods] = await Promise.all([getEntryTypes(), getProducts()])
       setEntryTypes(types)
       setProducts(prods)
     } catch {
-      setError("Failed to load data")
+      setError('Failed to load data')
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
+    setError('')
     setLoading(true)
 
     try {
@@ -100,7 +105,7 @@ export function EditEntryDialog({ open, onOpenChange, projectId, entry, onSucces
       const priceNum = parseFloat(price)
 
       if (isNaN(amountNum) || isNaN(priceNum)) {
-        setError("Please enter valid numbers")
+        setError('Please enter valid numbers')
         return
       }
 
@@ -108,14 +113,15 @@ export function EditEntryDialog({ open, onOpenChange, projectId, entry, onSucces
         amount: amountNum,
         price: priceNum,
         typeId,
-        productId: selectedTypeKey === "sale" ? productId : undefined,
+        productId: selectedTypeKey === 'sale' ? productId : undefined,
         note: note || undefined,
       })
-      
+
       onSuccess()
       onOpenChange(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update entry")
+      devLogError('Failed to update entry:', err)
+      setError(getPublicErrorMessage(err, 'Failed to update entry'))
     } finally {
       setLoading(false)
     }
@@ -134,22 +140,21 @@ export function EditEntryDialog({ open, onOpenChange, projectId, entry, onSucces
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="edit-type">Type</Label>
-              <Select 
-                value={typeId} 
-                onValueChange={(value) => {
+              <Select
+                value={typeId}
+                onValueChange={value => {
                   setTypeId(value)
                   const type = entryTypes.find(t => t.id === value)
                   if (type) {
                     setSelectedTypeKey(type.key)
                   }
-                }} 
-                required
-              >
+                }}
+                required>
                 <SelectTrigger>
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
-                  {entryTypes.map((type) => (
+                  {entryTypes.map(type => (
                     <SelectItem key={type.id} value={type.id}>
                       {type.name}
                     </SelectItem>
@@ -157,7 +162,7 @@ export function EditEntryDialog({ open, onOpenChange, projectId, entry, onSucces
                 </SelectContent>
               </Select>
             </div>
-            {selectedTypeKey === "sale" && (
+            {selectedTypeKey === 'sale' && (
               <div className="grid gap-2">
                 <Label htmlFor="edit-product">Product</Label>
                 <Select value={productId} onValueChange={setProductId} required>
@@ -165,7 +170,7 @@ export function EditEntryDialog({ open, onOpenChange, projectId, entry, onSucces
                     <SelectValue placeholder="Select product" />
                   </SelectTrigger>
                   <SelectContent>
-                    {products.map((product) => (
+                    {products.map(product => (
                       <SelectItem key={product.id} value={product.id}>
                         {product.name}
                       </SelectItem>
@@ -185,7 +190,7 @@ export function EditEntryDialog({ open, onOpenChange, projectId, entry, onSucces
                 step="0.01"
                 placeholder="e.g., 5"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={e => setAmount(e.target.value)}
                 required
               />
             </div>
@@ -197,32 +202,35 @@ export function EditEntryDialog({ open, onOpenChange, projectId, entry, onSucces
                 step="0.01"
                 placeholder="e.g., -20"
                 value={price}
-                onChange={(e) => setPrice(e.target.value)}
+                onChange={e => setPrice(e.target.value)}
                 required
               />
               <p className="text-xs text-muted-foreground">
-                For sales: negative (customer owes). For payments: positive (customer pays)
+                For sales: negative (customer owes). For payments: positive
+                (customer pays)
               </p>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="edit-note">Note (optional)</Label>
-              <Input
+              <Textarea
                 id="edit-note"
                 placeholder="Add a note..."
                 value={note}
-                onChange={(e) => setNote(e.target.value)}
+                onChange={e => setNote(e.target.value)}
+                rows={3}
               />
             </div>
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
+            {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Saving..." : "Save Changes"}
+              {loading ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogFooter>
         </form>

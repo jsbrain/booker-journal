@@ -12,6 +12,7 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { useSession, signOut } from '@/lib/auth-client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Card,
   CardContent,
@@ -26,6 +27,7 @@ import {
   ChevronDown,
   ChevronUp,
   LogOut,
+  MoreHorizontal,
   Plus,
   RotateCcw,
   Share2,
@@ -49,6 +51,7 @@ import { ShareProjectDialog } from '@/components/share-project-dialog'
 import { MetricsDashboard } from '@/components/metrics-dashboard'
 import { getBalanceColor, getBalanceStatus } from '@/lib/utils/balance'
 import { formatCurrency, formatDateTime, formatDate } from '@/lib/utils/locale'
+import { devLogError, getPublicErrorMessage } from '@/lib/utils/public-error'
 import Link from 'next/link'
 import {
   Dialog,
@@ -74,6 +77,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import type { EditHistoryEntry } from '@/lib/db/schema'
 
 type Entry = {
@@ -183,6 +199,7 @@ function ProjectDetailContent() {
   const [entries, setEntries] = useState<Entry[]>([])
   const [balance, setBalance] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [errorMessage, setErrorMessage] = useState('')
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [showShareDialog, setShowShareDialog] = useState(false)
@@ -263,7 +280,8 @@ function ProjectDetailContent() {
       setEntries(entriesData)
       setBalance(balanceData)
     } catch (error) {
-      console.error('Failed to load project:', error)
+      devLogError('Failed to load project:', error)
+      setErrorMessage(getPublicErrorMessage(error, 'Failed to load project'))
       router.push('/dashboard')
     } finally {
       setLoading(false)
@@ -275,7 +293,10 @@ function ProjectDetailContent() {
       const projects = await getProjects()
       setProjectsList(projects.map(p => ({ id: p.id, name: p.name })))
     } catch (error) {
-      console.error('Failed to load projects list:', error)
+      devLogError('Failed to load projects list:', error)
+      setErrorMessage(
+        getPublicErrorMessage(error, 'Failed to load projects list'),
+      )
     }
   }, [])
 
@@ -388,7 +409,8 @@ function ProjectDetailContent() {
       await deleteProject(projectId)
       router.push('/dashboard')
     } catch (error) {
-      console.error('Failed to delete project:', error)
+      devLogError('Failed to delete project:', error)
+      setErrorMessage(getPublicErrorMessage(error, 'Failed to delete project'))
     }
     setShowDeleteProjectDialog(false)
   }
@@ -405,7 +427,8 @@ function ProjectDetailContent() {
       await deleteEntry(entryToDelete, projectId)
       loadProjectData()
     } catch (error) {
-      console.error('Failed to delete entry:', error)
+      devLogError('Failed to delete entry:', error)
+      setErrorMessage(getPublicErrorMessage(error, 'Failed to delete entry'))
     }
     setShowDeleteEntryDialog(false)
     setEntryToDelete(null)
@@ -552,18 +575,25 @@ function ProjectDetailContent() {
       <header className="border-b">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-4">
-            <Link
-              href={buildHref('/dashboard', {
-                tab: 'projects',
-              })}>
-              <Button
-                variant="ghost"
-                size="sm"
-                aria-label="Back to projects"
-                title="Back to projects">
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-            </Link>
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Back to projects">
+                    <Link
+                      href={buildHref('/dashboard', {
+                        tab: 'projects',
+                      })}>
+                      <ArrowLeft className="h-4 w-4" />
+                    </Link>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Back to projects</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <Link
               href={buildHref('/dashboard', {
                 tab: 'projects',
@@ -580,6 +610,9 @@ function ProjectDetailContent() {
         </div>
       </header>
       <main className="container mx-auto p-4 md:p-8">
+        {errorMessage && (
+          <div className="mb-4 text-sm text-destructive">{errorMessage}</div>
+        )}
         <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div className="min-w-0 flex-1">
             <h2 className="text-2xl font-bold truncate">{project.name}</h2>
@@ -674,36 +707,28 @@ function ProjectDetailContent() {
           </Card>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="mb-6 flex flex-wrap gap-2 border-b">
-          <Link
-            href={buildHref(`/dashboard/projects/${projectId}`, {
-              tab: 'entries',
-            })}
-            className={`inline-flex items-center px-4 py-2 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm ${
-              activeTab === 'entries'
-                ? 'border-b-2 border-primary text-primary'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}>
-            Journal Entries
-          </Link>
-          <Link
-            href={buildHref(`/dashboard/projects/${projectId}`, {
-              tab: 'metrics',
-            })}
-            className={`inline-flex items-center gap-2 px-4 py-2 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm ${
-              activeTab === 'metrics'
-                ? 'border-b-2 border-primary text-primary'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}>
-            <TrendingUp className="h-4 w-4" />
-            Metrics
-          </Link>
-        </div>
+        <Tabs value={activeTab} className="w-full">
+          <TabsList className="mb-6 flex h-auto w-full flex-wrap justify-start gap-1">
+            <TabsTrigger value="entries" asChild>
+              <Link
+                href={buildHref(`/dashboard/projects/${projectId}`, {
+                  tab: 'entries',
+                })}>
+                Journal Entries
+              </Link>
+            </TabsTrigger>
+            <TabsTrigger value="metrics" asChild>
+              <Link
+                href={buildHref(`/dashboard/projects/${projectId}`, {
+                  tab: 'metrics',
+                })}>
+                <TrendingUp className="mr-2 h-4 w-4" />
+                Metrics
+              </Link>
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Tab Content */}
-        {activeTab === 'entries' && (
-          <>
+          <TabsContent value="entries" className="mt-0">
             <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <h3 className="text-lg font-semibold">Journal Entries</h3>
               <Button onClick={() => setShowCreateDialog(true)}>
@@ -805,14 +830,21 @@ function ProjectDetailContent() {
                         <ChevronUp className="ml-2 h-4 w-4" />
                       )}
                     </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setSortBy('date-desc')}
-                      title="Reset sort to default"
-                      className="h-10 px-3">
-                      <RotateCcw className="h-4 w-4" />
-                    </Button>
+                    <TooltipProvider delayDuration={200}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setSortBy('date-desc')}
+                            aria-label="Reset sort"
+                            className="h-10 px-3">
+                            <RotateCcw className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Reset sort to default</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
                 </div>
 
@@ -936,22 +968,32 @@ function ProjectDetailContent() {
                                 {formatCurrency(displayTotal)}
                               </div>
                               <div className="flex gap-1 shrink-0">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleEditEntry(entry)}
-                                  aria-label="Edit entry"
-                                  title="Edit entry">
-                                  <Edit2 className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleDeleteEntry(entry.id)}
-                                  aria-label="Delete entry"
-                                  title="Delete entry">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      aria-label="Entry actions">
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem
+                                      onSelect={() => handleEditEntry(entry)}>
+                                      <Edit2 className="mr-2 h-4 w-4" />
+                                      Edit
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onSelect={() =>
+                                        handleDeleteEntry(entry.id)
+                                      }
+                                      className="text-destructive focus:text-destructive">
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                               </div>
                             </div>
                           </CardContent>
@@ -962,12 +1004,12 @@ function ProjectDetailContent() {
                 </div>
               </div>
             )}
-          </>
-        )}
+          </TabsContent>
 
-        {activeTab === 'metrics' && (
-          <MetricsDashboard projectId={projectId} dateRange={dateRange} />
-        )}
+          <TabsContent value="metrics" className="mt-0">
+            <MetricsDashboard projectId={projectId} dateRange={dateRange} />
+          </TabsContent>
+        </Tabs>
       </main>
 
       <CreateEntryDialog

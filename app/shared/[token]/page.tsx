@@ -14,6 +14,7 @@ import { Calendar, ChevronDown, ChevronUp, Lock, Printer } from 'lucide-react'
 import { getProjectBySharedLink } from '@/lib/actions/shared-links'
 import { getBalanceColor, getBalanceStatus } from '@/lib/utils/balance'
 import { formatCurrency, formatDateTime, formatDate } from '@/lib/utils/locale'
+import { devLogError, getPublicErrorMessage } from '@/lib/utils/public-error'
 
 type Entry = {
   id: string
@@ -96,7 +97,8 @@ export default function SharedProjectPage() {
       setBalance(data.balance)
       setDateRange(data.dateRange)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Invalid or expired link')
+      devLogError('Failed to load shared project:', err)
+      setError(getPublicErrorMessage(err, 'Invalid or expired link'))
     } finally {
       setLoading(false)
     }

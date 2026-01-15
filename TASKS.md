@@ -1,6 +1,6 @@
 # Production Readiness Tasks
 
-Last updated: 2026-01-14
+Last updated: 2026-01-15
 
 This file tracks step-by-step work to make Booker Journal production-ready for the intended deployment model:
 
@@ -22,24 +22,24 @@ This file tracks step-by-step work to make Booker Journal production-ready for t
 
 - [x] Fix project creation “initial balance” semantics (user-facing positive = customer owes)
 - [x] Make entry “total” display consistent with balance convention (admin + shared link views)
-- [~] Update README to match actual behavior (balance formula, initial balance sign, docker compose file, default port)
+- [x] Update README to match actual behavior (balance formula, initial balance sign, docker compose file, default port)
 - [x] Tighten validation/comments where they mislead (e.g., sale product requirement wording)
 
 ## Phase 2 — Security & Configuration
 
 - [x] Enforce `BETTER_AUTH_SECRET` in production builds
 - [x] Configure `trustedOrigins` from `NEXT_PUBLIC_APP_URL` (and/or env list)
-- [~] Ensure shared links enforce expiration + optional date range (audit edge cases: inclusive ranges, timezones)
+- [x] Ensure shared links enforce expiration + optional date range (audit edge cases: inclusive ranges, timezones)
 - [x] Make app port configurable (default `PORT=3005`) and derive `NEXT_PUBLIC_APP_URL`
 
 ## Phase 3 — Operational Readiness
 
-- [ ] Add minimal runtime logging conventions (no secrets), prefer server-side errors surfaced in UI
+- [x] Add minimal runtime logging conventions (no secrets), prefer server-side errors surfaced in UI
 - [x] Fix `db:seed` script typing/lint so it stays CI-safe
 - [x] Fix `db:seed` script not exiting (close DB client so process exits)
 - [x] Fix seeded login regression (store password hashes in better-auth format)
-- [ ] Confirm DB migration + seed flows are deterministic and documented
-- [ ] Add “production checklist” section to README (env vars, DB, backups)
+- [x] Confirm DB migration + seed flows are deterministic and documented
+- [x] Add “production checklist” section to README (env vars, DB, backups)
 
 ### Build warnings to address
 

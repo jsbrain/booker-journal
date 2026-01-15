@@ -6,6 +6,12 @@ A modern business inventory and customer sales management system built with Next
 
 Booker Journal is designed for business owners to manage global inventory and track sales to customers. Each project represents a customer with their own ledger of sales, payments, and outstanding balances. The admin purchases inventory globally which is then sold to customers, with automatic profit/cost tracking.
 
+Operating model:
+
+- There is a single admin user (you).
+- Customers do not get accounts.
+- Customers can only view data via read-only, expiring shared links.
+
 ## Features
 
 ### Core Features
@@ -49,6 +55,8 @@ Booker Journal is designed for business owners to manage global inventory and tr
 - **Bun 1.3+** installed ([Install Bun](https://bun.sh))
 - **Docker Desktop** (for local PostgreSQL) or access to hosted PostgreSQL
 
+This repo uses Bun as the package manager/runtime (no npm/yarn/pnpm).
+
 ### Installation
 
 1. **Clone the repository:**
@@ -58,13 +66,13 @@ git clone https://github.com/jsbrain/booker-journal.git
 cd booker-journal
 ```
 
-2. **Install dependencies:**
+1. **Install dependencies:**
 
 ```bash
 bun install
 ```
 
-3. **Set up environment variables:**
+1. **Set up environment variables:**
 
 Copy `.env.example` to `.env` and configure:
 
@@ -84,34 +92,43 @@ POSTGRES_PORT=35432
 DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT}/${POSTGRES_DB}
 ```
 
-4. **Start PostgreSQL with Docker:**
+1. **Start PostgreSQL with Docker:**
 
 ```bash
 docker compose -f docker-compose.dev.yaml up -d
 ```
 
-5. **Run database migrations:**
+1. **Run database migrations:**
 
 ```bash
-bun run db:generate
-bun run db:migrate
+# Local dev: push schema directly (fastest)
+bun run db:push
+
+# Optional (migration workflow):
+# bun run db:generate
+# bun run db:migrate
 ```
 
-6. **Seed initial data (optional):**
+1. **Seed initial data (optional):**
 
 ```bash
 bun run db:seed
 ```
 
-This seeds entry types (Sale, Payment, Refund, Adjustment) and sample products.
+This seeds a full demo dataset for local development (admin user, products, entry types, inventory purchases, sample customers/projects, and journal entries).
 
-7. **Start the development server:**
+Default seeded login:
+
+- Email: `manuel.maute@bradbit.com`
+- Password: `examplepassword`
+
+1. **Start the development server:**
 
 ```bash
 bun run dev
 ```
 
-8. **Open your browser:**
+1. **Open your browser:**
    Navigate to [http://localhost:3005](http://localhost:3005) (or whatever `PORT` you set)
 
 ## Usage Guide
@@ -143,12 +160,20 @@ Each project represents a customer:
    - **Payment** - Customer payments (typically positive price)
    - **Refund** - Returns or refunds
    - **Adjustment** - Manual balance adjustments
-4. If it's a sale, select the product (only shows for Purchase/Sale types)
+4. If it's a sale, select the product (product is required only for `sale` entries)
 5. Enter quantity and price per unit
 6. Optionally add notes and timestamp
-7. For purchases, check "Paid immediately" to auto-create payment entry
+7. For sales, check "Paid immediately" to auto-create a matching payment entry
 
 **Balance Calculation (displayed):** Balance = -Σ(amount × price) for all entries
+
+**Ledger sign convention (important):**
+
+- Sales are recorded with a negative `price`.
+- Payments are recorded with a positive `price`.
+- Displayed balance is computed as `-Σ(amount × price)`, so:
+  - positive balance = customer owes you
+  - negative balance = customer has credit
 
 ### Managing Inventory
 
@@ -177,20 +202,44 @@ See revenue, costs, and profits:
 
 **Profit Calculation:**
 
-- Average buying price = Total inventory cost ÷ Total quantity purchased
-- COGS = Quantity sold × Average buying price
+- COGS uses a **moving weighted-average cost** per product, based on inventory purchases over time.
+- Each sale is costed using the average cost **as of the sale timestamp**.
 - Profit = Revenue - COGS
+
+**Intentional limitations (current):**
+
+- **Not FIFO / lot-tracking**: costs are computed via moving weighted-average (not FIFO, LIFO, or per-lot costing).
+- **No stock enforcement**: the app does not prevent sales that exceed purchased quantity (inventory can go “negative”).
+- **Floating-point math**: database `numeric` values are parsed and calculated using JavaScript `number`, which may introduce small rounding differences.
+
+### Seeded Metrics Verification Dataset
+
+`bun run db:seed` includes a small, deterministic dataset to verify date-range COGS behavior (Dec vs Jan vs Dec–Jan).
+
+This creates:
+
+- Product: **Metrics Scenario Flower**
+- Project: **Metrics Scenario Customer**
+- Purchases: 100 @ 1.00 (Nov 2025), 100 @ 2.00 (Jan 2026)
+- Sales: 50 @ -3.00 (Dec 2025), 50 @ -3.00 (Jan 2026)
+
+Suggested checks in the Metrics UI (values are approximate due to rounding):
+
+- `2025-12-01 → 2025-12-31`: revenue ≈ 150, cost ≈ 50, profit ≈ 100
+- `2026-01-01 → 2026-01-31`: revenue ≈ 150, cost ≈ 83.33, profit ≈ 66.67
+- `2025-12-01 → 2026-01-31`: revenue ≈ 300, cost ≈ 133.33, profit ≈ 166.67
 
 ### Sharing Customer Views
 
 Create read-only links for customers:
 
 1. Open a customer project
-2. Click "Share" button
-3. Set expiration (in days)
-4. Copy the generated link
-5. Share with customer - they can view entries without login
-6. Links expire automatically
+1. Click "Share" button
+1. Set expiration (hours or days)
+1. Optionally set a date range (entries outside the range are hidden)
+1. Copy the generated link
+1. Share with customer - they can view entries without login
+1. Links expire automatically
 
 ### Editing Entries
 
@@ -209,7 +258,7 @@ Access via Dashboard → Admin button:
 
 ## Project Structure
 
-```
+```text
 booker-journal/
 ├── app/
 │   ├── api/auth/[...all]/        # Better-auth API routes
@@ -253,40 +302,40 @@ booker-journal/
 
 ### Core Tables
 
-**users** (managed by better-auth)
+#### Users (managed by better-auth)
 
 - Authentication and user data
 
-**projects**
+#### Projects
 
 - Customer ledgers
 - Each project = one customer
 - Tracks customer name and ownership
 
-**journal_entries**
+#### Journal Entries
 
 - Sales, payments, refunds, adjustments
 - Links to products for sales
 - Edit history tracked in JSONB
 
-**products**
+#### Products
 
 - Product catalog
 - Optional default buying prices
 - Used for both sales and inventory
 
-**entry_types**
+#### Entry Types
 
 - Transaction categories (Sale, Payment, Refund, Adjustment)
 - Pre-seeded during initialization
 
-**inventory_purchases**
+#### Inventory Purchases
 
 - Global inventory tracking (not per-customer)
 - Records quantity and buying price at purchase time
 - Used for COGS and profit calculations
 
-**shared_links**
+#### Shared Links
 
 - Shareable read-only customer views
 - Secure token-based access
@@ -315,6 +364,18 @@ bun run db:setup         # Generate + migrate in one command
 docker compose up -d     # Start PostgreSQL
 docker compose down      # Stop PostgreSQL
 ```
+
+## Database Workflow (Deterministic)
+
+- Local development:
+  - Start DB: `docker compose -f docker-compose.dev.yaml up -d`
+  - Apply schema quickly: `bun run db:push`
+  - Seed demo data (optional): `bun run db:seed`
+- Migration workflow (recommended for production):
+  - Generate: `bun run db:generate`
+  - Apply: `bun run db:migrate`
+
+Note: On first project creation, the app also ensures entry types/products exist by calling `seedEntryTypes()` and `seedProducts()`.
 
 ## Architecture Patterns
 
@@ -429,6 +490,15 @@ BETTER_AUTH_SECRET=<generate-strong-secret>
 NEXT_PUBLIC_APP_URL=https://yourdomain.com
 DATABASE_URL=<your-postgres-connection-string>
 ```
+
+## Production Checklist
+
+- Set a strong `BETTER_AUTH_SECRET` (required in production).
+- Set `NEXT_PUBLIC_APP_URL` to your real public URL (used for trusted origins / link generation).
+- Provide a production PostgreSQL `DATABASE_URL` and run `bun run db:migrate`.
+- Confirm shared link expiry policies match your needs (short expirations recommended).
+- Set up database backups and a restore procedure.
+- Logging: avoid logging secrets/PII; rely on platform logs for server-side errors and keep client errors user-friendly.
 
 **Database Options:**
 

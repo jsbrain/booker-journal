@@ -13,6 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { devLogError, getPublicErrorMessage } from '@/lib/utils/public-error'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -56,7 +57,8 @@ export default function LoginPage() {
       }
       router.push('/dashboard')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Authentication failed')
+      devLogError('Authentication failed:', err)
+      setError(getPublicErrorMessage(err, 'Authentication failed'))
     } finally {
       setLoading(false)
     }

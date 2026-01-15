@@ -28,12 +28,14 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { DateTimePicker } from '@/components/date-time-picker'
 import { createEntry, createEntryWithPayment } from '@/lib/actions/entries'
 import { getEntryTypes } from '@/lib/actions/entry-types'
 import { getProducts } from '@/lib/actions/products'
+import { devLogError, getPublicErrorMessage } from '@/lib/utils/public-error'
 
 interface CreateEntryDialogProps {
   open: boolean
@@ -178,7 +180,8 @@ export function CreateEntryDialog({
       setShowConfirmDialog(false)
       onSuccess()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create entry')
+      devLogError('Failed to create entry:', err)
+      setError(getPublicErrorMessage(err, 'Failed to create entry'))
     } finally {
       setLoading(false)
     }
@@ -284,11 +287,12 @@ export function CreateEntryDialog({
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="note">Note (optional)</Label>
-                <Input
+                <Textarea
                   id="note"
                   placeholder="Add a note..."
                   value={note}
                   onChange={e => setNote(e.target.value)}
+                  rows={3}
                 />
               </div>
               {entryTypes.find(t => t.id === typeId)?.key === 'sale' && (

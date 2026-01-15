@@ -1,7 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import type { DateRange } from 'react-day-picker'
+import { Check, Copy, Trash2 } from 'lucide-react'
+
 import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -12,7 +16,6 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent } from '@/components/ui/card'
 import {
   Select,
   SelectContent,
@@ -20,7 +23,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { DateRangePicker } from '@/components/date-range-picker'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,14 +39,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+
+import { DateRangePicker } from '@/components/date-range-picker'
 import {
   createSharedLink,
-  getSharedLinks,
   deleteSharedLink,
+  getSharedLinks,
 } from '@/lib/actions/shared-links'
-import { formatDateTime, formatDate } from '@/lib/utils/locale'
-import { Copy, Trash2, Check } from 'lucide-react'
-import type { DateRange } from 'react-day-picker'
+import { formatDate, formatDateTime } from '@/lib/utils/locale'
+import { devLogError, getPublicErrorMessage } from '@/lib/utils/public-error'
 
 interface ShareProjectDialogProps {
   open: boolean
@@ -84,19 +93,23 @@ export function ShareProjectDialog({
   }
 
   useEffect(() => {
-    if (open) {
-      loadSharedLinks()
+    if (!open) return
+
+    const load = async () => {
+      try {
+        const links = await getSharedLinks(projectId)
+        setSharedLinks(links)
+      } catch {
+        setError('Failed to load shared links')
+      }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    load()
   }, [open, projectId])
 
   const loadSharedLinks = async () => {
-    try {
-      const links = await getSharedLinks(projectId)
-      setSharedLinks(links)
-    } catch {
-      setError('Failed to load shared links')
-    }
+    const links = await getSharedLinks(projectId)
+    setSharedLinks(links)
   }
 
   const handleCreateLink = async () => {
@@ -112,6 +125,7 @@ export function ShareProjectDialog({
 
       const expiresInDays = expiresUnit === 'days' ? value : undefined
       const expiresInHours = expiresUnit === 'hours' ? value : undefined
+
       const startDate = dateRange?.from
         ? toStartOfDayIso(dateRange.from)
         : undefined
@@ -124,12 +138,14 @@ export function ShareProjectDialog({
         startDate,
         endDate,
       )
+
       setExpiresValue('7')
       setExpiresUnit('days')
       setDateRange(undefined)
       await loadSharedLinks()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create link')
+      devLogError('Failed to create link:', err)
+      setError(getPublicErrorMessage(err, 'Failed to create link'))
     } finally {
       setLoading(false)
     }
@@ -146,9 +162,11 @@ export function ShareProjectDialog({
     try {
       await deleteSharedLink(linkToDelete, projectId)
       await loadSharedLinks()
-    } catch {
-      setError('Failed to delete link')
+    } catch (err) {
+      devLogError('Failed to delete link:', err)
+      setError(getPublicErrorMessage(err, 'Failed to delete link'))
     }
+
     setShowDeleteDialog(false)
     setLinkToDelete(null)
   }
@@ -160,9 +178,7 @@ export function ShareProjectDialog({
     setTimeout(() => setCopiedToken(null), 2000)
   }
 
-  const isExpired = (date: Date) => {
-    return new Date(date) < new Date()
-  }
+  const isExpired = (date: Date) => new Date(date) < new Date()
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -211,7 +227,7 @@ export function ShareProjectDialog({
                 setDateRange={setDateRange}
               />
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="mt-1 text-xs text-muted-foreground">
               Filter entries shown in the shared link to this date range
             </p>
           </div>
@@ -228,62 +244,70 @@ export function ShareProjectDialog({
           {sharedLinks.length > 0 && (
             <div className="space-y-2">
               <Label>Active Links</Label>
-              {sharedLinks.map(link => (
-                <Card
-                  key={link.id}
-                  className={isExpired(link.expiresAt) ? 'opacity-50' : ''}>
-                  <CardContent className="flex items-center justify-between p-3">
-                    <div className="flex-1">
-                      <div className="text-sm font-medium">
-                        {isExpired(link.expiresAt) ? 'Expired' : 'Active'}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Expires: {formatDateTime(link.expiresAt)}
-                      </div>
-                      {link.startDate && link.endDate && (
-                        <div className="text-xs text-muted-foreground">
-                          Range: {formatDate(link.startDate)} -{' '}
-                          {formatDate(link.endDate)}
+              <TooltipProvider delayDuration={200}>
+                {sharedLinks.map(link => (
+                  <Card
+                    key={link.id}
+                    className={isExpired(link.expiresAt) ? 'opacity-50' : ''}>
+                    <CardContent className="flex items-center justify-between p-3">
+                      <div className="flex-1">
+                        <div className="text-sm font-medium">
+                          {isExpired(link.expiresAt) ? 'Expired' : 'Active'}
                         </div>
-                      )}
-                      <div className="mt-1 font-mono text-xs text-muted-foreground truncate">
-                        {link.token.substring(0, 20)}...
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleCopyLink(link.token)}
-                        disabled={isExpired(link.expiresAt)}
-                        aria-label={
-                          copiedToken === link.token
-                            ? 'Copied link'
-                            : 'Copy share link'
-                        }
-                        title={
-                          copiedToken === link.token
-                            ? 'Copied'
-                            : 'Copy share link'
-                        }>
-                        {copiedToken === link.token ? (
-                          <Check className="h-4 w-4" />
-                        ) : (
-                          <Copy className="h-4 w-4" />
+                        <div className="text-xs text-muted-foreground">
+                          Expires: {formatDateTime(link.expiresAt)}
+                        </div>
+                        {link.startDate && link.endDate && (
+                          <div className="text-xs text-muted-foreground">
+                            Range: {formatDate(link.startDate)} -{' '}
+                            {formatDate(link.endDate)}
+                          </div>
                         )}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleDeleteLink(link.id)}
-                        aria-label="Delete share link"
-                        title="Delete share link">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                        <div className="mt-1 truncate font-mono text-xs text-muted-foreground">
+                          {link.token.substring(0, 20)}...
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleCopyLink(link.token)}
+                              disabled={isExpired(link.expiresAt)}
+                              aria-label={
+                                copiedToken === link.token
+                                  ? 'Copied link'
+                                  : 'Copy share link'
+                              }>
+                              {copiedToken === link.token ? (
+                                <Check className="h-4 w-4" />
+                              ) : (
+                                <Copy className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {copiedToken === link.token ? 'Copied' : 'Copy'}
+                          </TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleDeleteLink(link.id)}
+                              aria-label="Delete share link">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Delete</TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </TooltipProvider>
             </div>
           )}
         </div>
@@ -294,7 +318,6 @@ export function ShareProjectDialog({
         </DialogFooter>
       </DialogContent>
 
-      {/* Delete Link Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>

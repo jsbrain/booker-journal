@@ -174,23 +174,36 @@ Implementation requirement:
 
 ### 7.2 COGS and Profit (Average Cost)
 
-- Average buying price per product is computed from inventory purchases:
+COGS is computed using a **moving weighted-average cost** per product:
 
-  $\text{avgCost} = \frac{\sum \text{totalCost}}{\sum \text{quantity}}$
+- Purchases update the running average cost at their `purchaseDate`.
+- Each sale is costed using the average cost **as-of the sale timestamp**.
+- Metrics are computed by replaying purchase + sale events up to the report `endDate`, but only accumulating totals for sales inside the selected `[startDate, endDate]`.
 
-- Cost of goods sold (COGS):
+Profit is:
 
-  $\text{COGS} = \text{quantitySold} \times \text{avgCost}$
-
-- Profit:
-
-  $\text{profit} = \text{revenue} - \text{COGS}$
+$\text{profit} = \text{revenue} - \text{COGS}$
 
 ### 7.3 Known limitations (current implementation)
 
-- Metrics use all inventory purchases for average cost, not “as-of” the report period.
-- No stock validation: sales can exceed purchased quantity.
+- Not FIFO / lot-tracking: costs are computed via moving weighted-average, not FIFO/LIFO/per-lot.
+- No stock validation: sales can exceed purchased quantity (inventory can go negative).
 - Numeric math uses floating point after parsing strings; may drift for high volume.
+
+### 7.4 Optional metrics verification dataset
+
+The default seed (`bun run db:seed`) includes a deterministic dataset to validate date-range behavior (Dec vs Jan vs Dec–Jan).
+
+This creates a single scenario project/product with:
+
+- Purchases: 100 @ 1.00 (Nov 2025), 100 @ 2.00 (Jan 2026)
+- Sales: 50 @ -3.00 (Dec 2025), 50 @ -3.00 (Jan 2026)
+
+Expected (approx) totals:
+
+- Dec 2025 only: revenue ≈ 150, COGS ≈ 50, profit ≈ 100
+- Jan 2026 only: revenue ≈ 150, COGS ≈ 83.33, profit ≈ 66.67
+- Dec–Jan: revenue ≈ 300, COGS ≈ 133.33, profit ≈ 166.67
 
 ## 8) Validation and Error Handling
 
