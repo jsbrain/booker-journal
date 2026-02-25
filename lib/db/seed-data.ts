@@ -772,28 +772,28 @@ export async function seedDatabase() {
         })
       }
 
-      const shouldAddRefund = customerIndex % 2 === 0
-      if (shouldAddRefund) {
-        const month = (customerIndex * 3 + 2) % 10
-        const day = 3 + ((customerIndex * 7) % 23)
+      const refundsToAdd = 1 + ((customerIndex + 1) % 3)
+      for (let i = 0; i < refundsToAdd; i++) {
+        const month = (customerIndex * 3 + 2 + i * 2) % 10
+        const day = 3 + ((customerIndex * 7 + i * 5) % 23)
         transactions.push({
           date: new Date(Date.UTC(2025, month, day, 11, 0, 0)),
           type: 'refund',
           amount: 1,
-          price: 15 + ((customerIndex * 17) % 76),
+          price: 15 + ((customerIndex * 17 + i * 13) % 76),
         })
       }
 
-      const shouldAddAdjustment = customerIndex % 2 === 1
-      if (shouldAddAdjustment) {
-        const month = (customerIndex * 4 + 1) % 10
-        const day = 4 + ((customerIndex * 11) % 23)
-        const sign = customerIndex % 3 === 0 ? -1 : 1
+      const adjustmentsToAdd = 1 + ((customerIndex + 2) % 3)
+      for (let i = 0; i < adjustmentsToAdd; i++) {
+        const month = (customerIndex * 4 + 1 + i * 3) % 10
+        const day = 4 + ((customerIndex * 11 + i * 7) % 23)
+        const sign = (customerIndex + i) % 2 === 0 ? -1 : 1
         transactions.push({
           date: new Date(Date.UTC(2025, month, day, 14, 0, 0)),
           type: 'adjustment',
           amount: 1,
-          price: sign * (10 + ((customerIndex * 19) % 61)),
+          price: sign * (10 + ((customerIndex * 19 + i * 11) % 61)),
         })
       }
 

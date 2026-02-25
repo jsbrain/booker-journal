@@ -44,6 +44,7 @@ import {
   getProjectBalance,
   deleteEntry,
 } from '@/lib/actions/entries'
+import { getEntryTypes } from '@/lib/actions/entry-types'
 import { getCurrentMonthRange } from '@/lib/actions/metrics'
 import { CreateEntryDialog } from '@/components/create-entry-dialog'
 import { EditEntryDialog } from '@/components/edit-entry-dialog'
@@ -129,6 +130,12 @@ type ProjectSummary = {
   name: string
 }
 
+type EntryTypeOption = {
+  id: string
+  key: string
+  name: string
+}
+
 type SortBy = 'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc'
 
 function parseSortParam(value: string | null): SortBy | null {
@@ -196,6 +203,7 @@ function ProjectDetailContent() {
 
   const [project, setProject] = useState<Project | null>(null)
   const [projectsList, setProjectsList] = useState<ProjectSummary[]>([])
+  const [entryTypes, setEntryTypes] = useState<EntryTypeOption[]>([])
   const [entries, setEntries] = useState<Entry[]>([])
   const [balance, setBalance] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -270,14 +278,17 @@ function ProjectDetailContent() {
 
   const loadProjectData = useCallback(async () => {
     try {
-      const [projectData, entriesData, balanceData] = await Promise.all([
+      const [projectData, entriesData, balanceData, entryTypesData] =
+        await Promise.all([
         getProject(projectId),
         getEntries(projectId),
         getProjectBalance(projectId),
-      ])
+          getEntryTypes(),
+        ])
       setProject(projectData)
       setEntries(entriesData)
       setBalance(balanceData)
+      setEntryTypes(entryTypesData)
     } catch (error) {
       devLogError('Failed to load project:', error)
       setErrorMessage(getPublicErrorMessage(error, 'Failed to load project'))
@@ -473,10 +484,14 @@ function ProjectDetailContent() {
 
   // Get unique entry types for filter
   const uniqueTypes = useMemo(() => {
+    if (entryTypes.length > 0) {
+      return entryTypes.map(type => [type.key, type.name] as [string, string])
+    }
+
     const types = new Map<string, string>()
     entries.forEach(e => types.set(e.type.key, e.type.name))
     return Array.from(types.entries())
-  }, [entries])
+  }, [entryTypes, entries])
 
   // Filter and sort entries
   const filteredAndSortedEntries = useMemo(() => {
