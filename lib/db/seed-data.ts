@@ -21,7 +21,7 @@ import {
   inventoryPurchases,
   journalEntries,
 } from './schema'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { hashPassword } from 'better-auth/crypto'
 import { nanoid } from '@/lib/utils'
 
@@ -44,6 +44,11 @@ const SEED_ENTRY_TYPES = [
   { key: 'refund', name: 'Refund' },
   { key: 'adjustment', name: 'Adjustment' },
 ]
+
+function parseBooleanEnv(name: string): boolean {
+  const raw = (process.env[name] || '').trim().toLowerCase()
+  return raw === '1' || raw === 'true' || raw === 'yes'
+}
 
 const METRICS_SCENARIO = {
   product: {
@@ -125,19 +130,19 @@ const INVENTORY_TIMELINE: Record<
 > = {
   blumen: [
     {
-      date: '2025-01-01',
+      date: '2025-01-01T10:00:00Z',
       quantity: 50,
       price: 45.0,
       note: 'Initial stock - Winter flowers',
     },
     {
-      date: '2025-04-15',
+      date: '2025-04-15T10:00:00Z',
       quantity: 100,
       price: 42.5,
       note: 'Spring restocking at better price',
     },
     {
-      date: '2025-09-01',
+      date: '2025-09-01T10:00:00Z',
       quantity: 200,
       price: 40.0,
       note: 'Large fall order with volume discount',
@@ -145,25 +150,25 @@ const INVENTORY_TIMELINE: Record<
   ],
   schokolade: [
     {
-      date: '2025-01-10',
+      date: '2025-01-10T10:00:00Z',
       quantity: 500,
       price: 2.2,
       note: 'New Year promotional stock',
     },
     {
-      date: '2025-03-20',
+      date: '2025-03-20T10:00:00Z',
       quantity: 300,
       price: 2.1,
       note: 'Easter season restocking',
     },
     {
-      date: '2025-06-05',
+      date: '2025-06-05T10:00:00Z',
       quantity: 400,
       price: 1.95,
       note: 'Summer sale stock at reduced price',
     },
     {
-      date: '2025-10-15',
+      date: '2025-10-15T10:00:00Z',
       quantity: 600,
       price: 2.0,
       note: 'Halloween/Christmas preparation',
@@ -171,24 +176,73 @@ const INVENTORY_TIMELINE: Record<
   ],
   pfanne: [
     {
-      date: '2025-01-05',
+      date: '2025-01-05T10:00:00Z',
       quantity: 80,
       price: 5.0,
       note: 'New supplier - testing quality',
     },
     {
-      date: '2025-05-10',
+      date: '2025-05-10T10:00:00Z',
       quantity: 150,
       price: 4.5,
       note: 'Switched to reliable supplier',
     },
     {
-      date: '2025-08-20',
+      date: '2025-08-20T10:00:00Z',
       quantity: 200,
       price: 4.2,
       note: 'Negotiated better contract terms',
     },
   ],
+}
+
+function getSeededProjectNames(): string[] {
+  return [
+    ...CUSTOMER_DATA.map((customer) => customer.name),
+    METRICS_SCENARIO.project.name,
+  ]
+}
+
+function getSeededPurchaseNotes(): string[] {
+  return [
+    ...Object.values(INVENTORY_TIMELINE)
+      .flat()
+      .map((purchase) => purchase.note),
+    ...METRICS_SCENARIO.purchases.map((purchase) => purchase.note),
+  ]
+}
+
+async function clearExistingSeedDataForUser(userId: string) {
+  console.log(
+    '\n🧹 FORCE_SEED enabled: cleaning previously seeded demo data...',
+  )
+
+  const seededProjectNames = getSeededProjectNames()
+  const seededProjects = await db.query.projects.findMany({
+    where: and(
+      eq(projects.userId, userId),
+      inArray(projects.name, seededProjectNames),
+    ),
+  })
+
+  if (seededProjects.length > 0) {
+    const projectIds = seededProjects.map((project) => project.id)
+    await db.delete(projects).where(inArray(projects.id, projectIds))
+    console.log(`   Removed ${seededProjects.length} seeded project(s)`) // cascade deletes journal entries/shared links
+  }
+
+  const seededNotes = getSeededPurchaseNotes()
+  if (seededNotes.length > 0) {
+    await db
+      .delete(inventoryPurchases)
+      .where(
+        and(
+          eq(inventoryPurchases.userId, userId),
+          inArray(inventoryPurchases.note, seededNotes),
+        ),
+      )
+    console.log('   Removed seeded inventory timeline purchases')
+  }
 }
 
 // Standalone seed functions for use by server actions
@@ -336,7 +390,11 @@ async function seedMetricsVerificationData(params: {
 }
 
 // Helper to generate realistic sale prices based on buying price
-function generateSalePrice(buyingPrice: number, productKey: string): number {
+function generateSalePrice(
+  buyingPrice: number,
+  productKey: string,
+  variationIndex: number,
+): number {
   let margin: number
 
   // Different profit margins for different products
@@ -354,27 +412,26 @@ function generateSalePrice(buyingPrice: number, productKey: string): number {
       margin = 2.0
   }
 
-  // Add some variation (±10%)
-  const variation = 0.9 + Math.random() * 0.2
+  // Deterministic variation (0.90 - 1.10)
+  const variation = 0.9 + (variationIndex % 21) / 100
   return buyingPrice * margin * variation
 }
 
 // Helper to generate transaction notes
 function generateTransactionNote(
   type: 'sale' | 'payment',
+  index: number,
   productName?: string,
   quantity?: number,
 ): string {
   if (type === 'sale') {
     const notes = [
-      `${quantity}x ${productName} - Rechnung #${
-        Math.floor(Math.random() * 9000) + 1000
-      }`,
+      `${quantity}x ${productName} - Rechnung #${1000 + (index % 9000)}`,
       `Lieferung ${productName} (${quantity} Stück)`,
       `Bestellung ${productName} - Menge: ${quantity}`,
       `${quantity}x ${productName} - Sofortlieferung`,
     ]
-    return notes[Math.floor(Math.random() * notes.length)]
+    return notes[index % notes.length]
   } else {
     const notes = [
       `Rechnung per Überweisung erhalten`,
@@ -383,11 +440,54 @@ function generateTransactionNote(
       `Banküberweisung eingegangen`,
       `Teilzahlung`,
     ]
-    return notes[Math.floor(Math.random() * notes.length)]
+    return notes[index % notes.length]
   }
 }
 
+function getSalesInMonth(month: number, customerIndex: number): number {
+  return 2 + ((month + customerIndex) % 4)
+}
+
+function getSaleDate(
+  month: number,
+  saleIndex: number,
+  customerIndex: number,
+): Date {
+  const day = 1 + ((month * 7 + saleIndex * 5 + customerIndex * 3) % 28)
+  const hour = 8 + ((saleIndex + month + customerIndex) % 10)
+  return new Date(Date.UTC(2025, month, day, hour, 0, 0))
+}
+
+function getSaleQuantity(
+  buyingPattern: BuyingPattern,
+  month: number,
+  saleIndex: number,
+  customerIndex: number,
+): number {
+  if (buyingPattern === 'blumen') {
+    return 5 + ((month * 3 + saleIndex * 2 + customerIndex) % 20)
+  }
+
+  if (buyingPattern === 'schokolade') {
+    return 20 + ((month * 11 + saleIndex * 7 + customerIndex * 5) % 80)
+  }
+
+  return 2 + ((month * 2 + saleIndex + customerIndex) % 8)
+}
+
+function getPaymentDate(paymentIndex: number, customerIndex: number): Date {
+  const month = (paymentIndex + customerIndex * 2) % 10
+  const day = 5 + ((paymentIndex * 3 + customerIndex) % 20)
+  return new Date(Date.UTC(2025, month, day, 12, 0, 0))
+}
+
+function getPaymentAmount(paymentIndex: number, customerIndex: number): number {
+  return 50 + ((paymentIndex * 37 + customerIndex * 29) % 450)
+}
+
 export async function seedDatabase() {
+  const forceSeed = parseBooleanEnv('FORCE_SEED')
+
   console.log('🌱 Starting sophisticated database seeding...')
   console.log(
     '   Creating realistic business scenario for 2025 (+ metrics verification dataset)',
@@ -452,8 +552,10 @@ export async function seedDatabase() {
       console.log('   ✓ Admin user created')
     }
 
-    const forceSeed =
-      process.env.FORCE_SEED === '1' || process.env.FORCE_SEED === 'true'
+    if (forceSeed) {
+      await clearExistingSeedDataForUser(userId)
+    }
+
     if (!forceSeed) {
       const existingProject = await db.query.projects.findFirst({
         where: eq(projects.userId, userId),
@@ -483,8 +585,14 @@ export async function seedDatabase() {
     const paymentType = await db.query.entryTypes.findFirst({
       where: eq(entryTypes.key, 'payment'),
     })
+    const refundType = await db.query.entryTypes.findFirst({
+      where: eq(entryTypes.key, 'refund'),
+    })
+    const adjustmentType = await db.query.entryTypes.findFirst({
+      where: eq(entryTypes.key, 'adjustment'),
+    })
 
-    if (!saleType || !paymentType) {
+    if (!saleType || !paymentType || !refundType || !adjustmentType) {
       throw new Error('Entry types not found')
     }
 
@@ -542,7 +650,7 @@ export async function seedDatabase() {
     // 5. Create customer projects with realistic transactions
     console.log('\n🏢 Creating customer projects and transactions...')
 
-    for (const customer of CUSTOMER_DATA) {
+    for (const [customerIndex, customer] of CUSTOMER_DATA.entries()) {
       console.log(`\n   ${customer.name}:`)
 
       // Create project
@@ -601,7 +709,7 @@ export async function seedDatabase() {
       // Generate realistic transactions from Jan to Oct 2025
       const transactions: Array<{
         date: Date
-        type: 'sale' | 'payment'
+        type: 'sale' | 'payment' | 'refund' | 'adjustment'
         amount?: number
         price?: number
       }> = []
@@ -609,22 +717,16 @@ export async function seedDatabase() {
       // Create sales events (2-5 per month)
       for (let month = 0; month < 10; month++) {
         // Jan to Oct
-        const salesInMonth = 2 + Math.floor(Math.random() * 4)
+        const salesInMonth = getSalesInMonth(month, customerIndex)
 
         for (let i = 0; i < salesInMonth; i++) {
-          const day = 1 + Math.floor(Math.random() * 28)
-          const hour = 8 + Math.floor(Math.random() * 10)
-          const date = new Date(2025, month, day, hour, 0, 0)
-
-          // Quantity varies by product type
-          let quantity: number
-          if (customer.buyingPattern === 'blumen') {
-            quantity = 5 + Math.floor(Math.random() * 20) // 5-25 flowers
-          } else if (customer.buyingPattern === 'schokolade') {
-            quantity = 20 + Math.floor(Math.random() * 80) // 20-100 chocolates
-          } else {
-            quantity = 2 + Math.floor(Math.random() * 8) // 2-10 pans
-          }
+          const date = getSaleDate(month, i, customerIndex)
+          const quantity = getSaleQuantity(
+            customer.buyingPattern,
+            month,
+            i,
+            customerIndex,
+          )
 
           // Find the most recent buying price for this product at this date
           const productTimeline =
@@ -642,6 +744,7 @@ export async function seedDatabase() {
             const salePrice = generateSalePrice(
               buyingPrice,
               customer.buyingPattern,
+              customerIndex * 1000 + month * 10 + i,
             )
             transactions.push({
               date,
@@ -655,21 +758,42 @@ export async function seedDatabase() {
 
       // Add payment events based on reliability
       const numPayments = Math.floor(
-        transactions.filter(t => t.type === 'sale').length *
+        transactions.filter((t) => t.type === 'sale').length *
           customer.paymentReliability,
       )
       for (let i = 0; i < numPayments; i++) {
-        const month = Math.floor(Math.random() * 10)
-        const day = 5 + Math.floor(Math.random() * 20)
-        const date = new Date(2025, month, day, 12, 0, 0)
-
-        // Payment amount between €50 and €500
-        const paymentAmount = 50 + Math.floor(Math.random() * 450)
+        const date = getPaymentDate(i, customerIndex)
+        const paymentAmount = getPaymentAmount(i, customerIndex)
         transactions.push({
           date,
           type: 'payment',
           amount: 1,
           price: paymentAmount,
+        })
+      }
+
+      const shouldAddRefund = customerIndex % 2 === 0
+      if (shouldAddRefund) {
+        const month = (customerIndex * 3 + 2) % 10
+        const day = 3 + ((customerIndex * 7) % 23)
+        transactions.push({
+          date: new Date(Date.UTC(2025, month, day, 11, 0, 0)),
+          type: 'refund',
+          amount: 1,
+          price: 15 + ((customerIndex * 17) % 76),
+        })
+      }
+
+      const shouldAddAdjustment = customerIndex % 2 === 1
+      if (shouldAddAdjustment) {
+        const month = (customerIndex * 4 + 1) % 10
+        const day = 4 + ((customerIndex * 11) % 23)
+        const sign = customerIndex % 3 === 0 ? -1 : 1
+        transactions.push({
+          date: new Date(Date.UTC(2025, month, day, 14, 0, 0)),
+          type: 'adjustment',
+          amount: 1,
+          price: sign * (10 + ((customerIndex * 19) % 61)),
         })
       }
 
@@ -679,8 +803,12 @@ export async function seedDatabase() {
       // Insert transactions
       let salesCount = 0
       let paymentsCount = 0
+      let refundsCount = 0
+      let adjustmentsCount = 0
       let totalSales = 0
       let totalPayments = 0
+      let saleNoteIndex = 0
+      let paymentNoteIndex = 0
 
       for (const transaction of transactions) {
         if (transaction.type === 'sale') {
@@ -692,25 +820,50 @@ export async function seedDatabase() {
             productId: productMap[customer.buyingPattern].id,
             note: generateTransactionNote(
               'sale',
+              saleNoteIndex,
               productMap[customer.buyingPattern].name,
               transaction.amount,
             ),
             timestamp: transaction.date,
           })
+          saleNoteIndex++
           salesCount++
           totalSales += transaction.amount! * Math.abs(transaction.price!)
-        } else {
+        } else if (transaction.type === 'payment') {
           await db.insert(journalEntries).values({
             projectId: newProject.id,
             amount: transaction.amount!.toString(),
             price: transaction.price!.toFixed(2),
             typeId: paymentType.id,
             productId: null,
-            note: generateTransactionNote('payment'),
+            note: generateTransactionNote('payment', paymentNoteIndex),
             timestamp: transaction.date,
           })
+          paymentNoteIndex++
           paymentsCount++
           totalPayments += transaction.price!
+        } else if (transaction.type === 'refund') {
+          await db.insert(journalEntries).values({
+            projectId: newProject.id,
+            amount: transaction.amount!.toString(),
+            price: transaction.price!.toFixed(2),
+            typeId: refundType.id,
+            productId: null,
+            note: 'Kulanz-Rückerstattung',
+            timestamp: transaction.date,
+          })
+          refundsCount++
+        } else {
+          await db.insert(journalEntries).values({
+            projectId: newProject.id,
+            amount: transaction.amount!.toString(),
+            price: transaction.price!.toFixed(2),
+            typeId: adjustmentType.id,
+            productId: null,
+            note: 'Saldoanpassung',
+            timestamp: transaction.date,
+          })
+          adjustmentsCount++
         }
       }
 
@@ -722,6 +875,12 @@ export async function seedDatabase() {
           2,
         )} total)`,
       )
+      if (refundsCount > 0) {
+        console.log(`   ✓ Created ${refundsCount} refunds`)
+      }
+      if (adjustmentsCount > 0) {
+        console.log(`   ✓ Created ${adjustmentsCount} adjustments`)
+      }
 
       const currentBalance =
         customer.initialBalance + totalSales - totalPayments
@@ -729,8 +888,8 @@ export async function seedDatabase() {
         currentBalance > 0
           ? 'Schulden'
           : currentBalance < 0
-          ? 'Guthaben'
-          : 'Ausgeglichen'
+            ? 'Guthaben'
+            : 'Ausgeglichen'
       console.log(
         `   💳 Current balance: €${Math.abs(currentBalance).toFixed(
           2,

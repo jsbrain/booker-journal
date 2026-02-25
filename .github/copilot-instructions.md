@@ -103,7 +103,7 @@ Runtime env also includes:
 
 ```bash
 # First-time setup (starts Docker PostgreSQL on port 35432)
-docker compose -f docker-compose.dev.yaml up -d
+docker compose -f docker-compose.yaml up -d
 bun run db:push
 
 # Schema changes workflow
@@ -121,10 +121,10 @@ bun run db:studio            # Opens Drizzle Studio UI
 bun run db:seed              # Runs lib/db/seed-data.ts
 
 # Stop database
-docker compose -f docker-compose.dev.yaml down
+docker compose -f docker-compose.yaml down
 ```
 
-**Note:** `docker-compose.dev.yaml` is for local development only. Docker uses custom port 35432 (not 5432) to avoid conflicts. Database name is `booker_journal`.
+**Note:** `docker-compose.yaml` is for local development only. Docker uses custom port 35432 (not 5432) to avoid conflicts. Database name is `booker_journal`.
 
 ### Running the Application
 
@@ -135,7 +135,7 @@ bun run dev                  # Start Next.js dev server (uses Turbopack)
 
 ### Data Initialization
 
-Entry types (`Sale`, `Payment`, `Refund`, `Adjustment`) and products are seeded automatically on first project creation via `seedEntryTypes()` and `seedProducts()` in `lib/db/seed-data.ts`. Can also manually seed with `bun run db:seed`.
+Entry types (`Sale`, `Payment`, `Refund`, `Adjustment`) and products are seeded automatically on first project creation via `seedEntryTypes()` and `seedProducts()` in `lib/db/seed-data.ts`. `bun run db:seed` creates a deterministic full demo dataset (no random seed/mode toggles). Use `FORCE_SEED=1 bun run db:seed` to recreate seeded demo records for the same user.
 
 ## Project-Specific Conventions
 

@@ -1,5 +1,5 @@
 {
-  "id": "0f4b4c1d-73c9-4f8c-a925-984a27061f4e",
+  "id": "283835b6-be6b-4226-b2de-545e4fc96ce2",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -576,6 +576,82 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.shared_link_access_sessions": {
+      "name": "shared_link_access_sessions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "shared_link_id": {
+          "name": "shared_link_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "access_token_hash": {
+          "name": "access_token_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "used_at": {
+          "name": "used_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ip_address": {
+          "name": "ip_address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "user_agent": {
+          "name": "user_agent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "shared_link_access_sessions_shared_link_id_shared_links_id_fk": {
+          "name": "shared_link_access_sessions_shared_link_id_shared_links_id_fk",
+          "tableFrom": "shared_link_access_sessions",
+          "tableTo": "shared_links",
+          "columnsFrom": [
+            "shared_link_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.shared_links": {
       "name": "shared_links",
       "schema": "",
@@ -613,6 +689,60 @@
         "end_date": {
           "name": "end_date",
           "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "password_hash": {
+          "name": "password_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "key_server": {
+          "name": "key_server",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "key_user_enc": {
+          "name": "key_user_enc",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "key_user_iv": {
+          "name": "key_user_iv",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "key_user_salt": {
+          "name": "key_user_salt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "key_user_iterations": {
+          "name": "key_user_iterations",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payload_enc": {
+          "name": "payload_enc",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payload_iv": {
+          "name": "payload_iv",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payload_aad": {
+          "name": "payload_aad",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },

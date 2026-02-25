@@ -193,6 +193,7 @@ $\text{profit} = \text{revenue} - \text{COGS}$
 ### 7.4 Optional metrics verification dataset
 
 The default seed (`bun run db:seed`) includes a deterministic dataset to validate date-range behavior (Dec vs Jan vs Dec–Jan).
+There is no seed mode or random-seed toggle; the generated scenario is fixed and reproducible.
 
 This creates a single scenario project/product with:
 

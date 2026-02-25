@@ -108,7 +108,7 @@ DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POST
 1. **Start PostgreSQL with Docker:**
 
 ```bash
-docker compose -f docker-compose.dev.yaml up -d
+docker compose -f docker-compose.yaml up -d
 ```
 
 1. **Run database migrations:**
@@ -129,6 +129,9 @@ bun run db:seed
 ```
 
 This seeds a full demo dataset for local development (admin user, products, entry types, inventory purchases, sample customers/projects, and journal entries).
+
+Seeding behavior is deterministic (no random values and no seed mode switch).
+To recreate the seeded dataset for the same user, run with `FORCE_SEED=1 bun run db:seed`.
 
 Default seeded login:
 
@@ -312,7 +315,7 @@ booker-journal/
 │   ├── auth-client.ts             # Auth client hooks
 │   ├── utils.ts
 │   └── utils/env.ts               # Env parsing helpers
-├── docker-compose.dev.yaml        # PostgreSQL container (local dev)
+├── docker-compose.yaml            # PostgreSQL container (local dev)
 ├── drizzle.config.ts              # Drizzle configuration
 └── .env                           # Environment variables
 ```
@@ -376,7 +379,7 @@ bun run db:generate      # Generate migration from schema changes
 bun run db:migrate       # Apply migrations to database
 bun run db:push          # Push schema directly (dev only)
 bun run db:studio        # Open Drizzle Studio (DB GUI)
-bun run db:seed          # Seed entry types and products
+bun run db:seed          # Seed deterministic demo dataset
 bun run db:setup         # Generate + migrate in one command
 
 # Docker
@@ -387,9 +390,10 @@ docker compose down      # Stop PostgreSQL
 ## Database Workflow (Deterministic)
 
 - Local development:
-  - Start DB: `docker compose -f docker-compose.dev.yaml up -d`
+  - Start DB: `docker compose -f docker-compose.yaml up -d`
   - Apply schema quickly: `bun run db:push`
-  - Seed demo data (optional): `bun run db:seed`
+  - Seed deterministic demo data (optional): `bun run db:seed`
+  - Force reseed for existing seeded user data: `FORCE_SEED=1 bun run db:seed`
 - Migration workflow (recommended for production):
   - Generate: `bun run db:generate`
   - Apply: `bun run db:migrate`

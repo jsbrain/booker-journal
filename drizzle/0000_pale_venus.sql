@@ -80,6 +80,17 @@ CREATE TABLE "session" (
 	CONSTRAINT "session_token_unique" UNIQUE("token")
 );
 --> statement-breakpoint
+CREATE TABLE "shared_link_access_sessions" (
+	"id" text PRIMARY KEY NOT NULL,
+	"shared_link_id" text NOT NULL,
+	"access_token_hash" text NOT NULL,
+	"expires_at" timestamp NOT NULL,
+	"used_at" timestamp,
+	"ip_address" text,
+	"user_agent" text,
+	"created_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "shared_links" (
 	"id" text PRIMARY KEY NOT NULL,
 	"project_id" text NOT NULL,
@@ -87,6 +98,15 @@ CREATE TABLE "shared_links" (
 	"expires_at" timestamp NOT NULL,
 	"start_date" timestamp,
 	"end_date" timestamp,
+	"password_hash" text,
+	"key_server" text,
+	"key_user_enc" text,
+	"key_user_iv" text,
+	"key_user_salt" text,
+	"key_user_iterations" integer,
+	"payload_enc" text,
+	"payload_iv" text,
+	"payload_aad" text,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "shared_links_token_unique" UNIQUE("token")
 );
@@ -118,4 +138,5 @@ ALTER TABLE "journal_entries" ADD CONSTRAINT "journal_entries_project_id_project
 ALTER TABLE "journal_entries" ADD CONSTRAINT "journal_entries_type_id_entry_types_id_fk" FOREIGN KEY ("type_id") REFERENCES "public"."entry_types"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "journal_entries" ADD CONSTRAINT "journal_entries_product_id_products_id_fk" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "shared_link_access_sessions" ADD CONSTRAINT "shared_link_access_sessions_shared_link_id_shared_links_id_fk" FOREIGN KEY ("shared_link_id") REFERENCES "public"."shared_links"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "shared_links" ADD CONSTRAINT "shared_links_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;
