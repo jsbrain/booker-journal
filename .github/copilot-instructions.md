@@ -58,9 +58,7 @@ All data mutations use Next.js Server Actions in `lib/actions/*.ts`:
 'use server'
 
 async function getCurrentUser() {
-  const session = await auth.api.getSession({ headers: await headers() })
-  if (!session?.user?.id) throw new Error('Unauthorized')
-  return session.user
+  return getCurrentUserOrThrow()
 }
 
 export async function createProject(name: string, initialAmount: number) {
@@ -71,6 +69,8 @@ export async function createProject(name: string, initialAmount: number) {
 ```
 
 **Pattern:** Validate → Authenticate → Execute. Every server action follows this order.
+
+Current implementation consolidates session auth in `lib/authz/session.ts` (`getCurrentUserOrThrow`) and admin-only mutation checks in `lib/authz/admin.ts` (`requireAdminUser`).
 
 ### Authentication Architecture
 
@@ -89,6 +89,13 @@ DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POST
 ```
 
 Both `drizzle.config.ts` and `lib/auth.ts` use `expand(config())` to load variables.
+
+Runtime env also includes:
+
+- `BETTER_AUTH_URL` (primary Better Auth base URL)
+- `NEXT_PUBLIC_APP_URL` (public app URL, also used for trusted origins)
+- `ADMIN_USER_IDS` / `ADMIN_EMAILS` (admin allowlist for global mutable actions in non-local envs)
+- `SHARED_LINK_UNLOCK_*` and `SHARED_LINK_ACCESS_TOKEN_TTL_MS` (unlock anti-abuse controls)
 
 ## Development Workflows
 
@@ -146,14 +153,14 @@ Entry types (`Sale`, `Payment`, `Refund`, `Adjustment`) and products are seeded 
 
 ### Balance Calculation Logic
 
-Balance = Σ(amount × price) for all entries. Represents customer's outstanding balance (positive = they owe money).
+Displayed balance = -Σ(amount × price) for all entries. Represents customer's outstanding balance (positive = they owe money).
 
 ```typescript
 // lib/actions/entries.ts
 export async function getProjectBalance(projectId: string) {
   const entries = await getEntries(projectId)
   return entries.reduce((sum, entry) => {
-    return sum + parseFloat(entry.amount) * parseFloat(entry.price)
+    return sum - parseFloat(entry.amount) * parseFloat(entry.price)
   }, 0)
 }
 ```
@@ -193,6 +200,8 @@ Read-only sharing uses secure random tokens stored in `sharedLinks` table:
 
 - **Schemas (source of truth):** `lib/db/schema.ts`
 - **Validation:** `lib/db/validation.ts` (TypeBox), `lib/db/validate.ts` (utilities)
+- **Authz helpers:** `lib/authz/session.ts`, `lib/authz/admin.ts`
+- **Env parsing helpers:** `lib/utils/env.ts`
 - **Server actions:**
   - `lib/actions/projects.ts` - Customer management
   - `lib/actions/entries.ts` - Sales/payments to customers

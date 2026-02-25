@@ -80,7 +80,20 @@ Copy `.env.example` to `.env` and configure:
 # Authentication
 BETTER_AUTH_SECRET=your-secret-key-change-in-production
 PORT=3005
+BETTER_AUTH_URL=http://localhost:${PORT}
 NEXT_PUBLIC_APP_URL=http://localhost:${PORT}
+
+# Admin authorization (recommended in non-local environments)
+# Comma-separated allowlists. Configure at least one in staging/production.
+ADMIN_USER_IDS=
+ADMIN_EMAILS=
+
+# Shared link unlock protections
+SHARED_LINK_UNLOCK_WINDOW_MS=600000
+SHARED_LINK_UNLOCK_LOCKOUT_MS=900000
+SHARED_LINK_UNLOCK_MAX_ATTEMPTS=5
+SHARED_LINK_UNLOCK_MAX_TRACKED_KEYS=5000
+SHARED_LINK_ACCESS_TOKEN_TTL_MS=120000
 
 # Database - PostgreSQL (Docker Compose)
 POSTGRES_DB=booker_journal
@@ -262,6 +275,7 @@ Access via Dashboard → Admin button:
 booker-journal/
 ├── app/
 │   ├── api/auth/[...all]/        # Better-auth API routes
+│   ├── api/shared/[token]/        # Shared link key/payload/unlock APIs
 │   ├── dashboard/                 # Protected dashboard
 │   │   ├── admin/                 # Admin panel for products
 │   │   └── projects/[id]/         # Customer detail pages
@@ -270,6 +284,7 @@ booker-journal/
 │   └── page.tsx                   # Landing page
 ├── components/
 │   ├── ui/                        # shadcn-ui components
+│   ├── admin/                     # Admin page sections/dialogs
 │   ├── create-project-dialog.tsx  # New customer dialog
 │   ├── create-entry-dialog.tsx    # New transaction dialog
 │   ├── edit-entry-dialog.tsx      # Edit transaction dialog
@@ -290,9 +305,13 @@ booker-journal/
 │   │   ├── validation.ts          # TypeBox validation schemas
 │   │   ├── validate.ts            # Validation utilities
 │   │   └── seed-data.ts           # Database seeding
+│   ├── authz/                     # Authz/session helpers
+│   │   ├── session.ts             # getCurrentUserOrThrow
+│   │   └── admin.ts               # Admin allowlist guard
 │   ├── auth.ts                    # Better-auth server config
 │   ├── auth-client.ts             # Auth client hooks
-│   └── utils.ts
+│   ├── utils.ts
+│   └── utils/env.ts               # Env parsing helpers
 ├── docker-compose.dev.yaml        # PostgreSQL container (local dev)
 ├── drizzle.config.ts              # Drizzle configuration
 └── .env                           # Environment variables
@@ -406,9 +425,7 @@ All mutations use Next.js Server Actions:
 'use server'
 
 async function getCurrentUser() {
-  const session = await auth.api.getSession({ headers: await headers() })
-  if (!session?.user?.id) throw new Error('Unauthorized')
-  return session.user
+  return getCurrentUserOrThrow()
 }
 
 export async function createProject(name: string, amount: number) {
@@ -469,7 +486,9 @@ const total = parseFloat(entry.amount) * parseFloat(entry.price)
 - ✅ Input validation on all server actions (TypeBox)
 - ✅ Environment variables for sensitive config
 - ✅ Cryptographically secure shared link tokens
+- ✅ Shared-link unlock anti-bruteforce controls (window/lockout/max attempts)
 - ✅ Project access restricted to owners
+- ✅ Admin allowlist guard for global mutable resources
 - ✅ Read-only mode for shared links
 - ✅ Edit history tracking with user attribution
 
@@ -487,16 +506,20 @@ const total = parseFloat(entry.amount) * parseFloat(entry.price)
 
 ```env
 BETTER_AUTH_SECRET=<generate-strong-secret>
+BETTER_AUTH_URL=https://yourdomain.com
 NEXT_PUBLIC_APP_URL=https://yourdomain.com
+ADMIN_USER_IDS=<comma-separated-user-ids>
+# or ADMIN_EMAILS=<comma-separated-emails>
 DATABASE_URL=<your-postgres-connection-string>
 ```
 
 ## Production Checklist
 
 - Set a strong `BETTER_AUTH_SECRET` (required in production).
-- Set `NEXT_PUBLIC_APP_URL` to your real public URL (used for trusted origins / link generation).
+- Set `BETTER_AUTH_URL` and `NEXT_PUBLIC_APP_URL` to your real public URL.
+- Configure `ADMIN_USER_IDS` and/or `ADMIN_EMAILS` in non-local environments.
 - Provide a production PostgreSQL `DATABASE_URL` and run `bun run db:migrate`.
-- Confirm shared link expiry policies match your needs (short expirations recommended).
+- Confirm shared link expiry and unlock policies (`SHARED_LINK_UNLOCK_*`) match your needs.
 - Set up database backups and a restore procedure.
 - Logging: avoid logging secrets/PII; rely on platform logs for server-side errors and keep client errors user-friendly.
 

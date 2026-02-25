@@ -1,6 +1,6 @@
 # Booker Journal — Product & Technical Specification
 
-Last updated: 2026-01-14
+Last updated: 2026-02-25
 
 ## 1) Purpose
 
@@ -209,12 +209,17 @@ Expected (approx) totals:
 
 - All server actions must follow: Validate → Authenticate → Execute.
 - Validation schemas are derived from Drizzle using drizzle-typebox and extended via TypeBox.
+- Entry/inventory numeric transactional inputs use strict `exclusiveMinimum: 0` constraints.
+- Server actions enforce key invariants (e.g., sale product requirement, non-sale product normalization, timestamp parseability).
 
 ## 9) Security
 
 - Auth via better-auth (email/password)
+- `BETTER_AUTH_URL`/`NEXT_PUBLIC_APP_URL`-driven trusted origins and explicit Better Auth `baseURL`
 - Project access restricted to owner
 - Shared links are read-only, token-based, and expire
+- Shared-link unlock route uses anti-abuse controls (attempt window, lockout, max attempts, retry hints)
+- Admin-only mutable global resources (products/entry types) are guarded via admin allowlist env configuration
 
 ## 10) Non-goals (for now)
 
@@ -225,7 +230,5 @@ Expected (approx) totals:
 ## 11) Future enhancements
 
 - Per-user scoping for products and entry types
-- Enforce invariants in validation (e.g., amount ≥ 0, product required for sale)
-- Historical metrics using inventory purchases “as-of” period end
 - Decimal arithmetic for money (or integer cents)
 - Stock enforcement and low-stock alerts

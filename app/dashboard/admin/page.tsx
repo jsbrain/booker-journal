@@ -4,8 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession, signOut } from '@/lib/auth-client'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { ArrowLeft, LogOut, Plus, Trash2, Edit2 } from 'lucide-react'
+import { ArrowLeft, LogOut } from 'lucide-react'
 import {
   getProducts,
   createProduct,
@@ -13,57 +12,18 @@ import {
   updateProductBuyingPrice,
   deleteProduct,
 } from '@/lib/actions/products'
-import { formatCurrency, formatDate } from '@/lib/utils/locale'
 import { devLogError, getPublicErrorMessage } from '@/lib/utils/public-error'
 import Link from 'next/link'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 
 import {
   getActiveSharedLinksForUser,
   deleteSharedLink,
 } from '@/lib/actions/shared-links'
-import { Check, Copy, ExternalLink } from 'lucide-react'
-import { formatDateTime } from '@/lib/utils/locale'
-
-type Product = {
-  id: string
-  key: string
-  name: string
-  defaultBuyingPrice: string | null
-  createdAt: Date
-  updatedAt: Date
-}
-
-type ActiveSharedLink = {
-  id: string
-  projectId: string
-  projectName: string
-  token: string
-  expiresAt: Date
-  startDate: Date | null
-  endDate: Date | null
-  createdAt: Date
-  encrypted: boolean
-}
+import { ProductsSection } from '@/components/admin/products-section'
+import { ActiveSharedLinksSection } from '@/components/admin/active-shared-links-section'
+import { ProductDialogs } from '@/components/admin/product-dialogs'
+import { AdminConfirmationDialogs } from '@/components/admin/admin-confirmation-dialogs'
+import type { Product, ActiveSharedLink } from '@/components/admin/types'
 
 export default function AdminPage() {
   const { data: session, isPending } = useSession()
@@ -279,348 +239,53 @@ export default function AdminPage() {
       </header>
       <main className="container mx-auto p-4 md:p-8">
         {error && <div className="mb-4 text-sm text-destructive">{error}</div>}
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold">Products</h2>
-            <p className="text-sm text-muted-foreground">
-              Manage product types for journal entries
-            </p>
-          </div>
-          <Button onClick={() => setShowCreateDialog(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            New Product
-          </Button>
-        </div>
+        <ProductsSection
+          products={products}
+          onCreate={() => setShowCreateDialog(true)}
+          onEditName={openEditDialog}
+          onEditPrice={openEditPriceDialog}
+          onDelete={handleDeleteProduct}
+        />
 
-        <div className="space-y-2">
-          {products.map(product => (
-            <Card key={product.id}>
-              <CardContent className="flex items-center justify-between p-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{product.name}</span>
-                    <span className="text-sm text-muted-foreground">
-                      ({product.key})
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <span>Created {formatDate(product.createdAt)}</span>
-                    <span>•</span>
-                    <span>
-                      Default buying price:{' '}
-                      {product.defaultBuyingPrice
-                        ? formatCurrency(parseFloat(product.defaultBuyingPrice))
-                        : 'Not set'}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => openEditDialog(product)}>
-                    <Edit2 className="mr-1 h-3 w-3" />
-                    Name
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => openEditPriceDialog(product)}>
-                    <Edit2 className="mr-1 h-3 w-3" />
-                    Price
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDeleteProduct(product)}
-                    aria-label="Delete product"
-                    title="Delete product">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        <div className="mt-10">
-          <div className="mb-4">
-            <h2 className="text-2xl font-bold">Active Shared Links</h2>
-            <p className="text-sm text-muted-foreground">
-              All unexpired shared links across your projects
-            </p>
-          </div>
-
-          {activeLinks.length === 0 ? (
-            <Card>
-              <CardContent className="p-4 text-sm text-muted-foreground">
-                No active shared links.
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-2">
-              {activeLinks.map(link => {
-                const url = `/shared/${link.token}`
-                return (
-                  <Card key={link.id}>
-                    <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <Link
-                            href={`/dashboard/projects/${link.projectId}`}
-                            className="truncate font-medium hover:underline">
-                            {link.projectName}
-                          </Link>
-                          {link.encrypted ? (
-                            <span className="rounded-full bg-muted px-2 py-0.5 text-xs">
-                              Encrypted
-                            </span>
-                          ) : (
-                            <span className="rounded-full bg-muted px-2 py-0.5 text-xs">
-                              Public
-                            </span>
-                          )}
-                        </div>
-                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-                          <span>Expires {formatDateTime(link.expiresAt)}</span>
-                          <span>•</span>
-                          <span>Created {formatDate(link.createdAt)}</span>
-                          {(link.startDate || link.endDate) && (
-                            <>
-                              <span>•</span>
-                              <span>
-                                Range:{' '}
-                                {link.startDate
-                                  ? formatDate(link.startDate)
-                                  : '…'}
-                                {' — '}
-                                {link.endDate ? formatDate(link.endDate) : '…'}
-                              </span>
-                            </>
-                          )}
-                        </div>
-                        <div className="mt-2 truncate text-xs text-muted-foreground">
-                          /shared/{link.token}
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            handleCopySharedLink(link.token, link.id)
-                          }>
-                          {copiedLinkId === link.id ? (
-                            <>
-                              <Check className="mr-2 h-4 w-4" />
-                              Copied
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="mr-2 h-4 w-4" />
-                              Copy
-                            </>
-                          )}
-                        </Button>
-
-                        <Button variant="outline" size="sm" asChild>
-                          <a href={url} target="_blank" rel="noreferrer">
-                            <ExternalLink className="mr-2 h-4 w-4" />
-                            Open
-                          </a>
-                        </Button>
-
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleRevokeSharedLink(link)}>
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Revoke
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )
-              })}
-            </div>
-          )}
-        </div>
+        <ActiveSharedLinksSection
+          links={activeLinks}
+          copiedLinkId={copiedLinkId}
+          onCopy={handleCopySharedLink}
+          onRevoke={handleRevokeSharedLink}
+        />
       </main>
 
-      {/* Create Product Dialog */}
-      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="sm:max-w-106.25">
-          <form onSubmit={handleCreateProduct}>
-            <DialogHeader>
-              <DialogTitle>Create Product</DialogTitle>
-              <DialogDescription>
-                Add a new product type for journal entries
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="key">Key (internal identifier)</Label>
-                <Input
-                  id="key"
-                  placeholder="e.g., custom_product"
-                  value={newProductKey}
-                  onChange={e => setNewProductKey(e.target.value)}
-                  pattern="^[a-z_]+$"
-                  title="Only lowercase letters and underscores"
-                  required
-                />
-                <p className="text-xs text-muted-foreground">
-                  Use lowercase letters and underscores only
-                </p>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="name">Display Name</Label>
-                <Input
-                  id="name"
-                  placeholder="e.g., Custom Product"
-                  value={newProductName}
-                  onChange={e => setNewProductName(e.target.value)}
-                  required
-                />
-              </div>
-              {error && <p className="text-sm text-destructive">{error}</p>}
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowCreateDialog(false)}>
-                Cancel
-              </Button>
-              <Button type="submit">Create Product</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <ProductDialogs
+        error={error}
+        showCreateDialog={showCreateDialog}
+        setShowCreateDialog={setShowCreateDialog}
+        showEditDialog={showEditDialog}
+        setShowEditDialog={setShowEditDialog}
+        showEditPriceDialog={showEditPriceDialog}
+        setShowEditPriceDialog={setShowEditPriceDialog}
+        newProductKey={newProductKey}
+        setNewProductKey={setNewProductKey}
+        newProductName={newProductName}
+        setNewProductName={setNewProductName}
+        editProductName={editProductName}
+        setEditProductName={setEditProductName}
+        editProductBuyingPrice={editProductBuyingPrice}
+        setEditProductBuyingPrice={setEditProductBuyingPrice}
+        onCreateProduct={handleCreateProduct}
+        onUpdateProduct={handleUpdateProduct}
+        onUpdateBuyingPrice={handleUpdateBuyingPrice}
+      />
 
-      {/* Edit Product Dialog */}
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="sm:max-w-106.25">
-          <form onSubmit={handleUpdateProduct}>
-            <DialogHeader>
-              <DialogTitle>Edit Product</DialogTitle>
-              <DialogDescription>
-                Update the display name for this product
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="edit-name">Display Name</Label>
-                <Input
-                  id="edit-name"
-                  placeholder="e.g., Custom Product"
-                  value={editProductName}
-                  onChange={e => setEditProductName(e.target.value)}
-                  required
-                />
-              </div>
-              {error && <p className="text-sm text-destructive">{error}</p>}
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowEditDialog(false)}>
-                Cancel
-              </Button>
-              <Button type="submit">Save Changes</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Buying Price Dialog */}
-      <Dialog open={showEditPriceDialog} onOpenChange={setShowEditPriceDialog}>
-        <DialogContent className="sm:max-w-106.25">
-          <form onSubmit={handleUpdateBuyingPrice}>
-            <DialogHeader>
-              <DialogTitle>Edit Default Buying Price</DialogTitle>
-              <DialogDescription>
-                Set the default buying price for this product (used as default
-                in inventory purchases)
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="edit-price">Default Buying Price</Label>
-                <Input
-                  id="edit-price"
-                  type="number"
-                  step="0.01"
-                  placeholder="e.g., 10.50"
-                  value={editProductBuyingPrice}
-                  onChange={e => setEditProductBuyingPrice(e.target.value)}
-                  required
-                />
-                <p className="text-xs text-muted-foreground">
-                  This price will be used as the default when adding inventory
-                  purchases
-                </p>
-              </div>
-              {error && <p className="text-sm text-destructive">{error}</p>}
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowEditPriceDialog(false)}>
-                Cancel
-              </Button>
-              <Button type="submit">Save Price</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Product Confirmation Dialog */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Product</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete &quot;{productToDelete?.name}
-              &quot;? This may affect existing entries and cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDeleteProduct}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Delete Shared Link Confirmation Dialog */}
-      <AlertDialog
-        open={showDeleteLinkDialog}
-        onOpenChange={setShowDeleteLinkDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Revoke Shared Link</AlertDialogTitle>
-            <AlertDialogDescription>
-              Revoke this shared link for &quot;{linkToDelete?.projectName}
-              &quot;? Anyone with the URL will lose access.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmRevokeSharedLink}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Revoke
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <AdminConfirmationDialogs
+        showDeleteDialog={showDeleteDialog}
+        setShowDeleteDialog={setShowDeleteDialog}
+        productToDelete={productToDelete}
+        onConfirmDeleteProduct={confirmDeleteProduct}
+        showDeleteLinkDialog={showDeleteLinkDialog}
+        setShowDeleteLinkDialog={setShowDeleteLinkDialog}
+        linkToDelete={linkToDelete}
+        onConfirmRevokeLink={confirmRevokeSharedLink}
+      />
     </div>
   )
 }

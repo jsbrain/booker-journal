@@ -1,6 +1,6 @@
 # Production Readiness Tasks
 
-Last updated: 2026-01-15
+Last updated: 2026-02-25
 
 This file tracks step-by-step work to make Booker Journal production-ready for the intended deployment model:
 
@@ -28,9 +28,12 @@ This file tracks step-by-step work to make Booker Journal production-ready for t
 ## Phase 2 — Security & Configuration
 
 - [x] Enforce `BETTER_AUTH_SECRET` in production builds
-- [x] Configure `trustedOrigins` from `NEXT_PUBLIC_APP_URL` (and/or env list)
+- [x] Configure Better Auth `baseURL` + `trustedOrigins` from `BETTER_AUTH_URL` / `NEXT_PUBLIC_APP_URL`
 - [x] Ensure shared links enforce expiration + optional date range (audit edge cases: inclusive ranges, timezones)
 - [x] Make app port configurable (default `PORT=3005`) and derive `NEXT_PUBLIC_APP_URL`
+- [x] Add shared-link unlock anti-abuse controls and make limits env-configurable (`SHARED_LINK_UNLOCK_*`)
+- [x] Add admin allowlist guard for global mutable resources (`ADMIN_USER_IDS` / `ADMIN_EMAILS`)
+- [x] Enforce stricter numeric invariants (`exclusiveMinimum: 0`) for transactional inputs
 
 ## Phase 3 — Operational Readiness
 
@@ -44,6 +47,13 @@ This file tracks step-by-step work to make Booker Journal production-ready for t
 ### Build warnings to address
 
 - [x] Next.js build warns about wrong workspace root due to an external lockfile; set `turbopack.root` or remove the stray lockfile
+
+## Phase 4 — Maintainability & Refactor
+
+- [x] Consolidate repeated auth/session helper logic into shared helper (`lib/authz/session.ts`)
+- [x] Decompose admin page into focused components under `components/admin/*`
+- [x] Add formatter workflow (`prettier`, `format`, `format:check`)
+- [x] Enable `forceConsistentCasingInFileNames` in TypeScript config
 
 ## UI/UX Improvements Backlog
 

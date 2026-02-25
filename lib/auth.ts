@@ -8,25 +8,48 @@ import { expand } from 'dotenv-expand'
 // Load environment variables with expansion
 expand(config())
 
-const isProduction = process.env.NODE_ENV === 'production'
-
-if (isProduction && !process.env.BETTER_AUTH_SECRET) {
-  throw new Error('Missing BETTER_AUTH_SECRET (required in production)')
-}
-
+const localAppUrl = `http://localhost:${process.env.PORT || '3005'}`
 const appUrl =
-  process.env.NEXT_PUBLIC_APP_URL ||
-  `http://localhost:${process.env.PORT || '3005'}`
-let appOrigin = `http://localhost:${process.env.PORT || '3005'}`
-try {
-  appOrigin = new URL(appUrl).origin
-} catch {
-  // Keep localhost fallback; invalid NEXT_PUBLIC_APP_URL should be fixed in env.
+  process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_APP_URL || localAppUrl
+
+const parseOrigin = (url?: string) => {
+  if (!url) return null
+  try {
+    return new URL(url).origin
+  } catch {
+    return null
+  }
 }
 
-const trustedOrigins = Array.from(new Set([appOrigin]))
+const trustedOrigins = Array.from(
+  new Set(
+    [
+      parseOrigin(process.env.BETTER_AUTH_URL),
+      parseOrigin(process.env.NEXT_PUBLIC_APP_URL),
+      parseOrigin(localAppUrl),
+    ].filter((origin): origin is string => Boolean(origin)),
+  ),
+)
+
+const appOrigin = parseOrigin(appUrl) || parseOrigin(localAppUrl)!
+
+const isLocalEnvironment = (() => {
+  try {
+    const hostname = new URL(appOrigin).hostname
+    return hostname === 'localhost' || hostname === '127.0.0.1'
+  } catch {
+    return true
+  }
+})()
+
+if (!isLocalEnvironment && !process.env.BETTER_AUTH_SECRET) {
+  throw new Error(
+    'Missing BETTER_AUTH_SECRET (required in non-local environments)',
+  )
+}
 
 export const auth = betterAuth({
+  baseURL: appUrl,
   database: drizzleAdapter(db, {
     provider: 'pg',
     schema: {

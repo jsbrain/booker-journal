@@ -7,24 +7,10 @@ import {
   journalEntries,
   projects,
 } from '@/lib/db/schema'
-import { auth } from '@/lib/auth'
-import { headers } from 'next/headers'
 import { eq, and, gte, lte, inArray } from 'drizzle-orm'
 import { validate } from '@/lib/db/validate'
 import { getMetricsInputSchema } from '@/lib/db/validation'
-
-// Get current user session
-async function getCurrentUser() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  })
-
-  if (!session?.user?.id) {
-    throw new Error('Unauthorized')
-  }
-
-  return session.user
-}
+import { getCurrentUserOrThrow } from '@/lib/authz/session'
 
 // Verify project ownership
 async function verifyProjectOwnership(projectId: string, userId: string) {
@@ -189,7 +175,7 @@ function computeMovingAverageMetrics(params: {
     }
   }
 
-  const productBreakdown = Array.from(metricsByProduct.values()).map(p => {
+  const productBreakdown = Array.from(metricsByProduct.values()).map((p) => {
     return {
       productId: p.productId,
       productName: p.productName,
@@ -221,7 +207,7 @@ export async function getProjectMetrics(
   // Validate input
   validate(getMetricsInputSchema, { projectId, startDate, endDate })
 
-  const user = await getCurrentUser()
+  const user = await getCurrentUserOrThrow()
   await verifyProjectOwnership(projectId, user.id)
 
   const start = new Date(startDate)
@@ -259,7 +245,7 @@ export async function getProjectMetrics(
   const userProjects = await db.query.projects.findMany({
     where: eq(projects.userId, user.id),
   })
-  const projectIds = userProjects.map(p => p.id)
+  const projectIds = userProjects.map((p) => p.id)
 
   // Inventory purchases up to end (affects costing for the selected range)
   const purchasesUpToEnd = await db.query.inventoryPurchases.findMany({
@@ -270,7 +256,7 @@ export async function getProjectMetrics(
     with: { product: true },
   })
 
-  const purchasesInPeriod = purchasesUpToEnd.filter(p => {
+  const purchasesInPeriod = purchasesUpToEnd.filter((p) => {
     const d = new Date(p.purchaseDate)
     return d >= start && d <= end
   })
@@ -365,7 +351,7 @@ export async function getGlobalMetrics(
   startDate: string,
   endDate: string,
 ): Promise<ProjectMetrics> {
-  const user = await getCurrentUser()
+  const user = await getCurrentUserOrThrow()
 
   const start = new Date(startDate)
   const end = new Date(endDate)
@@ -389,7 +375,7 @@ export async function getGlobalMetrics(
     where: eq(projects.userId, user.id),
   })
 
-  const projectIds = userProjects.map(p => p.id)
+  const projectIds = userProjects.map((p) => p.id)
 
   if (projectIds.length === 0) {
     return {
@@ -423,7 +409,7 @@ export async function getGlobalMetrics(
     with: { product: true },
   })
 
-  const purchasesInPeriod = purchasesUpToEnd.filter(p => {
+  const purchasesInPeriod = purchasesUpToEnd.filter((p) => {
     const d = new Date(p.purchaseDate)
     return d >= start && d <= end
   })

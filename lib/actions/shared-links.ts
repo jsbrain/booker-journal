@@ -2,13 +2,12 @@
 
 import { db } from '@/lib/db'
 import { sharedLinks, projects, journalEntries } from '@/lib/db/schema'
-import { auth } from '@/lib/auth'
-import { headers } from 'next/headers'
 import { eq, and, gt, desc, gte, lte } from 'drizzle-orm'
 import crypto from 'crypto'
 import bcrypt from 'bcryptjs'
 import { validate } from '@/lib/db/validate'
 import { logError } from '@/lib/utils/server-log'
+import { getCurrentUserOrThrow } from '@/lib/authz/session'
 import {
   createSharedLinkInputSchema,
   deleteSharedLinkInputSchema,
@@ -23,19 +22,6 @@ import {
   utf8ToBytes,
   xorBytes,
 } from '@/lib/utils/crypto/shared-link'
-
-// Get current user session
-async function getCurrentUser() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  })
-
-  if (!session?.user?.id) {
-    throw new Error('Unauthorized')
-  }
-
-  return session.user
-}
 
 // Verify project ownership
 async function verifyProjectOwnership(projectId: string, userId: string) {
@@ -82,7 +68,7 @@ export async function createSharedLink(
     }
   }
 
-  const user = await getCurrentUser()
+  const user = await getCurrentUserOrThrow()
   await verifyProjectOwnership(projectId, user.id)
 
   // Generate secure random token
@@ -148,7 +134,7 @@ export async function createSharedLink(
       createdAt: project.createdAt.toISOString(),
       updatedAt: project.updatedAt.toISOString(),
     },
-    entries: entries.map(e => ({
+    entries: entries.map((e) => ({
       ...e,
       timestamp: e.timestamp.toISOString(),
       createdAt: e.createdAt.toISOString(),
@@ -231,7 +217,7 @@ export async function getSharedLinks(projectId: string) {
   // Validate input
   validate(getProjectInputSchema, { projectId })
 
-  const user = await getCurrentUser()
+  const user = await getCurrentUserOrThrow()
   await verifyProjectOwnership(projectId, user.id)
 
   try {
@@ -251,7 +237,7 @@ export async function getSharedLinks(projectId: string) {
 }
 
 export async function getActiveSharedLinksForUser() {
-  const user = await getCurrentUser()
+  const user = await getCurrentUserOrThrow()
 
   try {
     const rows = await db
@@ -276,7 +262,7 @@ export async function getActiveSharedLinksForUser() {
       )
       .orderBy(desc(sharedLinks.expiresAt))
 
-    return rows.map(r => ({
+    return rows.map((r) => ({
       id: r.id,
       projectId: r.projectId,
       projectName: r.projectName,
@@ -299,7 +285,7 @@ export async function deleteSharedLink(linkId: string, projectId: string) {
   // Validate input
   validate(deleteSharedLinkInputSchema, { linkId, projectId })
 
-  const user = await getCurrentUser()
+  const user = await getCurrentUserOrThrow()
   await verifyProjectOwnership(projectId, user.id)
 
   try {

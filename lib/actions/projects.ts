@@ -2,29 +2,15 @@
 
 import { db } from '@/lib/db'
 import { projects, journalEntries } from '@/lib/db/schema'
-import { auth } from '@/lib/auth'
-import { headers } from 'next/headers'
 import { eq, desc, and } from 'drizzle-orm'
 import { seedEntryTypes, seedProducts } from '@/lib/db/seed-data'
 import { validate } from '@/lib/db/validate'
+import { getCurrentUserOrThrow } from '@/lib/authz/session'
 import {
   createProjectInputSchema,
   deleteProjectInputSchema,
   getProjectInputSchema,
 } from '@/lib/db/validation'
-
-// Get current user session
-async function getCurrentUser() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  })
-
-  if (!session?.user?.id) {
-    throw new Error('Unauthorized')
-  }
-
-  return session.user
-}
 
 // Initialize entry types and products if they don't exist
 async function initializeData() {
@@ -44,7 +30,7 @@ export async function createProject(name: string, initialAmount: number) {
   // Validate input
   validate(createProjectInputSchema, { name, initialAmount })
 
-  const user = await getCurrentUser()
+  const user = await getCurrentUserOrThrow()
   await initializeData()
 
   // Create project
@@ -58,8 +44,8 @@ export async function createProject(name: string, initialAmount: number) {
 
   // Get the entry types we care about
   const entryTypesList = await db.query.entryTypes.findMany()
-  const paymentType = entryTypesList.find(t => t.key === 'payment')
-  const saleType = entryTypesList.find(t => t.key === 'sale')
+  const paymentType = entryTypesList.find((t) => t.key === 'payment')
+  const saleType = entryTypesList.find((t) => t.key === 'sale')
 
   // User-facing convention for initial balance:
   // - positive initialAmount => customer owes us (receivable)
@@ -107,7 +93,7 @@ export async function createProject(name: string, initialAmount: number) {
 }
 
 export async function getProjects() {
-  const user = await getCurrentUser()
+  const user = await getCurrentUserOrThrow()
 
   const userProjects = await db.query.projects.findMany({
     where: eq(projects.userId, user.id),
@@ -127,7 +113,7 @@ export async function getProject(projectId: string) {
   // Validate input
   validate(getProjectInputSchema, { projectId })
 
-  const user = await getCurrentUser()
+  const user = await getCurrentUserOrThrow()
 
   const project = await db.query.projects.findFirst({
     where: and(eq(projects.id, projectId), eq(projects.userId, user.id)),
@@ -144,7 +130,7 @@ export async function deleteProject(projectId: string) {
   // Validate input
   validate(deleteProjectInputSchema, { projectId })
 
-  const user = await getCurrentUser()
+  const user = await getCurrentUserOrThrow()
 
   // Verify ownership
   const project = await db.query.projects.findFirst({

@@ -67,7 +67,7 @@ export const updateProjectInputSchema = Type.Partial(
 // Journal entry creation input validation
 export const createEntryInputSchema = Type.Object({
   projectId: Type.String({ minLength: 1 }),
-  amount: Type.Number(),
+  amount: Type.Number({ exclusiveMinimum: 0 }),
   price: Type.Number(),
   typeId: Type.String({ minLength: 1 }),
   productId: Type.Optional(Type.String({ minLength: 1 })), // Optional - only required for Sale type
@@ -79,7 +79,7 @@ export const createEntryInputSchema = Type.Object({
 export const updateEntryInputSchema = Type.Object({
   entryId: Type.String({ minLength: 1 }),
   projectId: Type.String({ minLength: 1 }),
-  amount: Type.Optional(Type.Number()),
+  amount: Type.Optional(Type.Number({ exclusiveMinimum: 0 })),
   price: Type.Optional(Type.Number()),
   typeId: Type.Optional(Type.String({ minLength: 1 })),
   productId: Type.Optional(Type.String({ minLength: 1 })),
@@ -124,8 +124,8 @@ export const updateProductBuyingPriceInputSchema = Type.Object({
 // Inventory purchase creation input validation
 export const createInventoryPurchaseInputSchema = Type.Object({
   productId: Type.String({ minLength: 1 }),
-  quantity: Type.Number({ minimum: 0 }),
-  buyingPrice: Type.Number({ minimum: 0 }),
+  quantity: Type.Number({ exclusiveMinimum: 0 }),
+  buyingPrice: Type.Number({ exclusiveMinimum: 0 }),
   note: Type.Optional(Type.String({ maxLength: 1000 })),
   purchaseDate: Type.Optional(Type.String()), // ISO date string
 })
@@ -133,8 +133,8 @@ export const createInventoryPurchaseInputSchema = Type.Object({
 // Inventory purchase update input validation
 export const updateInventoryPurchaseInputSchema = Type.Object({
   purchaseId: Type.String({ minLength: 1 }),
-  quantity: Type.Optional(Type.Number({ minimum: 0 })),
-  buyingPrice: Type.Optional(Type.Number({ minimum: 0 })),
+  quantity: Type.Optional(Type.Number({ exclusiveMinimum: 0 })),
+  buyingPrice: Type.Optional(Type.Number({ exclusiveMinimum: 0 })),
   note: Type.Optional(Type.String({ maxLength: 1000 })),
   purchaseDate: Type.Optional(Type.String()),
 })

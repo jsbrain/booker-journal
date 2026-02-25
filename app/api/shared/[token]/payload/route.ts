@@ -28,9 +28,39 @@ export async function GET(
     )
   }
 
-  const encrypted = Boolean(
-    link.payloadEnc && link.keyUserEnc && link.keyServer,
-  )
+  const encryptedFieldCandidates = [
+    link.payloadEnc,
+    link.payloadIv,
+    link.payloadAad,
+    link.keyServer,
+    link.keyUserEnc,
+    link.keyUserIv,
+    link.keyUserSalt,
+  ]
+
+  const hasAnyEncryptedField = encryptedFieldCandidates.some(Boolean)
+
+  const hasCompleteEncryptedPayload =
+    Boolean(
+      link.payloadEnc &&
+      link.payloadIv &&
+      link.payloadAad &&
+      link.keyServer &&
+      link.keyUserEnc &&
+      link.keyUserIv &&
+      link.keyUserSalt,
+    ) &&
+    Number.isInteger(link.keyUserIterations) &&
+    Number(link.keyUserIterations) > 0
+
+  if (hasAnyEncryptedField && !hasCompleteEncryptedPayload) {
+    return NextResponse.json(
+      { error: 'Shared link payload is unavailable' },
+      { status: 500 },
+    )
+  }
+
+  const encrypted = hasCompleteEncryptedPayload
 
   const response = NextResponse.json(
     encrypted
