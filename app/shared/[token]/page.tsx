@@ -10,7 +10,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Calendar, ChevronDown, ChevronUp, Lock, Printer } from 'lucide-react'
+import { Calendar, ChevronDown, ChevronUp, Lock } from 'lucide-react'
 import { getProjectBySharedLink } from '@/lib/actions/shared-links'
 import { getBalanceColor, getBalanceStatus } from '@/lib/utils/balance'
 import { formatCurrency, formatDateTime, formatDate } from '@/lib/utils/locale'
@@ -189,7 +189,9 @@ export default function SharedProjectPage() {
 
   const dataThrough = useMemo(() => {
     if (entries.length === 0) return null
-    const maxTs = Math.max(...entries.map(e => new Date(e.timestamp).getTime()))
+    const maxTs = Math.max(
+      ...entries.map((e) => new Date(e.timestamp).getTime()),
+    )
     return new Date(maxTs)
   }, [entries])
 
@@ -345,7 +347,7 @@ export default function SharedProjectPage() {
         updatedAt: new Date(parsed.project.updatedAt),
       })
       setEntries(
-        parsed.entries.map(e => ({
+        parsed.entries.map((e) => ({
           id: e.id,
           projectId: e.projectId,
           amount: e.amount,
@@ -429,7 +431,7 @@ export default function SharedProjectPage() {
                   id="share-password"
                   type="password"
                   value={password}
-                  onChange={e => setPassword(e.target.value)}
+                  onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
                 />
               </div>
@@ -438,7 +440,8 @@ export default function SharedProjectPage() {
                 type="button"
                 className="w-full"
                 disabled={unlocking || password.length === 0}
-                onClick={unlockAndDecrypt}>
+                onClick={unlockAndDecrypt}
+              >
                 {unlocking ? 'Unlocking…' : 'Unlock'}
               </Button>
             </CardContent>
@@ -549,13 +552,6 @@ export default function SharedProjectPage() {
                   <ChevronUp className="ml-2 h-4 w-4" />
                 )}
               </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => window.print()}>
-                <Printer className="mr-2 h-4 w-4" />
-                Print
-              </Button>
             </div>
           </div>
         </div>
@@ -572,7 +568,7 @@ export default function SharedProjectPage() {
           </Card>
         ) : (
           <div className="space-y-2">
-            {sortedEntries.map(entry => {
+            {sortedEntries.map((entry) => {
               const amount = parseFloat(entry.amount)
               const price = parseFloat(entry.price)
               // Display totals in the same convention as the displayed balance:
@@ -611,7 +607,8 @@ export default function SharedProjectPage() {
                     <div
                       className={`text-xl font-bold ${
                         displayTotal >= 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
+                      }`}
+                    >
                       {displayTotal >= 0 ? '+' : ''}
                       {formatCurrency(displayTotal)}
                     </div>

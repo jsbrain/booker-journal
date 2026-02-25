@@ -186,7 +186,8 @@ export default function ProjectDetailPage() {
         <div className="flex min-h-screen items-center justify-center">
           <div className="text-muted-foreground">Loading...</div>
         </div>
-      }>
+      }
+    >
       <ProjectDetailContent />
     </Suspense>
   )
@@ -280,9 +281,9 @@ function ProjectDetailContent() {
     try {
       const [projectData, entriesData, balanceData, entryTypesData] =
         await Promise.all([
-        getProject(projectId),
-        getEntries(projectId),
-        getProjectBalance(projectId),
+          getProject(projectId),
+          getEntries(projectId),
+          getProjectBalance(projectId),
           getEntryTypes(),
         ])
       setProject(projectData)
@@ -301,7 +302,7 @@ function ProjectDetailContent() {
   const loadProjectsList = useCallback(async () => {
     try {
       const projects = await getProjects()
-      setProjectsList(projects.map(p => ({ id: p.id, name: p.name })))
+      setProjectsList(projects.map((p) => ({ id: p.id, name: p.name })))
     } catch (error) {
       devLogError('Failed to load projects list:', error)
       setErrorMessage(
@@ -467,11 +468,11 @@ function ProjectDetailContent() {
   }
 
   const toggleDateSort = () => {
-    setSortBy(current => (current === 'date-desc' ? 'date-asc' : 'date-desc'))
+    setSortBy((current) => (current === 'date-desc' ? 'date-asc' : 'date-desc'))
   }
 
   const toggleAmountSort = () => {
-    setSortBy(current =>
+    setSortBy((current) =>
       current === 'amount-desc' ? 'amount-asc' : 'amount-desc',
     )
   }
@@ -485,11 +486,11 @@ function ProjectDetailContent() {
   // Get unique entry types for filter
   const uniqueTypes = useMemo(() => {
     if (entryTypes.length > 0) {
-      return entryTypes.map(type => [type.key, type.name] as [string, string])
+      return entryTypes.map((type) => [type.key, type.name] as [string, string])
     }
 
     const types = new Map<string, string>()
-    entries.forEach(e => types.set(e.type.key, e.type.name))
+    entries.forEach((e) => types.set(e.type.key, e.type.name))
     return Array.from(types.entries())
   }, [entryTypes, entries])
 
@@ -504,7 +505,7 @@ function ProjectDetailContent() {
       toDate.setHours(23, 59, 59, 999)
       const toTime = toDate.getTime()
 
-      filtered = filtered.filter(e => {
+      filtered = filtered.filter((e) => {
         const entryTime = new Date(e.timestamp).getTime()
         return entryTime >= fromTime && entryTime <= toTime
       })
@@ -514,7 +515,7 @@ function ProjectDetailContent() {
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
       filtered = filtered.filter(
-        e =>
+        (e) =>
           e.type.name.toLowerCase().includes(query) ||
           (e.product && e.product.name.toLowerCase().includes(query)) ||
           (e.note && e.note.toLowerCase().includes(query)),
@@ -523,7 +524,7 @@ function ProjectDetailContent() {
 
     // Apply type filter
     if (typeFilter !== 'all') {
-      filtered = filtered.filter(e => e.type.key === typeFilter)
+      filtered = filtered.filter((e) => e.type.key === typeFilter)
     }
 
     // Apply sorting
@@ -596,11 +597,13 @@ function ProjectDetailContent() {
                     asChild
                     variant="ghost"
                     size="sm"
-                    aria-label="Back to projects">
+                    aria-label="Back to projects"
+                  >
                     <Link
                       href={buildHref('/dashboard', {
                         tab: 'projects',
-                      })}>
+                      })}
+                    >
                       <ArrowLeft className="h-4 w-4" />
                     </Link>
                   </Button>
@@ -611,7 +614,8 @@ function ProjectDetailContent() {
             <Link
               href={buildHref('/dashboard', {
                 tab: 'projects',
-              })}>
+              })}
+            >
               <h1 className="text-xl font-bold cursor-pointer hover:text-primary transition-colors">
                 Booker Journal
               </h1>
@@ -637,16 +641,17 @@ function ProjectDetailContent() {
               <div className="mt-2 max-w-[320px]">
                 <Select
                   value={projectId}
-                  onValueChange={nextProjectId => {
+                  onValueChange={(nextProjectId) => {
                     router.push(
                       buildHref(`/dashboard/projects/${nextProjectId}`, {}),
                     )
-                  }}>
+                  }}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Switch project" />
                   </SelectTrigger>
                   <SelectContent>
-                    {projectsList.map(p => (
+                    {projectsList.map((p) => (
                       <SelectItem key={p.id} value={p.id}>
                         {p.name}
                       </SelectItem>
@@ -664,14 +669,16 @@ function ProjectDetailContent() {
             <Button
               onClick={() => setShowShareDialog(true)}
               variant="outline"
-              className="flex-1 sm:flex-none">
+              className="flex-1 sm:flex-none"
+            >
               <Share2 className="mr-2 h-4 w-4" />
               Share
             </Button>
             <Button
               onClick={handleDeleteProject}
               variant="outline"
-              className="flex-1 sm:flex-none">
+              className="flex-1 sm:flex-none"
+            >
               <Trash2 className="mr-2 h-4 w-4" />
               Delete
             </Button>
@@ -688,7 +695,8 @@ function ProjectDetailContent() {
               <div
                 className={`text-3xl font-bold wrap-break-word ${getBalanceColor(
                   balance,
-                )}`}>
+                )}`}
+              >
                 {formatCurrency(balance)}
               </div>
               <p className="mt-2 text-sm text-muted-foreground">
@@ -723,24 +731,27 @@ function ProjectDetailContent() {
 
         <Tabs
           value={activeTab}
-          onValueChange={value =>
+          onValueChange={(value) =>
             router.push(
               buildHref(`/dashboard/projects/${projectId}`, {
                 tab: value,
               }),
             )
           }
-          className="w-full">
+          className="w-full"
+        >
           <TabsList className="mb-6 grid w-full grid-cols-2 gap-1 sm:w-fit">
             <TabsTrigger
               value="entries"
-              className="justify-start sm:justify-center">
+              className="justify-start sm:justify-center"
+            >
               <History className="mr-2 h-4 w-4" />
               Journal Entries
             </TabsTrigger>
             <TabsTrigger
               value="metrics"
-              className="justify-start sm:justify-center">
+              className="justify-start sm:justify-center"
+            >
               <TrendingUp className="mr-2 h-4 w-4" />
               Metrics
             </TabsTrigger>
@@ -786,7 +797,8 @@ function ProjectDetailContent() {
                             filteredTotal >= 0
                               ? 'text-green-600'
                               : 'text-red-600'
-                          }`}>
+                          }`}
+                        >
                           {filteredTotal >= 0 ? '+' : ''}
                           {formatCurrency(filteredTotal)}
                         </span>
@@ -802,7 +814,7 @@ function ProjectDetailContent() {
                     <Input
                       placeholder="Search entries, products, or notes..."
                       value={searchQuery}
-                      onChange={e => setSearchQuery(e.target.value)}
+                      onChange={(e) => setSearchQuery(e.target.value)}
                       className="pl-9"
                     />
                   </div>
@@ -825,7 +837,8 @@ function ProjectDetailContent() {
                       variant={
                         sortBy.startsWith('date') ? 'default' : 'outline'
                       }
-                      onClick={toggleDateSort}>
+                      onClick={toggleDateSort}
+                    >
                       Date
                       {sortBy === 'date-desc' ? (
                         <ChevronDown className="ml-2 h-4 w-4" />
@@ -838,7 +851,8 @@ function ProjectDetailContent() {
                       variant={
                         sortBy.startsWith('amount') ? 'default' : 'outline'
                       }
-                      onClick={toggleAmountSort}>
+                      onClick={toggleAmountSort}
+                    >
                       Amount
                       {sortBy === 'amount-desc' ? (
                         <ChevronDown className="ml-2 h-4 w-4" />
@@ -854,7 +868,8 @@ function ProjectDetailContent() {
                             variant="outline"
                             size="icon"
                             onClick={() => setSortBy('date-desc')}
-                            aria-label="Reset sort">
+                            aria-label="Reset sort"
+                          >
                             <RotateCcw className="h-4 w-4" />
                           </Button>
                         </TooltipTrigger>
@@ -876,7 +891,8 @@ function ProjectDetailContent() {
                           variant="outline"
                           size="sm"
                           onClick={() => setSearchQuery('')}
-                          className="h-8">
+                          className="h-8"
+                        >
                           Search: {searchQuery.trim()}
                           <X className="ml-2 h-3 w-3" />
                         </Button>
@@ -886,7 +902,8 @@ function ProjectDetailContent() {
                           variant="outline"
                           size="sm"
                           onClick={() => setTypeFilter('all')}
-                          className="h-8">
+                          className="h-8"
+                        >
                           Type:{' '}
                           {uniqueTypes.find(([k]) => k === typeFilter)?.[1] ||
                             typeFilter}
@@ -898,7 +915,8 @@ function ProjectDetailContent() {
                           variant="outline"
                           size="sm"
                           onClick={() => setSortBy('date-desc')}
-                          className="h-8">
+                          className="h-8"
+                        >
                           Sort: {getSortLabel(sortBy)}
                           <X className="ml-2 h-3 w-3" />
                         </Button>
@@ -908,7 +926,8 @@ function ProjectDetailContent() {
                           variant="ghost"
                           size="sm"
                           onClick={resetViewState}
-                          className="h-8">
+                          className="h-8"
+                        >
                           Clear all
                         </Button>
                       )}
@@ -923,7 +942,7 @@ function ProjectDetailContent() {
                       No entries match your filters
                     </p>
                   ) : (
-                    filteredAndSortedEntries.map(entry => {
+                    filteredAndSortedEntries.map((entry) => {
                       const amount = parseFloat(entry.amount)
                       const price = parseFloat(entry.price)
                       const displayTotal = -(amount * price)
@@ -955,7 +974,8 @@ function ProjectDetailContent() {
                                     onClick={() =>
                                       handleViewHistory(entry.editHistory)
                                     }
-                                    className="h-6 px-2 text-xs">
+                                    className="h-6 px-2 text-xs"
+                                  >
                                     <History className="mr-1 h-3 w-3" />
                                     Edited ({entry.editHistory!.length})
                                   </Button>
@@ -979,7 +999,8 @@ function ProjectDetailContent() {
                                   displayTotal >= 0
                                     ? 'text-green-600'
                                     : 'text-red-600'
-                                }`}>
+                                }`}
+                              >
                                 {displayTotal >= 0 ? '+' : ''}
                                 {formatCurrency(displayTotal)}
                               </div>
@@ -989,13 +1010,15 @@ function ProjectDetailContent() {
                                     <Button
                                       variant="outline"
                                       size="sm"
-                                      aria-label="Entry actions">
+                                      aria-label="Entry actions"
+                                    >
                                       <MoreHorizontal className="h-4 w-4" />
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
                                     <DropdownMenuItem
-                                      onSelect={() => handleEditEntry(entry)}>
+                                      onSelect={() => handleEditEntry(entry)}
+                                    >
                                       <Edit2 className="mr-2 h-4 w-4" />
                                       Edit
                                     </DropdownMenuItem>
@@ -1004,7 +1027,8 @@ function ProjectDetailContent() {
                                       onSelect={() =>
                                         handleDeleteEntry(entry.id)
                                       }
-                                      className="text-destructive focus:text-destructive">
+                                      className="text-destructive focus:text-destructive"
+                                    >
                                       <Trash2 className="mr-2 h-4 w-4" />
                                       Delete
                                     </DropdownMenuItem>
@@ -1100,7 +1124,8 @@ function ProjectDetailContent() {
       {/* Delete Project Confirmation Dialog */}
       <AlertDialog
         open={showDeleteProjectDialog}
-        onOpenChange={setShowDeleteProjectDialog}>
+        onOpenChange={setShowDeleteProjectDialog}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Project</AlertDialogTitle>
@@ -1114,7 +1139,8 @@ function ProjectDetailContent() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDeleteProject}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -1124,7 +1150,8 @@ function ProjectDetailContent() {
       {/* Delete Entry Confirmation Dialog */}
       <AlertDialog
         open={showDeleteEntryDialog}
-        onOpenChange={setShowDeleteEntryDialog}>
+        onOpenChange={setShowDeleteEntryDialog}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Entry</AlertDialogTitle>
@@ -1137,7 +1164,8 @@ function ProjectDetailContent() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDeleteEntry}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
