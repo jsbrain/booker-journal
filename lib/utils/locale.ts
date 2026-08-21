@@ -4,8 +4,8 @@
  * Dates: DD.MM.YYYY format
  */
 
-const LOCALE = "de-DE"
-const CURRENCY = "EUR"
+const LOCALE = 'de-DE'
+const CURRENCY = 'EUR'
 
 /**
  * Format a number as currency in German format (e.g., 1.234,56 €)
@@ -14,7 +14,7 @@ const CURRENCY = "EUR"
  */
 export function formatCurrency(value: number): string {
   return new Intl.NumberFormat(LOCALE, {
-    style: "currency",
+    style: 'currency',
     currency: CURRENCY,
   }).format(value)
 }
@@ -26,7 +26,7 @@ export function formatCurrency(value: number): string {
  */
 export function formatDate(date: Date | string): string {
   return new Intl.DateTimeFormat(LOCALE, {
-    dateStyle: "short",
+    dateStyle: 'short',
   }).format(new Date(date))
 }
 
@@ -37,7 +37,7 @@ export function formatDate(date: Date | string): string {
  */
 export function formatDateMedium(date: Date | string): string {
   return new Intl.DateTimeFormat(LOCALE, {
-    dateStyle: "medium",
+    dateStyle: 'medium',
   }).format(new Date(date))
 }
 
@@ -48,8 +48,8 @@ export function formatDateMedium(date: Date | string): string {
  */
 export function formatDateTime(date: Date | string): string {
   return new Intl.DateTimeFormat(LOCALE, {
-    dateStyle: "short",
-    timeStyle: "short",
+    dateStyle: 'short',
+    timeStyle: 'short',
   }).format(new Date(date))
 }
 
@@ -60,8 +60,8 @@ export function formatDateTime(date: Date | string): string {
  */
 export function formatDateTimeMedium(date: Date | string): string {
   return new Intl.DateTimeFormat(LOCALE, {
-    dateStyle: "medium",
-    timeStyle: "short",
+    dateStyle: 'medium',
+    timeStyle: 'short',
   }).format(new Date(date))
 }
 

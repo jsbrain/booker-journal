@@ -8,15 +8,22 @@ Booker Journal is designed for business owners to manage global inventory and tr
 
 Operating model:
 
-- There is a single admin user (you).
+- The first registered account becomes the single approved admin.
+- Additional internal users can register only when explicitly enabled and must
+  be approved by the admin before they can access the app.
 - Customers do not get accounts.
 - Customers can only view data via read-only, expiring shared links.
+
+See [PRODUCT_DECISIONS.md](PRODUCT_DECISIONS.md) for the operating assumptions
+behind filtered activity, live portals, signed balances, negative inventory, and
+accepted calculation precision.
 
 ## Features
 
 ### Core Features
 
 - 🔐 **Email/password authentication** with better-auth
+- ✅ **Controlled registration** - First-user admin bootstrap and approval for later users
 - 📊 **Customer ledger tracking** - Each project represents a customer
 - 🏪 **Global inventory management** - Track product purchases centrally
 - 💰 **Automatic metrics** - Revenue, cost, profit calculations per customer or globally
@@ -39,11 +46,11 @@ Operating model:
 
 ## Tech Stack
 
-- **Framework:** Next.js 16.0.0
+- **Framework:** Next.js 16
 - **UI Library:** shadcn-ui (Radix UI primitives)
-- **Authentication:** better-auth 1.3.29
+- **Authentication:** better-auth 1.x
 - **Database:** PostgreSQL 17 with Drizzle ORM
-- **Validation:** TypeBox with drizzle-typebox integration
+- **Validation:** TypeBox request schemas plus database constraints
 - **Styling:** Tailwind CSS v4
 - **Language:** TypeScript
 - **Runtime:** Bun 1.3+
@@ -56,6 +63,23 @@ Operating model:
 - **Docker Desktop** (for local PostgreSQL) or access to hosted PostgreSQL
 
 This repo uses Bun as the package manager/runtime (no npm/yarn/pnpm).
+
+### Verification
+
+Run the complete local quality check with:
+
+```bash
+bun run check
+```
+
+This runs ESLint, Next.js route type generation, TypeScript, the Bun regression
+tests, and the repository-wide formatting check. Use `bun run build` separately
+to verify the production bundle.
+
+The TypeScript and ESLint major ranges are intentionally kept on the newest
+versions supported by the TypeScript-ESLint stack included with
+`eslint-config-next`; upgrading either across that compatibility boundary makes
+ESLint fail before it can analyze the project.
 
 ### Installation
 
@@ -83,16 +107,17 @@ PORT=3005
 BETTER_AUTH_URL=http://localhost:${PORT}
 NEXT_PUBLIC_APP_URL=http://localhost:${PORT}
 
-# Admin authorization (recommended in non-local environments)
-# Comma-separated allowlists. Configure at least one in staging/production.
-ADMIN_USER_IDS=
-ADMIN_EMAILS=
+# Registration
+# The first account is always created as the approved admin. Later signups are
+# disabled by default; enable them temporarily so the admin can approve users.
+ALLOW_USER_SIGNUP=false
 
 # Shared link unlock protections
 SHARED_LINK_UNLOCK_WINDOW_MS=600000
 SHARED_LINK_UNLOCK_LOCKOUT_MS=900000
 SHARED_LINK_UNLOCK_MAX_ATTEMPTS=5
 SHARED_LINK_UNLOCK_MAX_TRACKED_KEYS=5000
+# Two-minute browser access session after a successful password unlock.
 SHARED_LINK_ACCESS_TOKEN_TTL_MS=120000
 
 # Database - PostgreSQL (Docker Compose)
@@ -151,10 +176,19 @@ bun run dev
 
 ### First-Time Setup
 
-1. **Sign Up**: Create your admin account at `/login`
+1. **Create the Admin**: On an empty database, sign up at `/login`. The first
+   account is automatically approved and assigned the admin role.
 2. **Access Dashboard**: You'll be redirected to `/dashboard`
 3. **Create Products** (optional): Visit `/dashboard/admin` to set up your product catalog
 4. **Create Customer**: Click "New Project" to add your first customer
+
+For local development, you can instead use the seeded admin credentials after
+running `bun run db:seed`.
+
+Later signups are disabled by default. Set `ALLOW_USER_SIGNUP=true` and restart
+the app to expose signup temporarily. Every later account starts unapproved and
+cannot create a session or access application data until the admin approves it
+under Dashboard → Admin. Set the variable back to `false` after registration.
 
 ### Managing Customers (Projects)
 
@@ -167,17 +201,21 @@ Each project represents a customer:
    - **Negative** = you owe customer (e.g., -100 for €100 credit)
    - **Zero** = fresh start
 
+Non-zero opening balances are stored as balance adjustments. They do not count
+as sales, payments, revenue, or inventory movement.
+
 ### Recording Sales & Transactions
 
 1. Open a customer's project
 2. Click "New Entry"
 3. Select entry type:
-   - **Sale** - Selling products (typically negative price)
-   - **Payment** - Customer payments (typically positive price)
+   - **Sale** - Selling products
+   - **Payment** - Customer payments
    - **Refund** - Returns or refunds
    - **Adjustment** - Manual balance adjustments
 4. If it's a sale, select the product (product is required only for `sale` entries)
-5. Enter quantity and price per unit
+5. Enter quantity and price per unit. For sales and payments, enter a positive
+   price; the app applies the correct ledger sign.
 6. Optionally add notes and timestamp
 7. For sales, check "Paid immediately" to auto-create a matching payment entry
 
@@ -225,8 +263,12 @@ See revenue, costs, and profits:
 **Intentional limitations (current):**
 
 - **Not FIFO / lot-tracking**: costs are computed via moving weighted-average (not FIFO, LIFO, or per-lot costing).
-- **No stock enforcement**: the app does not prevent sales that exceed purchased quantity (inventory can go “negative”).
+- **No stock enforcement**: inventory may go negative intentionally, making restocking needs visible.
 - **Floating-point math**: database `numeric` values are parsed and calculated using JavaScript `number`, which may introduce small rounding differences.
+
+This is an internal operational tool, not an accounting or statutory reporting
+system. The calculations favor useful day-to-day visibility over accounting-grade
+precision.
 
 ### Seeded Metrics Verification Dataset
 
@@ -254,8 +296,18 @@ Create read-only links for customers:
 1. Set expiration (hours or days)
 1. Optionally set a date range (entries outside the range are hidden)
 1. Copy the generated link
-1. Share with customer - they can view entries without login
+1. Share with customer - they can unlock a live, read-only view without login
 1. Links expire automatically
+
+Shared links are live portals: edits and new entries appear when the viewer
+refreshes. When a date range is selected, the displayed **Activity Balance** is
+the net change from the entries in that period, not the project’s complete
+current balance. After password verification, each live JSON payload is
+AES-256-GCM encrypted using a fresh key wrapped to an ephemeral RSA-OAEP key
+generated by the viewer’s browser. Links never store customer-facing payload
+snapshots or reusable decryption keys. A successful unlock creates a two-minute
+browser access session by default; configure it with
+`SHARED_LINK_ACCESS_TOKEN_TTL_MS`.
 
 ### Editing Entries
 
@@ -270,7 +322,7 @@ Access via Dashboard → Admin button:
 
 - **Product Management**: Create, edit, delete products
 - **Set Default Prices**: Configure default buying prices for products
-- **Entry Types**: Manage transaction categories (pre-seeded)
+- **User Approval**: Approve newly registered internal users before they can sign in
 
 ## Project Structure
 
@@ -278,12 +330,12 @@ Access via Dashboard → Admin button:
 booker-journal/
 ├── app/
 │   ├── api/auth/[...all]/        # Better-auth API routes
-│   ├── api/shared/[token]/        # Shared link key/payload/unlock APIs
+│   ├── api/shared/[token]/        # Shared link metadata/unlock/live-data APIs
 │   ├── dashboard/                 # Protected dashboard
 │   │   ├── admin/                 # Admin panel for products
 │   │   └── projects/[id]/         # Customer detail pages
 │   ├── shared/[token]/            # Public shared links
-│   ├── login/                     # Login/signup page
+│   ├── login/                     # Sign-in and controlled registration page
 │   └── page.tsx                   # Landing page
 ├── components/
 │   ├── ui/                        # shadcn-ui components
@@ -302,7 +354,9 @@ booker-journal/
 │   │   ├── inventory.ts           # Inventory purchases
 │   │   ├── metrics.ts             # Analytics calculations
 │   │   ├── entry-types.ts         # Transaction types
-│   │   └── shared-links.ts        # Link sharing
+│   │   ├── shared-links.ts        # Link sharing
+│   │   └── users.ts               # Admin user approval
+│   ├── domain/                    # Pure ledger, inventory, and metrics calculations
 │   ├── db/
 │   │   ├── schema.ts              # Drizzle schemas (source of truth)
 │   │   ├── validation.ts          # TypeBox validation schemas
@@ -310,11 +364,15 @@ booker-journal/
 │   │   └── seed-data.ts           # Database seeding
 │   ├── authz/                     # Authz/session helpers
 │   │   ├── session.ts             # getCurrentUserOrThrow
-│   │   └── admin.ts               # Admin allowlist guard
+│   │   └── admin.ts               # Admin role guard
+│   ├── auth-registration.ts       # Signup availability/bootstrap policy
 │   ├── auth.ts                    # Better-auth server config
 │   ├── auth-client.ts             # Auth client hooks
+│   ├── shared-links.ts            # Public live-view access and response projection
 │   ├── utils.ts
 │   └── utils/env.ts               # Env parsing helpers
+├── tests/                          # Bun domain and validation regression tests
+├── PRODUCT_DECISIONS.md            # Confirmed operating assumptions
 ├── docker-compose.yaml            # PostgreSQL container (local dev)
 ├── drizzle.config.ts              # Drizzle configuration
 └── .env                           # Environment variables
@@ -326,7 +384,7 @@ booker-journal/
 
 #### Users (managed by better-auth)
 
-- Authentication and user data
+- Authentication, `admin`/`user` role, and approval state
 
 #### Projects
 
@@ -361,7 +419,10 @@ booker-journal/
 
 - Shareable read-only customer views
 - Secure token-based access
+- Password verification with short-lived access sessions
 - Automatic expiration
+- Optional inclusive date filtering
+- Live database reads with per-response browser-targeted encryption
 
 **Better-auth tables:** `user`, `session`, `account`, `verification`
 
@@ -373,6 +434,10 @@ bun run dev              # Start Next.js dev server with Turbopack
 bun run build            # Build for production
 bun run start            # Start production server
 bun run lint             # Run ESLint
+bun run typecheck        # Generate route types and check TypeScript
+bun run test             # Run Bun regression tests
+bun run format:check     # Verify formatting
+bun run check            # Run lint, types, tests, and formatting
 
 # Database
 bun run db:generate      # Generate migration from schema changes
@@ -398,27 +463,34 @@ docker compose down      # Stop PostgreSQL
   - Generate: `bun run db:generate`
   - Apply: `bun run db:migrate`
 
+The migration history is a single clean baseline because the application has
+not been deployed yet. It includes ownership foreign keys, positive-value
+checks for transactional quantities, and indexes for project activity,
+inventory, and shared-link access.
+
 Note: On first project creation, the app also ensures entry types/products exist by calling `seedEntryTypes()` and `seedProducts()`.
 
 ## Architecture Patterns
 
 ### Validation Flow
 
-All data follows a strict validation pattern:
+All mutations follow a strict validation pattern:
 
-1. **Drizzle Schema** (`lib/db/schema.ts`) - Database structure (source of truth)
-2. **TypeBox Schema** (`lib/db/validation.ts`) - Derived from Drizzle using `drizzle-typebox`
-3. **Extended Schemas** - Merge or extend base schemas for API-specific needs
-4. **Type Inference** - TypeScript types inferred from TypeBox schemas
-5. **Runtime Validation** - All server actions validate with TypeBox before execution
+1. **TypeBox request schema** (`lib/db/validation.ts`) validates the action or
+   API boundary.
+2. **Authentication and ownership checks** establish who may perform it.
+3. **Domain invariants** enforce rules such as sale signs and product usage.
+4. **Drizzle schema** (`lib/db/schema.ts`) provides types, foreign keys, checks,
+   indexes, and the database source of truth.
 
 ```typescript
 // Example pattern
-export const projects = pgTable("projects", {...})  // 1. Drizzle
-export const selectProjectSchema = createSelectSchema(projects)  // 2. TypeBox
-export const createProjectInput = Type.Object({...})  // 3. Extended
-export type CreateProjectInput = Static<typeof createProjectInput>  // 4. Infer
-validate(createProjectInput, data)  // 5. Validate
+validate(createProjectInputSchema, input)
+const user = await getCurrentUserOrThrow()
+const openingEntry = buildOpeningBalanceEntry(input.initialAmount)
+await db.transaction(async (tx) => {
+  /* compound write */
+})
 ```
 
 ### Server Actions Pattern
@@ -490,9 +562,10 @@ const total = parseFloat(entry.amount) * parseFloat(entry.price)
 - ✅ Input validation on all server actions (TypeBox)
 - ✅ Environment variables for sensitive config
 - ✅ Cryptographically secure shared link tokens
-- ✅ Shared-link unlock anti-bruteforce controls (window/lockout/max attempts)
+- ✅ Bounded shared-link unlock anti-bruteforce controls (window/lockout/max attempts)
 - ✅ Project access restricted to owners
-- ✅ Admin allowlist guard for global mutable resources
+- ✅ First-user admin bootstrap, disabled-by-default later signup, and admin approval
+- ✅ Role guard for global admin resources and session denial for unapproved users
 - ✅ Read-only mode for shared links
 - ✅ Edit history tracking with user attribution
 
@@ -512,8 +585,8 @@ const total = parseFloat(entry.amount) * parseFloat(entry.price)
 BETTER_AUTH_SECRET=<generate-strong-secret>
 BETTER_AUTH_URL=https://yourdomain.com
 NEXT_PUBLIC_APP_URL=https://yourdomain.com
-ADMIN_USER_IDS=<comma-separated-user-ids>
-# or ADMIN_EMAILS=<comma-separated-emails>
+ALLOW_USER_SIGNUP=false
+SHARED_LINK_ACCESS_TOKEN_TTL_MS=120000
 DATABASE_URL=<your-postgres-connection-string>
 ```
 
@@ -521,9 +594,13 @@ DATABASE_URL=<your-postgres-connection-string>
 
 - Set a strong `BETTER_AUTH_SECRET` (required in production).
 - Set `BETTER_AUTH_URL` and `NEXT_PUBLIC_APP_URL` to your real public URL.
-- Configure `ADMIN_USER_IDS` and/or `ADMIN_EMAILS` in non-local environments.
+- Create the first account as admin on the production database, then keep
+  `ALLOW_USER_SIGNUP=false` except during intentional registration windows.
+- Approve every additional internal account from Dashboard → Admin.
 - Provide a production PostgreSQL `DATABASE_URL` and run `bun run db:migrate`.
-- Confirm shared link expiry and unlock policies (`SHARED_LINK_UNLOCK_*`) match your needs.
+- Confirm the shared-link expiry, bounded unlock policy (`SHARED_LINK_UNLOCK_*`),
+  and access-session TTL (`SHARED_LINK_ACCESS_TOKEN_TTL_MS`, two minutes by
+  default) match your needs.
 - Set up database backups and a restore procedure.
 - Logging: avoid logging secrets/PII; rely on platform logs for server-side errors and keep client errors user-friendly.
 
@@ -547,7 +624,3 @@ DATABASE_URL=<your-postgres-connection-string>
 ## Contributing
 
 This is a private project. For questions or issues, contact the repository owner.
-
-## License
-
-MIT License - see LICENSE file for details.

@@ -139,7 +139,7 @@ export function InventoryList() {
   // Get unique products for filter
   const uniqueProducts = useMemo(() => {
     const products = new Set<string>()
-    purchases.forEach(p => products.add(p.product.name))
+    purchases.forEach((p) => products.add(p.product.name))
     return Array.from(products).sort()
   }, [purchases])
 
@@ -151,7 +151,7 @@ export function InventoryList() {
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
       filtered = filtered.filter(
-        p =>
+        (p) =>
           p.product.name.toLowerCase().includes(query) ||
           (p.note && p.note.toLowerCase().includes(query)),
       )
@@ -159,7 +159,7 @@ export function InventoryList() {
 
     // Apply product filter
     if (productFilter !== 'all') {
-      filtered = filtered.filter(p => p.product.name === productFilter)
+      filtered = filtered.filter((p) => p.product.name === productFilter)
     }
 
     // Apply sorting
@@ -191,7 +191,57 @@ export function InventoryList() {
   }, [purchases, searchQuery, productFilter, sortBy])
 
   if (loading) {
-    return <div className="text-muted-foreground">Loading inventory...</div>
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <div className="h-6 w-40 animate-pulse rounded bg-muted" />
+            <div className="h-4 w-64 animate-pulse rounded bg-muted" />
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {[1, 2, 3].map((item) => (
+                <div
+                  key={item}
+                  className="flex items-center justify-between border-b pb-3 last:border-0 last:pb-0"
+                >
+                  <div className="space-y-2">
+                    <div className="h-4 w-36 animate-pulse rounded bg-muted" />
+                    <div className="h-3 w-28 animate-pulse rounded bg-muted" />
+                  </div>
+                  <div className="space-y-2 text-right">
+                    <div className="h-5 w-20 animate-pulse rounded bg-muted" />
+                    <div className="h-3 w-24 animate-pulse rounded bg-muted" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="h-6 w-36 animate-pulse rounded bg-muted" />
+            <div className="h-4 w-52 animate-pulse rounded bg-muted" />
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {[1, 2, 3].map((item) => (
+                <div key={item} className="rounded-lg border p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-2">
+                      <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+                      <div className="h-3 w-48 animate-pulse rounded bg-muted" />
+                    </div>
+                    <div className="h-5 w-20 animate-pulse rounded bg-muted" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -222,7 +272,7 @@ export function InventoryList() {
               </p>
             ) : (
               <div className="space-y-4">
-                {inventorySummary.map(item => {
+                {inventorySummary.map((item) => {
                   const currentValue =
                     item.currentStock * item.averageBuyingPrice
                   const possibleValue =
@@ -230,7 +280,8 @@ export function InventoryList() {
                   return (
                     <div
                       key={item.productId}
-                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b pb-3 last:border-0 last:pb-0 gap-2">
+                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b pb-3 last:border-0 last:pb-0 gap-2"
+                    >
                       <div className="flex-1 min-w-0">
                         <div className="font-medium truncate">
                           {item.productName}
@@ -253,8 +304,11 @@ export function InventoryList() {
                           className={`text-lg font-medium ${
                             item.currentStock < 0
                               ? 'text-red-600'
-                              : 'text-green-600'
-                          }`}>
+                              : item.currentStock > 0
+                                ? 'text-green-600'
+                                : 'text-muted-foreground'
+                          }`}
+                        >
                           {formatNumber(item.currentStock)} units
                         </div>
                         <div className="flex items-center text-sm text-muted-foreground">
@@ -269,7 +323,7 @@ export function InventoryList() {
                               (average cost method)
                             </TooltipContent>
                           </Tooltip>
-                          Buying value: {formatCurrency(currentValue)}
+                          Stock cost value: {formatCurrency(currentValue)}
                         </div>
                         <div className="flex items-center text-sm text-muted-foreground">
                           <Tooltip>
@@ -282,7 +336,7 @@ export function InventoryList() {
                               Estimated as current stock × average selling price
                             </TooltipContent>
                           </Tooltip>
-                          Apx. selling value: {formatCurrency(possibleValue)}{' '}
+                          Est. selling value: {formatCurrency(possibleValue)}
                         </div>
                       </div>
                     </div>
@@ -318,19 +372,20 @@ export function InventoryList() {
                     <Input
                       placeholder="Search products or notes..."
                       value={searchQuery}
-                      onChange={e => setSearchQuery(e.target.value)}
+                      onChange={(e) => setSearchQuery(e.target.value)}
                       className="pl-9"
                     />
                   </div>
                   <Select
                     value={productFilter}
-                    onValueChange={setProductFilter}>
+                    onValueChange={setProductFilter}
+                  >
                     <SelectTrigger className="w-full sm:w-45">
                       <SelectValue placeholder="Filter by product" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Products</SelectItem>
-                      {uniqueProducts.map(product => (
+                      {uniqueProducts.map((product) => (
                         <SelectItem key={product} value={product}>
                           {product}
                         </SelectItem>
@@ -341,11 +396,9 @@ export function InventoryList() {
                     value={sortBy}
                     onValueChange={(
                       value:
-                        | 'date-desc'
-                        | 'date-asc'
-                        | 'amount-desc'
-                        | 'amount-asc',
-                    ) => setSortBy(value)}>
+                        'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc',
+                    ) => setSortBy(value)}
+                  >
                     <SelectTrigger className="w-full sm:w-45">
                       <SelectValue placeholder="Sort by" />
                     </SelectTrigger>
@@ -365,7 +418,7 @@ export function InventoryList() {
                       No purchases match your filters
                     </p>
                   ) : (
-                    filteredAndSortedPurchases.map(purchase => (
+                    filteredAndSortedPurchases.map((purchase) => (
                       <Card key={purchase.id}>
                         <CardContent className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 gap-3">
                           <div className="flex-1 min-w-0">
@@ -402,7 +455,8 @@ export function InventoryList() {
                               size="sm"
                               onClick={() => handleDelete(purchase.id)}
                               aria-label="Delete purchase"
-                              title="Delete purchase">
+                              title="Delete purchase"
+                            >
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
@@ -435,9 +489,7 @@ export function InventoryList() {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={confirmDelete}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              <AlertDialogAction onClick={confirmDelete} variant="destructive">
                 Delete
               </AlertDialogAction>
             </AlertDialogFooter>

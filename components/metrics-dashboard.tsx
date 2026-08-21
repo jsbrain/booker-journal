@@ -150,6 +150,11 @@ export function MetricsDashboard({
               {formatCurrency(metrics.cost)}
             </div>
             <p className="text-xs text-muted-foreground">Cost of goods sold</p>
+            {metrics.negativeStockOccurred && (
+              <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                Approximate: stock went below zero
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -166,7 +171,8 @@ export function MetricsDashboard({
             <div
               className={`text-2xl font-bold ${
                 metrics.profit >= 0 ? 'text-green-600' : 'text-red-600'
-              }`}>
+              }`}
+            >
               {formatCurrency(metrics.profit)}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -183,7 +189,8 @@ export function MetricsDashboard({
           <CardContent>
             <div className="text-2xl font-bold">{metrics.totalEntries}</div>
             <p className="text-xs text-muted-foreground">
-              {metrics.totalPurchases} purchases made
+              {metrics.totalPurchases} {projectId ? 'global inventory ' : ''}
+              purchases made
             </p>
           </CardContent>
         </Card>
@@ -198,17 +205,18 @@ export function MetricsDashboard({
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {metrics.productBreakdown.map(product => (
+              {metrics.productBreakdown.map((product) => (
                 <div
                   key={product.productId}
-                  className="border-b pb-4 last:border-0 last:pb-0">
+                  className="border-b pb-4 last:border-0 last:pb-0"
+                >
                   <div className="mb-2 flex items-center justify-between">
                     <h4 className="font-medium">{product.productName}</h4>
                     <span className="text-sm text-muted-foreground">
                       {product.quantitySold.toFixed(2)} units sold
                     </span>
                   </div>
-                  <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3 sm:gap-4">
                     <div>
                       <div className="text-muted-foreground">Revenue</div>
                       <div className="font-medium text-green-600">
@@ -228,7 +236,8 @@ export function MetricsDashboard({
                           product.profit >= 0
                             ? 'text-green-600'
                             : 'text-red-600'
-                        }`}>
+                        }`}
+                      >
                         {formatCurrency(product.profit)}
                       </div>
                     </div>

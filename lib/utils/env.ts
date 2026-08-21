@@ -60,3 +60,23 @@ export function getEnvCsv(key: string): string[] {
     .map((item) => item.trim())
     .filter(Boolean)
 }
+
+export function getEnvBoolean(key: string, fallback: boolean): boolean {
+  const raw = process.env[key]
+  if (!raw || !raw.trim()) return fallback
+
+  switch (raw.trim().toLowerCase()) {
+    case '1':
+    case 'true':
+    case 'yes':
+    case 'on':
+      return true
+    case '0':
+    case 'false':
+    case 'no':
+    case 'off':
+      return false
+    default:
+      throw new Error(`Invalid ${key}: expected a boolean`)
+  }
+}

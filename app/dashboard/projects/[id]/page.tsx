@@ -228,8 +228,8 @@ function ProjectDetailContent() {
   const [sortBy, setSortBy] = useState<SortBy>('date-desc')
 
   // Get active tab from URL search params, default to "entries"
-  const activeTab =
-    (searchParams.get('tab') as 'entries' | 'metrics') || 'entries'
+  const activeTab: 'entries' | 'metrics' =
+    searchParams.get('tab') === 'metrics' ? 'metrics' : 'entries'
 
   const buildHref = useCallback(
     (
@@ -575,8 +575,68 @@ function ProjectDetailContent() {
 
   if (isPending || loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
+      <div className="min-h-screen bg-background">
+        <header className="border-b">
+          <div className="container mx-auto flex h-16 items-center justify-between px-4">
+            <div className="flex items-center gap-4">
+              <div className="h-9 w-9 animate-pulse rounded bg-muted" />
+              <div className="h-6 w-36 animate-pulse rounded bg-muted" />
+            </div>
+            <div className="h-9 w-24 animate-pulse rounded bg-muted" />
+          </div>
+        </header>
+        <main className="container mx-auto p-4 md:p-8">
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-2">
+              <div className="h-8 w-48 animate-pulse rounded bg-muted" />
+              <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+            </div>
+            <div className="flex gap-2">
+              {[1, 2, 3].map((item) => (
+                <div
+                  key={item}
+                  className="h-10 w-28 animate-pulse rounded bg-muted"
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {[1, 2, 3, 4].map((item) => (
+              <Card key={item}>
+                <CardHeader>
+                  <div className="h-5 w-24 animate-pulse rounded bg-muted" />
+                  <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+                </CardHeader>
+                <CardContent>
+                  <div className="h-8 w-20 animate-pulse rounded bg-muted" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <Card className="mt-6">
+            <CardHeader>
+              <div className="h-6 w-40 animate-pulse rounded bg-muted" />
+              <div className="h-4 w-60 animate-pulse rounded bg-muted" />
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {[1, 2, 3].map((item) => (
+                  <div key={item} className="rounded-lg border p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="space-y-2">
+                        <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+                        <div className="h-3 w-48 animate-pulse rounded bg-muted" />
+                      </div>
+                      <div className="h-6 w-20 animate-pulse rounded bg-muted" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </main>
       </div>
     )
   }
@@ -602,6 +662,9 @@ function ProjectDetailContent() {
                     <Link
                       href={buildHref('/dashboard', {
                         tab: 'projects',
+                        q: null,
+                        type: null,
+                        sort: null,
                       })}
                     >
                       <ArrowLeft className="h-4 w-4" />
@@ -614,6 +677,9 @@ function ProjectDetailContent() {
             <Link
               href={buildHref('/dashboard', {
                 tab: 'projects',
+                q: null,
+                type: null,
+                sort: null,
               })}
             >
               <h1 className="text-xl font-bold cursor-pointer hover:text-primary transition-colors">
@@ -684,6 +750,11 @@ function ProjectDetailContent() {
             </Button>
           </div>
         </div>
+
+        <p className="mb-4 text-xs text-muted-foreground">
+          The selected date range filters journal activity and metrics. Current
+          balance and project statistics remain all-time.
+        </p>
 
         <div className="mb-6 grid gap-4 sm:grid-cols-2">
           <Card>
@@ -780,13 +851,13 @@ function ProjectDetailContent() {
               </Card>
             ) : (
               <div className="space-y-4">
-                {/* Filtered Total - shown when filters are active */}
-                {hasActiveFilters && (
+                {/* The date range always scopes the visible activity. */}
+                {dateRange?.from && dateRange?.to && (
                   <Card className="bg-muted/50">
                     <CardContent className="py-3 px-4">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground">
-                          Filtered Total ({filteredAndSortedEntries.length}{' '}
+                          Visible activity ({filteredAndSortedEntries.length}{' '}
                           {filteredAndSortedEntries.length === 1
                             ? 'entry'
                             : 'entries'}
@@ -939,7 +1010,7 @@ function ProjectDetailContent() {
                 <div className="space-y-2">
                   {filteredAndSortedEntries.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-4">
-                      No entries match your filters
+                      No entries match the selected range and filters
                     </p>
                   ) : (
                     filteredAndSortedEntries.map((entry) => {
@@ -1139,7 +1210,7 @@ function ProjectDetailContent() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDeleteProject}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              variant="destructive"
             >
               Delete
             </AlertDialogAction>
@@ -1164,7 +1235,7 @@ function ProjectDetailContent() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDeleteEntry}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              variant="destructive"
             >
               Delete
             </AlertDialogAction>

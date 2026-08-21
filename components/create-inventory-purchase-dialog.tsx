@@ -56,6 +56,12 @@ export function CreateInventoryPurchaseDialog({
       loadProducts()
       // Set default timestamp to current date/time
       setPurchaseDate(new Date())
+    } else {
+      setProductId('')
+      setQuantity('')
+      setBuyingPrice('')
+      setNote('')
+      setError('')
     }
   }, [open])
 
@@ -63,6 +69,15 @@ export function CreateInventoryPurchaseDialog({
     try {
       const data = await getProducts()
       setProducts(data)
+      if (data.length > 0) {
+        const firstProduct = data[0]
+        setProductId(firstProduct.id)
+        setBuyingPrice(
+          firstProduct.defaultBuyingPrice
+            ? parseFloat(firstProduct.defaultBuyingPrice).toString()
+            : '',
+        )
+      }
     } catch (error) {
       devLogError('Failed to load products:', error)
       setError(getPublicErrorMessage(error, 'Failed to load products'))
@@ -71,7 +86,7 @@ export function CreateInventoryPurchaseDialog({
 
   const handleProductChange = (value: string) => {
     setProductId(value)
-    const product = products.find(p => p.id === value)
+    const product = products.find((p) => p.id === value)
     if (product?.defaultBuyingPrice) {
       setBuyingPrice(parseFloat(product.defaultBuyingPrice).toString())
     }
@@ -83,6 +98,24 @@ export function CreateInventoryPurchaseDialog({
     setLoading(true)
 
     try {
+      const quantityNumber = parseFloat(quantity)
+      const buyingPriceNumber = parseFloat(buyingPrice)
+
+      if (!productId) {
+        setError('Select a product')
+        return
+      }
+
+      if (!Number.isFinite(quantityNumber) || quantityNumber <= 0) {
+        setError('Quantity must be greater than 0')
+        return
+      }
+
+      if (!Number.isFinite(buyingPriceNumber) || buyingPriceNumber <= 0) {
+        setError('Buying price must be greater than 0')
+        return
+      }
+
       // Convert datetime to ISO string
       const purchaseDateISO = purchaseDate
         ? purchaseDate.toISOString()
@@ -90,8 +123,8 @@ export function CreateInventoryPurchaseDialog({
 
       await createInventoryPurchase(
         productId,
-        parseFloat(quantity),
-        parseFloat(buyingPrice),
+        quantityNumber,
+        buyingPriceNumber,
         note || undefined,
         purchaseDateISO,
       )
@@ -114,7 +147,7 @@ export function CreateInventoryPurchaseDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Add Inventory Purchase</DialogTitle>
           <DialogDescription>
@@ -129,7 +162,7 @@ export function CreateInventoryPurchaseDialog({
                 <SelectValue placeholder="Select a product" />
               </SelectTrigger>
               <SelectContent>
-                {products.map(product => (
+                {products.map((product) => (
                   <SelectItem key={product.id} value={product.id}>
                     {product.name}
                   </SelectItem>
@@ -144,8 +177,9 @@ export function CreateInventoryPurchaseDialog({
               id="quantity"
               type="number"
               step="0.01"
+              min="0.01"
               value={quantity}
-              onChange={e => setQuantity(e.target.value)}
+              onChange={(e) => setQuantity(e.target.value)}
               placeholder="e.g., 100"
               required
             />
@@ -157,8 +191,9 @@ export function CreateInventoryPurchaseDialog({
               id="buyingPrice"
               type="number"
               step="0.01"
+              min="0.01"
               value={buyingPrice}
-              onChange={e => setBuyingPrice(e.target.value)}
+              onChange={(e) => setBuyingPrice(e.target.value)}
               placeholder="e.g., 10.50"
               required
             />
@@ -181,22 +216,23 @@ export function CreateInventoryPurchaseDialog({
             <Textarea
               id="note"
               value={note}
-              onChange={e => setNote(e.target.value)}
+              onChange={(e) => setNote(e.target.value)}
               placeholder="Add any notes about this purchase"
               rows={3}
             />
           </div>
 
-          {error && <div className="text-sm text-red-600">{error}</div>}
+          {error && <div className="text-sm text-destructive">{error}</div>}
 
           <div className="flex justify-end gap-2">
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}>
+              onClick={() => onOpenChange(false)}
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading || products.length === 0}>
               {loading ? 'Creating...' : 'Create Purchase'}
             </Button>
           </div>

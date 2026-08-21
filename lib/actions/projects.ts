@@ -11,6 +11,7 @@ import {
   deleteProjectInputSchema,
   getProjectInputSchema,
 } from '@/lib/db/validation'
+import { buildOpeningBalanceEntry } from '@/lib/domain/projects'
 
 // Initialize entry types and products if they don't exist
 async function initializeData() {
@@ -27,69 +28,44 @@ async function initializeData() {
 
 // Project actions
 export async function createProject(name: string, initialAmount: number) {
-  // Validate input
-  validate(createProjectInputSchema, { name, initialAmount })
+  const projectName = name.trim()
+  validate(createProjectInputSchema, { name: projectName, initialAmount })
 
   const user = await getCurrentUserOrThrow()
   await initializeData()
 
-  // Create project
-  const [project] = await db
-    .insert(projects)
-    .values({
-      name,
-      userId: user.id,
-    })
-    .returning()
-
-  // Get the entry types we care about
+  // Opening balances are balance-only adjustments. Treating them as sales or
+  // payments would distort revenue, inventory, and payment reporting.
   const entryTypesList = await db.query.entryTypes.findMany()
-  const paymentType = entryTypesList.find((t) => t.key === 'payment')
-  const saleType = entryTypesList.find((t) => t.key === 'sale')
+  const adjustmentType = entryTypesList.find(
+    (type) => type.key === 'adjustment',
+  )
+  const openingEntry = buildOpeningBalanceEntry(initialAmount)
 
-  // User-facing convention for initial balance:
-  // - positive initialAmount => customer owes us (receivable)
-  // - negative initialAmount => customer has credit (we owe them)
-  // Ledger convention:
-  // - sale uses negative price (creates receivable)
-  // - payment uses positive price (reduces receivable)
-  const defaultType =
-    initialAmount > 0
-      ? saleType || entryTypesList[0]
-      : paymentType || entryTypesList[0]
-
-  if (!defaultType) {
-    throw new Error('No entry types found')
+  if (openingEntry && !adjustmentType) {
+    throw new Error('Adjustment entry type not found')
   }
 
-  // Only get product if it's a sale type
-  let productId = null
-  if (defaultType.key === 'sale') {
-    const productsList = await db.query.products.findMany()
-    const defaultProduct = productsList[0]
+  return db.transaction(async (tx) => {
+    const [project] = await tx
+      .insert(projects)
+      .values({
+        name: projectName,
+        userId: user.id,
+      })
+      .returning()
 
-    if (!defaultProduct) {
-      throw new Error('No products found')
+    if (openingEntry && adjustmentType) {
+      await tx.insert(journalEntries).values({
+        projectId: project.id,
+        ...openingEntry,
+        typeId: adjustmentType.id,
+        productId: null,
+      })
     }
-    productId = defaultProduct.id
-  }
 
-  // Translate user-facing initialAmount into ledger sign convention
-  // (so that displayed balance = -Σ(amount×price) matches user intent)
-  const initialEntryPrice =
-    initialAmount > 0 ? -initialAmount : Math.abs(initialAmount)
-
-  // Create initial journal entry
-  await db.insert(journalEntries).values({
-    projectId: project.id,
-    amount: '1',
-    price: initialEntryPrice.toString(),
-    typeId: defaultType.id,
-    productId,
-    note: 'Initial entry',
+    return project
   })
-
-  return project
 }
 
 export async function getProjects() {

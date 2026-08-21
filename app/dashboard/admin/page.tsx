@@ -24,6 +24,9 @@ import { ActiveSharedLinksSection } from '@/components/admin/active-shared-links
 import { ProductDialogs } from '@/components/admin/product-dialogs'
 import { AdminConfirmationDialogs } from '@/components/admin/admin-confirmation-dialogs'
 import type { Product, ActiveSharedLink } from '@/components/admin/types'
+import type { PendingUser } from '@/components/admin/types'
+import { UserApprovalsSection } from '@/components/admin/user-approvals-section'
+import { approveUser, getUsersAwaitingApproval } from '@/lib/actions/users'
 
 export default function AdminPage() {
   const { data: session, isPending } = useSession()
@@ -31,7 +34,9 @@ export default function AdminPage() {
 
   const [products, setProducts] = useState<Product[]>([])
   const [activeLinks, setActiveLinks] = useState<ActiveSharedLink[]>([])
+  const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([])
   const [loading, setLoading] = useState(true)
+  const [approvingUserId, setApprovingUserId] = useState<string | null>(null)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [showEditPriceDialog, setShowEditPriceDialog] = useState(false)
@@ -49,19 +54,25 @@ export default function AdminPage() {
   const [editProductBuyingPrice, setEditProductBuyingPrice] = useState('')
   const [error, setError] = useState('')
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null)
+  const isAdmin = session?.user.role === 'admin'
 
   useEffect(() => {
     if (!isPending && !session) {
       router.push('/login')
+    } else if (!isPending && session && !isAdmin) {
+      router.push('/dashboard')
     }
-  }, [session, isPending, router])
+  }, [session, isPending, isAdmin, router])
 
   useEffect(() => {
-    if (session) {
-      loadProducts()
-      loadActiveLinks()
+    if (isAdmin) {
+      void Promise.all([
+        loadProducts(),
+        loadActiveLinks(),
+        loadPendingUsers(),
+      ]).finally(() => setLoading(false))
     }
-  }, [session])
+  }, [isAdmin])
 
   const loadProducts = async () => {
     try {
@@ -70,8 +81,6 @@ export default function AdminPage() {
     } catch (error) {
       devLogError('Failed to load products:', error)
       setError(getPublicErrorMessage(error, 'Failed to load products'))
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -85,11 +94,41 @@ export default function AdminPage() {
     }
   }
 
+  const loadPendingUsers = async () => {
+    try {
+      const users = await getUsersAwaitingApproval()
+      setPendingUsers(users)
+    } catch (error) {
+      devLogError('Failed to load pending users:', error)
+      setError(getPublicErrorMessage(error, 'Failed to load pending users'))
+    }
+  }
+
+  const handleApproveUser = async (userId: string) => {
+    setError('')
+    setApprovingUserId(userId)
+
+    try {
+      await approveUser(userId)
+      await loadPendingUsers()
+    } catch (error) {
+      devLogError('Failed to approve user:', error)
+      setError(getPublicErrorMessage(error, 'Failed to approve user'))
+    } finally {
+      setApprovingUserId(null)
+    }
+  }
+
   const handleCopySharedLink = async (token: string, linkId: string) => {
-    const url = `${window.location.origin}/shared/${token}`
-    await navigator.clipboard.writeText(url)
-    setCopiedLinkId(linkId)
-    setTimeout(() => setCopiedLinkId(null), 1500)
+    try {
+      const url = `${window.location.origin}/shared/${token}`
+      await navigator.clipboard.writeText(url)
+      setCopiedLinkId(linkId)
+      setTimeout(() => setCopiedLinkId(null), 1500)
+    } catch (error) {
+      devLogError('Failed to copy shared link:', error)
+      setError('Failed to copy shared link')
+    }
   }
 
   const handleRevokeSharedLink = (link: ActiveSharedLink) => {
@@ -175,12 +214,14 @@ export default function AdminPage() {
   }
 
   const openEditDialog = (product: Product) => {
+    setError('')
     setEditingProduct(product)
     setEditProductName(product.name)
     setShowEditDialog(true)
   }
 
   const openEditPriceDialog = (product: Product) => {
+    setError('')
     setEditingProduct(product)
     setEditProductBuyingPrice(product.defaultBuyingPrice || '')
     setShowEditPriceDialog(true)
@@ -192,11 +233,14 @@ export default function AdminPage() {
 
     if (!editingProduct) return
 
+    const buyingPrice = parseFloat(editProductBuyingPrice)
+    if (!Number.isFinite(buyingPrice) || buyingPrice < 0) {
+      setError('Default buying price must be zero or greater')
+      return
+    }
+
     try {
-      await updateProductBuyingPrice(
-        editingProduct.id,
-        parseFloat(editProductBuyingPrice),
-      )
+      await updateProductBuyingPrice(editingProduct.id, buyingPrice)
       setShowEditPriceDialog(false)
       setEditingProduct(null)
       setEditProductBuyingPrice('')
@@ -207,7 +251,7 @@ export default function AdminPage() {
     }
   }
 
-  if (isPending || loading) {
+  if (isPending || (isAdmin && loading)) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-muted-foreground">Loading...</div>
@@ -215,7 +259,7 @@ export default function AdminPage() {
     )
   }
 
-  if (!session) {
+  if (!session || !isAdmin) {
     return null
   }
 
@@ -224,12 +268,12 @@ export default function AdminPage() {
       <header className="border-b">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-4">
-            <Link href="/dashboard">
-              <Button variant="ghost" size="sm">
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/dashboard" aria-label="Back to dashboard">
                 <ArrowLeft className="h-4 w-4" />
-              </Button>
-            </Link>
-            <h1 className="text-xl font-bold">Product Management</h1>
+              </Link>
+            </Button>
+            <h1 className="text-xl font-bold">Administration</h1>
           </div>
           <Button onClick={handleSignOut} variant="outline" size="sm">
             <LogOut className="mr-2 h-4 w-4" />
@@ -239,9 +283,17 @@ export default function AdminPage() {
       </header>
       <main className="container mx-auto p-4 md:p-8">
         {error && <div className="mb-4 text-sm text-destructive">{error}</div>}
+        <UserApprovalsSection
+          users={pendingUsers}
+          approvingUserId={approvingUserId}
+          onApprove={handleApproveUser}
+        />
         <ProductsSection
           products={products}
-          onCreate={() => setShowCreateDialog(true)}
+          onCreate={() => {
+            setError('')
+            setShowCreateDialog(true)
+          }}
           onEditName={openEditDialog}
           onEditPrice={openEditPriceDialog}
           onDelete={handleDeleteProduct}

@@ -24,6 +24,7 @@ import { updateEntry } from '@/lib/actions/entries'
 import { getEntryTypes } from '@/lib/actions/entry-types'
 import { getProducts } from '@/lib/actions/products'
 import { devLogError, getPublicErrorMessage } from '@/lib/utils/public-error'
+import { normalizeEntryPrice } from '@/lib/domain/entries'
 
 interface EditEntryDialogProps {
   open: boolean
@@ -77,7 +78,11 @@ export function EditEntryDialog({
     if (open) {
       loadData()
       setAmount(entry.amount)
-      setPrice(entry.price)
+      setPrice(
+        entry.type.key === 'sale' || entry.type.key === 'payment'
+          ? Math.abs(parseFloat(entry.price)).toString()
+          : entry.price,
+      )
       setTypeId(entry.typeId)
       setProductId(entry.productId || '')
       setNote(entry.note || '')
@@ -102,19 +107,39 @@ export function EditEntryDialog({
 
     try {
       const amountNum = parseFloat(amount)
-      const priceNum = parseFloat(price)
+      const rawPrice = parseFloat(price)
 
-      if (isNaN(amountNum) || isNaN(priceNum)) {
+      if (!Number.isFinite(amountNum) || !Number.isFinite(rawPrice)) {
         setError('Please enter valid numbers')
         return
       }
+
+      if (amountNum <= 0) {
+        setError('Amount must be greater than 0')
+        return
+      }
+
+      if (
+        (selectedTypeKey === 'sale' || selectedTypeKey === 'payment') &&
+        rawPrice <= 0
+      ) {
+        setError('Price must be greater than 0 for sales and payments')
+        return
+      }
+
+      if (selectedTypeKey === 'sale' && !productId) {
+        setError('Select a product for the sale')
+        return
+      }
+
+      const priceNum = normalizeEntryPrice(selectedTypeKey, rawPrice)
 
       await updateEntry(entry.id, projectId, {
         amount: amountNum,
         price: priceNum,
         typeId,
-        productId: selectedTypeKey === 'sale' ? productId : undefined,
-        note: note || undefined,
+        productId: selectedTypeKey === 'sale' ? productId : null,
+        note,
       })
 
       onSuccess()
@@ -129,7 +154,7 @@ export function EditEntryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-[425px]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Edit Journal Entry</DialogTitle>
@@ -142,19 +167,20 @@ export function EditEntryDialog({
               <Label htmlFor="edit-type">Type</Label>
               <Select
                 value={typeId}
-                onValueChange={value => {
+                onValueChange={(value) => {
                   setTypeId(value)
-                  const type = entryTypes.find(t => t.id === value)
+                  const type = entryTypes.find((t) => t.id === value)
                   if (type) {
                     setSelectedTypeKey(type.key)
                   }
                 }}
-                required>
+                required
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
-                  {entryTypes.map(type => (
+                  {entryTypes.map((type) => (
                     <SelectItem key={type.id} value={type.id}>
                       {type.name}
                     </SelectItem>
@@ -170,7 +196,7 @@ export function EditEntryDialog({
                     <SelectValue placeholder="Select product" />
                   </SelectTrigger>
                   <SelectContent>
-                    {products.map(product => (
+                    {products.map((product) => (
                       <SelectItem key={product.id} value={product.id}>
                         {product.name}
                       </SelectItem>
@@ -188,26 +214,41 @@ export function EditEntryDialog({
                 id="edit-amount"
                 type="number"
                 step="0.01"
+                min="0.01"
                 placeholder="e.g., 5"
                 value={amount}
-                onChange={e => setAmount(e.target.value)}
+                onChange={(e) => setAmount(e.target.value)}
                 required
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit-price">Price (€)</Label>
+              <Label htmlFor="edit-price">
+                {selectedTypeKey === 'adjustment'
+                  ? 'Signed Value per Unit (€)'
+                  : 'Price per Unit (€)'}
+              </Label>
               <Input
                 id="edit-price"
                 type="number"
                 step="0.01"
-                placeholder="e.g., -20"
+                min={
+                  selectedTypeKey === 'sale' || selectedTypeKey === 'payment'
+                    ? '0.01'
+                    : undefined
+                }
+                placeholder={
+                  selectedTypeKey === 'adjustment' ? 'e.g., -20' : 'e.g., 20'
+                }
                 value={price}
-                onChange={e => setPrice(e.target.value)}
+                onChange={(e) => setPrice(e.target.value)}
                 required
               />
               <p className="text-xs text-muted-foreground">
-                For sales: negative (customer owes). For payments: positive
-                (customer pays)
+                {selectedTypeKey === 'sale'
+                  ? 'Enter a positive price. The sale is recorded as money the customer owes.'
+                  : selectedTypeKey === 'payment'
+                    ? 'Enter a positive payment amount. It reduces what the customer owes.'
+                    : 'Use a negative value to increase the amount owed, or a positive value to reduce it.'}
               </p>
             </div>
             <div className="grid gap-2">
@@ -216,7 +257,7 @@ export function EditEntryDialog({
                 id="edit-note"
                 placeholder="Add a note..."
                 value={note}
-                onChange={e => setNote(e.target.value)}
+                onChange={(e) => setNote(e.target.value)}
                 rows={3}
               />
             </div>
@@ -226,7 +267,8 @@ export function EditEntryDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}>
+              onClick={() => onOpenChange(false)}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>

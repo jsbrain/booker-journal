@@ -16,5 +16,11 @@ export type ActiveSharedLink = {
   startDate: Date | null
   endDate: Date | null
   createdAt: Date
-  encrypted: boolean
+}
+
+export type PendingUser = {
+  id: string
+  name: string
+  email: string
+  createdAt: Date
 }

@@ -5,31 +5,50 @@ import {
   numeric,
   boolean,
   jsonb,
-  integer,
+  index,
+  uniqueIndex,
+  check,
 } from 'drizzle-orm/pg-core'
-import { relations } from 'drizzle-orm'
+import { relations, sql } from 'drizzle-orm'
 import { nanoid } from '@/lib/utils'
 
+function timestampTz<TName extends string>(name: TName) {
+  return timestamp(name, { withTimezone: true })
+}
+
 // Better-auth tables
-export const user = pgTable('user', {
-  id: text('id').primaryKey(),
-  name: text('name').notNull(),
-  email: text('email').notNull().unique(),
-  emailVerified: boolean('email_verified').default(false).notNull(),
-  image: text('image'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at')
-    .defaultNow()
-    .$onUpdate(() => new Date())
-    .notNull(),
-})
+export const user = pgTable(
+  'user',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    email: text('email').notNull().unique(),
+    emailVerified: boolean('email_verified').default(false).notNull(),
+    image: text('image'),
+    role: text('role').default('user').notNull(),
+    approved: boolean('approved').default(false).notNull(),
+    approvedAt: timestampTz('approved_at'),
+    createdAt: timestampTz('created_at').defaultNow().notNull(),
+    updatedAt: timestampTz('updated_at')
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index('user_approval_created_idx').on(table.approved, table.createdAt),
+    uniqueIndex('user_single_admin_idx')
+      .on(table.role)
+      .where(sql`${table.role} = 'admin'`),
+    check('user_role_valid', sql`${table.role} in ('user', 'admin')`),
+  ],
+)
 
 export const session = pgTable('session', {
   id: text('id').primaryKey(),
-  expiresAt: timestamp('expires_at').notNull(),
+  expiresAt: timestampTz('expires_at').notNull(),
   token: text('token').notNull().unique(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at')
+  createdAt: timestampTz('created_at').defaultNow().notNull(),
+  updatedAt: timestampTz('updated_at')
     .$onUpdate(() => new Date())
     .notNull(),
   ipAddress: text('ip_address'),
@@ -49,12 +68,12 @@ export const account = pgTable('account', {
   accessToken: text('access_token'),
   refreshToken: text('refresh_token'),
   idToken: text('id_token'),
-  accessTokenExpiresAt: timestamp('access_token_expires_at'),
-  refreshTokenExpiresAt: timestamp('refresh_token_expires_at'),
+  accessTokenExpiresAt: timestampTz('access_token_expires_at'),
+  refreshTokenExpiresAt: timestampTz('refresh_token_expires_at'),
   scope: text('scope'),
   password: text('password'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at')
+  createdAt: timestampTz('created_at').defaultNow().notNull(),
+  updatedAt: timestampTz('updated_at')
     .$onUpdate(() => new Date())
     .notNull(),
 })
@@ -63,9 +82,9 @@ export const verification = pgTable('verification', {
   id: text('id').primaryKey(),
   identifier: text('identifier').notNull(),
   value: text('value').notNull(),
-  expiresAt: timestamp('expires_at').notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at')
+  expiresAt: timestampTz('expires_at').notNull(),
+  createdAt: timestampTz('created_at').defaultNow().notNull(),
+  updatedAt: timestampTz('updated_at')
     .defaultNow()
     .$onUpdate(() => new Date())
     .notNull(),
@@ -78,8 +97,8 @@ export const entryTypes = pgTable('entry_types', {
     .$defaultFn(() => nanoid()),
   key: text('key').notNull().unique(), // Internal key like 'sale', 'payment'
   name: text('name').notNull(), // Display name that can be edited
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  createdAt: timestampTz('created_at').defaultNow().notNull(),
+  updatedAt: timestampTz('updated_at').defaultNow().notNull(),
 })
 
 // Products table - for product assignment to journal entries
@@ -93,41 +112,64 @@ export const products = pgTable('products', {
     precision: 10,
     scale: 2,
   }), // Optional default buying price
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  createdAt: timestampTz('created_at').defaultNow().notNull(),
+  updatedAt: timestampTz('updated_at').defaultNow().notNull(),
 })
 
 // Projects table
-export const projects = pgTable('projects', {
-  id: text('id')
-    .primaryKey()
-    .$defaultFn(() => nanoid()),
-  name: text('name').notNull(),
-  userId: text('user_id').notNull(), // Reference to better-auth user
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-})
+export const projects = pgTable(
+  'projects',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    name: text('name').notNull(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    createdAt: timestampTz('created_at').defaultNow().notNull(),
+    updatedAt: timestampTz('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('projects_user_created_idx').on(table.userId, table.createdAt),
+  ],
+)
 
 // Journal entries table
-export const journalEntries = pgTable('journal_entries', {
-  id: text('id')
-    .primaryKey()
-    .$defaultFn(() => nanoid()),
-  projectId: text('project_id')
-    .notNull()
-    .references(() => projects.id, { onDelete: 'cascade' }),
-  amount: numeric('amount', { precision: 10, scale: 2 }).notNull(), // e.g., quantity of items
-  price: numeric('price', { precision: 10, scale: 2 }).notNull(), // Price per unit (can be negative or positive)
-  typeId: text('type_id')
-    .notNull()
-    .references(() => entryTypes.id), // Entry type (Sale, Payment, etc.)
-  productId: text('product_id').references(() => products.id), // Product assignment - only required for Sale type
-  note: text('note'), // Optional note
-  timestamp: timestamp('timestamp').defaultNow().notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-  editHistory: jsonb('edit_history').$type<EditHistoryEntry[]>(), // Track edits
-})
+export const journalEntries = pgTable(
+  'journal_entries',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
+    price: numeric('price', { precision: 10, scale: 2 }).notNull(),
+    typeId: text('type_id')
+      .notNull()
+      .references(() => entryTypes.id),
+    productId: text('product_id').references(() => products.id),
+    note: text('note'),
+    timestamp: timestampTz('timestamp').defaultNow().notNull(),
+    createdAt: timestampTz('created_at').defaultNow().notNull(),
+    updatedAt: timestampTz('updated_at').defaultNow().notNull(),
+    editHistory: jsonb('edit_history').$type<EditHistoryEntry[]>(),
+  },
+  (table) => [
+    index('journal_entries_project_timestamp_idx').on(
+      table.projectId,
+      table.timestamp,
+    ),
+    index('journal_entries_project_type_timestamp_idx').on(
+      table.projectId,
+      table.typeId,
+      table.timestamp,
+    ),
+    check('journal_entries_amount_positive', sql`${table.amount} > 0`),
+  ],
+)
 
 // Edit history entry type
 export type EditHistoryEntry = {
@@ -142,65 +184,97 @@ export type EditHistoryEntry = {
 
 // Inventory purchases table - for tracking buying prices and inventory
 // NOTE: Inventory is GLOBAL per admin user, not per project/customer
-export const inventoryPurchases = pgTable('inventory_purchases', {
-  id: text('id')
-    .primaryKey()
-    .$defaultFn(() => nanoid()),
-  userId: text('user_id')
-    .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }), // Admin user who owns this inventory
-  productId: text('product_id')
-    .notNull()
-    .references(() => products.id),
-  quantity: numeric('quantity', { precision: 10, scale: 2 }).notNull(), // Amount purchased
-  buyingPrice: numeric('buying_price', { precision: 10, scale: 2 }).notNull(), // Price per unit when purchased
-  totalCost: numeric('total_cost', { precision: 10, scale: 2 }).notNull(), // quantity × buyingPrice
-  note: text('note'), // Optional note about the purchase
-  purchaseDate: timestamp('purchase_date').defaultNow().notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-})
+export const inventoryPurchases = pgTable(
+  'inventory_purchases',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    productId: text('product_id')
+      .notNull()
+      .references(() => products.id),
+    quantity: numeric('quantity', { precision: 10, scale: 2 }).notNull(),
+    buyingPrice: numeric('buying_price', {
+      precision: 10,
+      scale: 2,
+    }).notNull(),
+    totalCost: numeric('total_cost', { precision: 10, scale: 2 }).notNull(),
+    note: text('note'),
+    purchaseDate: timestampTz('purchase_date').defaultNow().notNull(),
+    createdAt: timestampTz('created_at').defaultNow().notNull(),
+    updatedAt: timestampTz('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('inventory_purchases_user_date_idx').on(
+      table.userId,
+      table.purchaseDate,
+    ),
+    index('inventory_purchases_user_product_idx').on(
+      table.userId,
+      table.productId,
+    ),
+    check('inventory_purchases_quantity_positive', sql`${table.quantity} > 0`),
+    check(
+      'inventory_purchases_buying_price_positive',
+      sql`${table.buyingPrice} > 0`,
+    ),
+  ],
+)
 
 // Shared links table for read-only access
-export const sharedLinks = pgTable('shared_links', {
-  id: text('id')
-    .primaryKey()
-    .$defaultFn(() => nanoid()),
-  projectId: text('project_id')
-    .notNull()
-    .references(() => projects.id, { onDelete: 'cascade' }),
-  token: text('token').notNull().unique(),
-  expiresAt: timestamp('expires_at').notNull(),
-  startDate: timestamp('start_date'), // Optional: filter entries from this date
-  endDate: timestamp('end_date'), // Optional: filter entries to this date
-  // Encrypted share (Option B)
-  passwordHash: text('password_hash'), // bcrypt hash; required for encrypted shares
-  keyServer: text('key_server'), // base64 (32 bytes)
-  keyUserEnc: text('key_user_enc'), // base64 (AES-GCM ciphertext)
-  keyUserIv: text('key_user_iv'), // base64 (12 bytes)
-  keyUserSalt: text('key_user_salt'), // base64
-  keyUserIterations: integer('key_user_iterations'),
-  payloadEnc: text('payload_enc'), // base64 (AES-GCM ciphertext)
-  payloadIv: text('payload_iv'), // base64 (12 bytes)
-  payloadAad: text('payload_aad'), // utf8 string (e.g. token)
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-})
+export const sharedLinks = pgTable(
+  'shared_links',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    token: text('token').notNull().unique(),
+    expiresAt: timestampTz('expires_at').notNull(),
+    startDate: timestampTz('start_date'),
+    endDate: timestampTz('end_date'),
+    passwordHash: text('password_hash').notNull(),
+    createdAt: timestampTz('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('shared_links_project_created_idx').on(
+      table.projectId,
+      table.createdAt,
+    ),
+    index('shared_links_expiry_idx').on(table.expiresAt),
+  ],
+)
 
-// One-time access sessions for encrypted shared links (Option B)
-export const sharedLinkAccessSessions = pgTable('shared_link_access_sessions', {
-  id: text('id')
-    .primaryKey()
-    .$defaultFn(() => nanoid()),
-  sharedLinkId: text('shared_link_id')
-    .notNull()
-    .references(() => sharedLinks.id, { onDelete: 'cascade' }),
-  accessTokenHash: text('access_token_hash').notNull(), // sha256 hex
-  expiresAt: timestamp('expires_at').notNull(),
-  usedAt: timestamp('used_at'),
-  ipAddress: text('ip_address'),
-  userAgent: text('user_agent'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-})
+// Short-lived sessions created after a shared-link password is verified.
+export const sharedLinkAccessSessions = pgTable(
+  'shared_link_access_sessions',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    sharedLinkId: text('shared_link_id')
+      .notNull()
+      .references(() => sharedLinks.id, { onDelete: 'cascade' }),
+    accessTokenHash: text('access_token_hash').notNull(),
+    expiresAt: timestampTz('expires_at').notNull(),
+    ipAddress: text('ip_address'),
+    userAgent: text('user_agent'),
+    createdAt: timestampTz('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('shared_link_access_lookup_idx').on(
+      table.sharedLinkId,
+      table.accessTokenHash,
+      table.expiresAt,
+    ),
+    index('shared_link_access_expiry_idx').on(table.expiresAt),
+  ],
+)
 
 // Relations
 export const projectsRelations = relations(projects, ({ many }) => ({

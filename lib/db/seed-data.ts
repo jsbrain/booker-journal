@@ -24,6 +24,7 @@ import {
 import { and, eq, inArray } from 'drizzle-orm'
 import { hashPassword } from 'better-auth/crypto'
 import { nanoid } from '@/lib/utils'
+import { buildOpeningBalanceEntry } from '@/lib/domain/projects'
 
 // Seed data configuration
 const SEED_USER = {
@@ -505,6 +506,16 @@ export async function seedDatabase() {
       console.log('   User already exists, using existing user')
       userId = existingUser.id
 
+      await db
+        .update(user)
+        .set({
+          role: 'admin',
+          approved: true,
+          approvedAt: existingUser.approvedAt || new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(user.id, userId))
+
       // Ensure the seed user's credential password is in better-auth's expected format.
       const hashedPassword = await hashPassword(SEED_USER.password)
       const existingAccount = await db.query.account.findFirst({
@@ -538,6 +549,9 @@ export async function seedDatabase() {
         email: SEED_USER.email,
         name: SEED_USER.name,
         emailVerified: true,
+        role: 'admin',
+        approved: true,
+        approvedAt: new Date(),
       })
 
       await db.insert(account).values({
@@ -669,31 +683,17 @@ export async function seedDatabase() {
       // Create initial balance entry if not zero
       if (customer.initialBalance !== 0) {
         const initialDate = new Date('2024-12-15T10:00:00Z')
+        const openingEntry = buildOpeningBalanceEntry(customer.initialBalance)
 
-        // User-facing convention for seed data:
-        // - positive initialBalance => customer owes us (receivable / Schulden)
-        // - negative initialBalance => customer has credit (payable / Guthaben)
-        // Ledger convention:
-        // - sale uses negative price
-        // - payment uses positive price
-        const initialEntryPrice =
-          customer.initialBalance > 0
-            ? -customer.initialBalance
-            : Math.abs(customer.initialBalance)
+        if (!openingEntry) {
+          throw new Error('Expected a non-zero opening balance entry')
+        }
 
         await db.insert(journalEntries).values({
           projectId: newProject.id,
-          amount: '1',
-          price: initialEntryPrice.toString(),
-          typeId: customer.initialBalance > 0 ? saleType.id : paymentType.id,
-          productId:
-            customer.initialBalance > 0
-              ? productMap[customer.buyingPattern].id
-              : null,
-          note:
-            customer.initialBalance > 0
-              ? 'Offene Rechnung aus 2024'
-              : 'Überzahlung aus 2024 - Guthaben',
+          ...openingEntry,
+          typeId: adjustmentType.id,
+          productId: null,
           timestamp: initialDate,
         })
 

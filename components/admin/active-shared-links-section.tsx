@@ -50,15 +50,9 @@ export function ActiveSharedLinksSection({
                       >
                         {link.projectName}
                       </Link>
-                      {link.encrypted ? (
-                        <span className="rounded-full bg-muted px-2 py-0.5 text-xs">
-                          Encrypted
-                        </span>
-                      ) : (
-                        <span className="rounded-full bg-muted px-2 py-0.5 text-xs">
-                          Public
-                        </span>
-                      )}
+                      <span className="bg-muted px-2 py-0.5 text-xs">
+                        Live encrypted · password protected
+                      </span>
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
                       <span>Expires {formatDateTime(link.expiresAt)}</span>

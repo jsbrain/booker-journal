@@ -10,6 +10,8 @@ import {
 import { eq, desc, and } from 'drizzle-orm'
 import { validate } from '@/lib/db/validate'
 import { getCurrentUserOrThrow } from '@/lib/authz/session'
+import { buildImmediatePaymentValues } from '@/lib/domain/entries'
+import { calculateLedgerBalance } from '@/lib/utils/balance'
 import {
   createEntryInputSchema,
   updateEntryInputSchema,
@@ -203,36 +205,43 @@ export async function createEntryWithPayment(
     throw new Error('Payment entry type not found')
   }
 
-  // Create the sale entry first
-  const [saleEntry] = await db
-    .insert(journalEntries)
-    .values({
-      projectId,
-      amount: amount.toString(),
-      price: price.toString(),
-      typeId,
-      productId: productId || null,
-      note,
-      timestamp: timestampDate,
-    })
-    .returning()
+  const paymentValues = buildImmediatePaymentValues({
+    amount,
+    salePrice: price,
+    note,
+  })
 
-  // Create the payment entry immediately after (positive price to offset the sale)
-  // Payment entries don't have products
-  const [paymentEntry] = await db
-    .insert(journalEntries)
-    .values({
-      projectId,
-      amount: amount.toString(),
-      price: Math.abs(price).toString(), // Make price positive for payment
-      typeId: paymentType.id,
-      productId: null, // Payments don't have products
-      note: note ? `${note} (immediate payment)` : 'Immediate payment',
-      timestamp: timestampDate,
-    })
-    .returning()
+  return db.transaction(async (tx) => {
+    const [saleEntry] = await tx
+      .insert(journalEntries)
+      .values({
+        projectId,
+        amount: amount.toString(),
+        price: price.toString(),
+        typeId,
+        productId: productId || null,
+        note,
+        timestamp: timestampDate,
+      })
+      .returning()
 
-  return { saleEntry, paymentEntry }
+    // Create the payment entry immediately after (positive price to offset the sale)
+    // Payment entries don't have products
+    const [paymentEntry] = await tx
+      .insert(journalEntries)
+      .values({
+        projectId,
+        amount: paymentValues.amount,
+        price: paymentValues.price,
+        typeId: paymentType.id,
+        productId: null,
+        note: paymentValues.note,
+        timestamp: timestampDate,
+      })
+      .returning()
+
+    return { saleEntry, paymentEntry }
+  })
 }
 
 export async function updateEntry(
@@ -242,7 +251,7 @@ export async function updateEntry(
     amount?: number
     price?: number
     typeId?: string
-    productId?: string
+    productId?: string | null
     note?: string
   },
 ) {
@@ -303,7 +312,7 @@ export async function updateEntry(
 
   if (
     updates.amount !== undefined &&
-    updates.amount.toString() !== currentEntry.amount
+    updates.amount !== parseFloat(currentEntry.amount)
   ) {
     changes.push({
       field: 'amount',
@@ -314,7 +323,7 @@ export async function updateEntry(
 
   if (
     updates.price !== undefined &&
-    updates.price.toString() !== currentEntry.price
+    updates.price !== parseFloat(currentEntry.price)
   ) {
     changes.push({
       field: 'price',
@@ -338,7 +347,7 @@ export async function updateEntry(
     changes.push({
       field: 'productId',
       oldValue: currentEntry.productId || '',
-      newValue: updates.productId,
+      newValue: updates.productId || '',
     })
   }
 
@@ -435,16 +444,7 @@ export async function getProjectBalance(projectId: string) {
     where: eq(journalEntries.projectId, projectId),
   })
 
-  // Calculate balance: -(sum of amount * price)
-  // Sales have negative prices, payments have positive prices
-  // Negating the sum gives us: positive = customer owes, negative = customer has credit
-  const balance = entries.reduce((sum, entry) => {
-    const amount = parseFloat(entry.amount)
-    const price = parseFloat(entry.price)
-    return sum + amount * price
-  }, 0)
-
-  return -balance
+  return calculateLedgerBalance(entries)
 }
 
 export async function deleteEntry(entryId: string, projectId: string) {

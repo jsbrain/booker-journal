@@ -94,7 +94,14 @@ export function ShareProjectDialog({
   }
 
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      setExpiresValue('7')
+      setExpiresUnit('days')
+      setDateRange(undefined)
+      setSharePassword('')
+      setError('')
+      return
+    }
 
     const load = async () => {
       try {
@@ -181,17 +188,22 @@ export function ShareProjectDialog({
   }
 
   const handleCopyLink = async (token: string) => {
-    const url = `${window.location.origin}/shared/${token}`
-    await navigator.clipboard.writeText(url)
-    setCopiedToken(token)
-    setTimeout(() => setCopiedToken(null), 2000)
+    try {
+      const url = `${window.location.origin}/shared/${token}`
+      await navigator.clipboard.writeText(url)
+      setCopiedToken(token)
+      setTimeout(() => setCopiedToken(null), 2000)
+    } catch (err) {
+      devLogError('Failed to copy shared link:', err)
+      setError('Failed to copy shared link')
+    }
   }
 
   const isExpired = (date: Date) => new Date(date) < new Date()
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-137.5">
+      <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Share Project</DialogTitle>
           <DialogDescription>
@@ -208,14 +220,15 @@ export function ShareProjectDialog({
                   type="number"
                   min="1"
                   value={expiresValue}
-                  onChange={e => setExpiresValue(e.target.value)}
+                  onChange={(e) => setExpiresValue(e.target.value)}
                   className="flex-1"
                 />
                 <Select
                   value={expiresUnit}
-                  onValueChange={value =>
+                  onValueChange={(value) =>
                     setExpiresUnit(value as 'days' | 'hours')
-                  }>
+                  }
+                >
                   <SelectTrigger className="w-27.5">
                     <SelectValue />
                   </SelectTrigger>
@@ -234,6 +247,7 @@ export function ShareProjectDialog({
               <DateRangePicker
                 dateRange={dateRange}
                 setDateRange={setDateRange}
+                allowClear
               />
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -247,20 +261,21 @@ export function ShareProjectDialog({
               id="share-password"
               type="password"
               value={sharePassword}
-              onChange={e => setSharePassword(e.target.value)}
+              onChange={(e) => setSharePassword(e.target.value)}
               placeholder="Required"
               autoComplete="new-password"
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              Required to open this link. If you forget it, you’ll need to
-              create a new link.
+              Required to decrypt this link. Live responses are encrypted for
+              the viewer’s browser. If you forget it, create a new link.
             </p>
           </div>
 
           <Button
             onClick={handleCreateLink}
             disabled={loading}
-            className="w-full">
+            className="w-full"
+          >
             {loading ? 'Creating...' : 'Create Link'}
           </Button>
 
@@ -270,10 +285,11 @@ export function ShareProjectDialog({
             <div className="space-y-2">
               <Label>Active Links</Label>
               <TooltipProvider delayDuration={200}>
-                {sharedLinks.map(link => (
+                {sharedLinks.map((link) => (
                   <Card
                     key={link.id}
-                    className={isExpired(link.expiresAt) ? 'opacity-50' : ''}>
+                    className={isExpired(link.expiresAt) ? 'opacity-50' : ''}
+                  >
                     <CardContent className="flex items-center justify-between p-3">
                       <div className="flex-1">
                         <div className="text-sm font-medium">
@@ -304,7 +320,8 @@ export function ShareProjectDialog({
                                 copiedToken === link.token
                                   ? 'Copied link'
                                   : 'Copy share link'
-                              }>
+                              }
+                            >
                               {copiedToken === link.token ? (
                                 <Check className="h-4 w-4" />
                               ) : (
@@ -322,7 +339,8 @@ export function ShareProjectDialog({
                               size="sm"
                               variant="outline"
                               onClick={() => handleDeleteLink(link.id)}
-                              aria-label="Delete share link">
+                              aria-label="Delete share link"
+                            >
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </TooltipTrigger>
@@ -356,7 +374,8 @@ export function ShareProjectDialog({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDeleteLink}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              variant="destructive"
+            >
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

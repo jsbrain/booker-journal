@@ -1,27 +1,19 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { sharedLinks, projects, journalEntries } from '@/lib/db/schema'
-import { eq, and, gt, desc, gte, lte } from 'drizzle-orm'
+import { sharedLinks, projects } from '@/lib/db/schema'
+import { eq, and, gt, desc } from 'drizzle-orm'
 import crypto from 'crypto'
 import bcrypt from 'bcryptjs'
 import { validate } from '@/lib/db/validate'
 import { logError } from '@/lib/utils/server-log'
 import { getCurrentUserOrThrow } from '@/lib/authz/session'
+import { parseOptionalDateInput } from '@/lib/utils/date'
 import {
   createSharedLinkInputSchema,
   deleteSharedLinkInputSchema,
-  sharedLinkTokenSchema,
   getProjectInputSchema,
 } from '@/lib/db/validation'
-import {
-  aesGcmEncrypt,
-  base64Encode,
-  pbkdf2Sha256,
-  randomBytes,
-  utf8ToBytes,
-  xorBytes,
-} from '@/lib/utils/crypto/shared-link'
 
 // Verify project ownership
 async function verifyProjectOwnership(projectId: string, userId: string) {
@@ -54,15 +46,21 @@ export async function createSharedLink(
     endDate,
   })
 
-  // Validate that at least one expiration parameter is provided
+  // Exactly one unit keeps expiry behavior unambiguous for every caller.
   if (!expiresInDays && !expiresInHours) {
     throw new Error('Either expiresInDays or expiresInHours must be provided')
   }
+  if (expiresInDays && expiresInHours) {
+    throw new Error('Choose either days or hours for expiration')
+  }
 
   // Validate date range if provided
-  if (startDate && endDate) {
-    const start = new Date(startDate)
-    const end = new Date(endDate)
+  const linkStart = parseOptionalDateInput(startDate, 'start date')
+  const linkEnd = parseOptionalDateInput(endDate, 'end date')
+
+  if (linkStart && linkEnd) {
+    const start = linkStart
+    const end = linkEnd
     if (start >= end) {
       throw new Error('Start date must be before end date')
     }
@@ -82,104 +80,6 @@ export async function createSharedLink(
     expiresAt.setDate(expiresAt.getDate() + expiresInDays)
   }
 
-  // Build snapshot payload (encrypted) for the selected timeframe
-  const linkStart = startDate ? new Date(startDate) : undefined
-  const linkEnd = endDate ? new Date(endDate) : undefined
-
-  // Build query with optional date filtering (inclusive)
-  const entryWhere = [eq(journalEntries.projectId, projectId)]
-  if (linkStart) entryWhere.push(gte(journalEntries.timestamp, linkStart))
-  if (linkEnd) entryWhere.push(lte(journalEntries.timestamp, linkEnd))
-
-  let entries
-  try {
-    entries = await db.query.journalEntries.findMany({
-      where: and(...entryWhere),
-      orderBy: [desc(journalEntries.timestamp)],
-      with: {
-        type: true,
-        product: true,
-      },
-    })
-  } catch (error) {
-    logError('shared-links.createSharedLink snapshot query failed', error, {
-      projectId,
-      userId: user.id,
-      hasStartDate: Boolean(linkStart),
-      hasEndDate: Boolean(linkEnd),
-    })
-    throw new Error('Failed to create link')
-  }
-
-  const project = await db.query.projects.findFirst({
-    where: eq(projects.id, projectId),
-  })
-
-  if (!project) {
-    throw new Error('Project not found')
-  }
-
-  const balance = -entries.reduce((sum, entry) => {
-    const amount = parseFloat(entry.amount)
-    const price = parseFloat(entry.price)
-    return sum + amount * price
-  }, 0)
-
-  const payload = {
-    version: 1,
-    project: {
-      id: project.id,
-      name: project.name,
-      userId: project.userId,
-      createdAt: project.createdAt.toISOString(),
-      updatedAt: project.updatedAt.toISOString(),
-    },
-    entries: entries.map((e) => ({
-      ...e,
-      timestamp: e.timestamp.toISOString(),
-      createdAt: e.createdAt.toISOString(),
-      updatedAt: e.updatedAt.toISOString(),
-      editHistory: e.editHistory ?? null,
-    })),
-    balance,
-    dateRange:
-      linkStart || linkEnd
-        ? {
-            startDate: linkStart ? linkStart.toISOString() : null,
-            endDate: linkEnd ? linkEnd.toISOString() : null,
-          }
-        : null,
-  }
-
-  const payloadJson = JSON.stringify(payload)
-
-  // Crypto scheme:
-  // - DEK encrypts payload (AES-GCM)
-  // - DEK is split: userShare = DEK XOR serverShare
-  // - userShare is encrypted with password-derived key (PBKDF2 + AES-GCM)
-  const dek = randomBytes(32)
-  const serverShare = randomBytes(32)
-  const userShare = xorBytes(dek, serverShare)
-
-  const keyIterations = 150_000
-  const keySalt = randomBytes(16)
-  const keyIv = randomBytes(12)
-  const derivedKey = await pbkdf2Sha256(password, keySalt, keyIterations, 32)
-  const userShareEnc = await aesGcmEncrypt(
-    derivedKey,
-    userShare,
-    keyIv,
-    utf8ToBytes(token),
-  )
-
-  const payloadIv = randomBytes(12)
-  const payloadEnc = await aesGcmEncrypt(
-    dek,
-    utf8ToBytes(payloadJson),
-    payloadIv,
-    utf8ToBytes(token),
-  )
-
   const passwordHash = await bcrypt.hash(password, 12)
 
   try {
@@ -192,18 +92,18 @@ export async function createSharedLink(
         startDate: linkStart,
         endDate: linkEnd,
         passwordHash,
-        keyServer: base64Encode(serverShare),
-        keyUserEnc: base64Encode(userShareEnc),
-        keyUserIv: base64Encode(keyIv),
-        keyUserSalt: base64Encode(keySalt),
-        keyUserIterations: keyIterations,
-        payloadEnc: base64Encode(payloadEnc),
-        payloadIv: base64Encode(payloadIv),
-        payloadAad: token,
       })
       .returning()
 
-    return link
+    return {
+      id: link.id,
+      projectId: link.projectId,
+      token: link.token,
+      expiresAt: link.expiresAt,
+      startDate: link.startDate,
+      endDate: link.endDate,
+      createdAt: link.createdAt,
+    }
   } catch (error) {
     logError('shared-links.createSharedLink failed', error, {
       projectId,
@@ -221,10 +121,19 @@ export async function getSharedLinks(projectId: string) {
   await verifyProjectOwnership(projectId, user.id)
 
   try {
-    const links = await db.query.sharedLinks.findMany({
-      where: eq(sharedLinks.projectId, projectId),
-      orderBy: [desc(sharedLinks.createdAt)],
-    })
+    const links = await db
+      .select({
+        id: sharedLinks.id,
+        projectId: sharedLinks.projectId,
+        token: sharedLinks.token,
+        expiresAt: sharedLinks.expiresAt,
+        startDate: sharedLinks.startDate,
+        endDate: sharedLinks.endDate,
+        createdAt: sharedLinks.createdAt,
+      })
+      .from(sharedLinks)
+      .where(eq(sharedLinks.projectId, projectId))
+      .orderBy(desc(sharedLinks.createdAt))
 
     return links
   } catch (error) {
@@ -250,7 +159,6 @@ export async function getActiveSharedLinksForUser() {
         startDate: sharedLinks.startDate,
         endDate: sharedLinks.endDate,
         createdAt: sharedLinks.createdAt,
-        passwordHash: sharedLinks.passwordHash,
       })
       .from(sharedLinks)
       .innerJoin(projects, eq(sharedLinks.projectId, projects.id))
@@ -271,7 +179,6 @@ export async function getActiveSharedLinksForUser() {
       startDate: r.startDate,
       endDate: r.endDate,
       createdAt: r.createdAt,
-      encrypted: Boolean(r.passwordHash),
     }))
   } catch (error) {
     logError('shared-links.getActiveSharedLinksForUser failed', error, {
@@ -303,100 +210,5 @@ export async function deleteSharedLink(linkId: string, projectId: string) {
       userId: user.id,
     })
     throw new Error('Failed to delete link')
-  }
-}
-
-// Validate shared link (no auth required)
-export async function validateSharedLink(token: string) {
-  // Validate input
-  validate(sharedLinkTokenSchema, { token })
-
-  try {
-    const link = await db.query.sharedLinks.findFirst({
-      where: and(
-        eq(sharedLinks.token, token),
-        gt(sharedLinks.expiresAt, new Date()),
-      ),
-      with: {
-        project: true,
-      },
-    })
-
-    if (!link) {
-      return null
-    }
-
-    return link
-  } catch (error) {
-    // Do not log token (treat as a secret)
-    logError('shared-links.validateSharedLink failed', error)
-    return null
-  }
-}
-
-// Get project data via shared link (no auth required)
-export async function getProjectBySharedLink(token: string) {
-  // Validate input
-  validate(sharedLinkTokenSchema, { token })
-
-  const link = await validateSharedLink(token)
-
-  if (!link) {
-    throw new Error('Invalid or expired link')
-  }
-
-  const isEncrypted = Boolean(
-    link.passwordHash || link.payloadEnc || link.keyServer || link.keyUserEnc,
-  )
-  if (isEncrypted) {
-    throw new Error('Password required')
-  }
-
-  // Build query with optional date filtering (inclusive)
-  const entryWhere = [eq(journalEntries.projectId, link.projectId)]
-  if (link.startDate)
-    entryWhere.push(gte(journalEntries.timestamp, link.startDate))
-  if (link.endDate) entryWhere.push(lte(journalEntries.timestamp, link.endDate))
-
-  let entries
-  try {
-    entries = await db.query.journalEntries.findMany({
-      where: and(...entryWhere),
-      orderBy: [desc(journalEntries.timestamp)],
-      with: {
-        type: true,
-        product: true,
-      },
-    })
-  } catch (error) {
-    // Do not log token (treat as a secret)
-    logError('shared-links.getProjectBySharedLink failed', error, {
-      projectId: link.projectId,
-      hasStartDate: Boolean(link.startDate),
-      hasEndDate: Boolean(link.endDate),
-    })
-    throw new Error('Failed to load shared project')
-  }
-
-  // Calculate balance: -(sum of amount * price)
-  // Sales have negative prices, payments have positive prices
-  // Negating the sum gives us: positive = customer owes, negative = customer has credit
-  const balance = -entries.reduce((sum, entry) => {
-    const amount = parseFloat(entry.amount)
-    const price = parseFloat(entry.price)
-    return sum + amount * price
-  }, 0)
-
-  return {
-    project: link.project,
-    entries,
-    balance,
-    dateRange:
-      link.startDate || link.endDate
-        ? {
-            startDate: link.startDate,
-            endDate: link.endDate,
-          }
-        : null,
   }
 }

@@ -10,7 +10,3 @@ cache = true
 
 [install.scopes]
 # Optional: Configure scoped registries if needed
-
-[test]
-# Test configuration
-preload = []

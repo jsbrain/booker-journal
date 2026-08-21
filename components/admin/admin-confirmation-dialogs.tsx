@@ -48,7 +48,8 @@ export function AdminConfirmationDialogs({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={onConfirmDeleteProduct}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              variant="destructive"
+            >
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -57,7 +58,8 @@ export function AdminConfirmationDialogs({
 
       <AlertDialog
         open={showDeleteLinkDialog}
-        onOpenChange={setShowDeleteLinkDialog}>
+        onOpenChange={setShowDeleteLinkDialog}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Revoke Shared Link</AlertDialogTitle>
@@ -70,7 +72,8 @@ export function AdminConfirmationDialogs({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={onConfirmRevokeLink}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              variant="destructive"
+            >
               Revoke
             </AlertDialogAction>
           </AlertDialogFooter>

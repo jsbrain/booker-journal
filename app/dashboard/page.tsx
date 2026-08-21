@@ -50,7 +50,8 @@ export default function DashboardPage() {
         <div className="flex min-h-screen items-center justify-center">
           <div className="text-muted-foreground">Loading...</div>
         </div>
-      }>
+      }
+    >
       <DashboardContent />
     </Suspense>
   )
@@ -83,9 +84,9 @@ function DashboardContent() {
   }
 
   // Get active tab from URL search params, default to "projects"
-  const activeTab =
-    (searchParams.get('tab') as 'projects' | 'metrics' | 'inventory') ||
-    'projects'
+  const tabParam = searchParams.get('tab')
+  const activeTab: 'projects' | 'metrics' | 'inventory' =
+    tabParam === 'metrics' || tabParam === 'inventory' ? tabParam : 'projects'
 
   useEffect(() => {
     if (!isPending && !session) {
@@ -184,12 +185,14 @@ function DashboardContent() {
             </h1>
           </Link>
           <div className="flex gap-2">
-            <Button asChild variant="outline" size="sm">
-              <Link href="/dashboard/admin">
-                <Settings className="mr-2 h-4 w-4" />
-                Admin
-              </Link>
-            </Button>
+            {session.user.role === 'admin' && (
+              <Button asChild variant="outline" size="sm">
+                <Link href="/dashboard/admin">
+                  <Settings className="mr-2 h-4 w-4" />
+                  Admin
+                </Link>
+              </Button>
+            )}
             <Button onClick={handleSignOut} variant="outline" size="sm">
               <LogOut className="mr-2 h-4 w-4" />
               Sign Out
@@ -203,28 +206,34 @@ function DashboardContent() {
         )}
         <Tabs
           value={activeTab}
-          onValueChange={value =>
+          onValueChange={(value) =>
             router.push(buildHref('/dashboard', { tab: value }))
           }
-          className="w-full">
-          <TabsList className="mb-6 grid w-full grid-cols-1 gap-1 sm:w-fit sm:grid-cols-3">
+          className="w-full"
+        >
+          <TabsList className="mb-6 grid w-full grid-cols-3 gap-1 sm:w-fit">
             <TabsTrigger
               value="projects"
-              className="justify-start sm:justify-center">
+              className="justify-start sm:justify-center"
+            >
               <FolderOpen className="mr-2 h-4 w-4" />
               Projects
             </TabsTrigger>
             <TabsTrigger
               value="metrics"
-              className="justify-start sm:justify-center">
+              className="justify-start sm:justify-center"
+            >
               <TrendingUp className="mr-2 h-4 w-4" />
-              Global Metrics
+              <span className="sm:hidden">Metrics</span>
+              <span className="hidden sm:inline">Global Metrics</span>
             </TabsTrigger>
             <TabsTrigger
               value="inventory"
-              className="justify-start sm:justify-center">
+              className="justify-start sm:justify-center"
+            >
               <Package className="mr-2 h-4 w-4" />
-              Global Inventory
+              <span className="sm:hidden">Inventory</span>
+              <span className="hidden sm:inline">Global Inventory</span>
             </TabsTrigger>
           </TabsList>
 
@@ -260,13 +269,14 @@ function DashboardContent() {
               </Card>
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {projects.map(project => (
+                {projects.map((project) => (
                   <Link
                     key={project.id}
                     href={buildHref(`/dashboard/projects/${project.id}`, {
                       tab: 'entries',
                     })}
-                    className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                    className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
                     <Card className="cursor-pointer transition-colors hover:bg-accent h-full">
                       <CardHeader>
                         <CardTitle className="truncate">

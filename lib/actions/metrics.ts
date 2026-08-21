@@ -11,6 +11,11 @@ import { eq, and, gte, lte, inArray } from 'drizzle-orm'
 import { validate } from '@/lib/db/validate'
 import { getMetricsInputSchema } from '@/lib/db/validation'
 import { getCurrentUserOrThrow } from '@/lib/authz/session'
+import { ensureChronologicalRange, parseDateInput } from '@/lib/utils/date'
+import {
+  computeMovingAverageMetrics,
+  type MetricsEvent,
+} from '@/lib/domain/metrics'
 
 // Verify project ownership
 async function verifyProjectOwnership(projectId: string, userId: string) {
@@ -31,6 +36,7 @@ export interface ProjectMetrics {
   profit: number // Revenue - Cost
   totalEntries: number
   totalPurchases: number
+  negativeStockOccurred: boolean
   productBreakdown: {
     productId: string
     productName: string
@@ -39,164 +45,6 @@ export interface ProjectMetrics {
     cost: number
     profit: number
   }[]
-}
-
-type MetricsEvent =
-  | {
-      kind: 'purchase'
-      ts: Date
-      productId: string
-      productName: string
-      quantity: number
-      totalCost: number
-    }
-  | {
-      kind: 'sale'
-      ts: Date
-      productId: string
-      productName: string
-      projectId: string
-      quantity: number
-      revenue: number
-    }
-
-type ProductAccumulator = {
-  productId: string
-  productName: string
-  quantitySold: number
-  revenue: number
-  cost: number
-}
-
-type InventoryState = {
-  onHandQty: number
-  onHandCost: number
-  lastAvgCost: number
-}
-
-function safeNumber(value: number) {
-  return Number.isFinite(value) ? value : 0
-}
-
-function computeMovingAverageMetrics(params: {
-  start: Date
-  end: Date
-  events: MetricsEvent[]
-  mode: 'global' | 'project'
-  projectId?: string
-}) {
-  const { start, end, events, mode, projectId } = params
-
-  const sorted = [...events].sort((a, b) => {
-    const diff = a.ts.getTime() - b.ts.getTime()
-    if (diff !== 0) return diff
-    if (a.kind === b.kind) return 0
-    // Deterministic tie-breaker: purchases first, then sales.
-    return a.kind === 'purchase' ? -1 : 1
-  })
-
-  const inventoryByProduct = new Map<string, InventoryState>()
-  const metricsByProduct = new Map<string, ProductAccumulator>()
-
-  let negativeStockOccurred = false
-
-  const getState = (productId: string): InventoryState => {
-    const existing = inventoryByProduct.get(productId)
-    if (existing) return existing
-    const next = { onHandQty: 0, onHandCost: 0, lastAvgCost: 0 }
-    inventoryByProduct.set(productId, next)
-    return next
-  }
-
-  const getAccumulator = (productId: string, productName: string) => {
-    const existing = metricsByProduct.get(productId)
-    if (existing) return existing
-    const next: ProductAccumulator = {
-      productId,
-      productName,
-      quantitySold: 0,
-      revenue: 0,
-      cost: 0,
-    }
-    metricsByProduct.set(productId, next)
-    return next
-  }
-
-  for (const event of sorted) {
-    const state = getState(event.productId)
-
-    if (event.kind === 'purchase') {
-      const qty = safeNumber(event.quantity)
-      const cost = safeNumber(event.totalCost)
-
-      state.onHandQty += qty
-      state.onHandCost += cost
-
-      if (state.onHandQty !== 0) {
-        state.lastAvgCost = safeNumber(state.onHandCost / state.onHandQty)
-      }
-
-      continue
-    }
-
-    // Sale
-    const qtySold = safeNumber(event.quantity)
-    const avgCost =
-      state.onHandQty !== 0
-        ? safeNumber(state.onHandCost / state.onHandQty)
-        : safeNumber(state.lastAvgCost)
-
-    // Update inventory state first (regardless of whether this sale is in the requested range)
-    state.onHandQty -= qtySold
-    state.onHandCost -= qtySold * avgCost
-    state.lastAvgCost = avgCost
-
-    if (state.onHandQty === 0) {
-      state.onHandCost = 0
-    }
-
-    if (state.onHandQty < 0) {
-      negativeStockOccurred = true
-      // Keep cost basis aligned with last known avg cost when negative.
-      state.onHandCost = state.onHandQty * avgCost
-    }
-
-    const inRange = event.ts >= start && event.ts <= end
-    const inScope =
-      mode === 'global'
-        ? true
-        : Boolean(projectId && event.projectId === projectId)
-
-    if (inRange && inScope) {
-      const acc = getAccumulator(event.productId, event.productName)
-      acc.quantitySold += qtySold
-      acc.revenue += safeNumber(event.revenue)
-      acc.cost += qtySold * avgCost
-    }
-  }
-
-  const productBreakdown = Array.from(metricsByProduct.values()).map((p) => {
-    return {
-      productId: p.productId,
-      productName: p.productName,
-      quantitySold: p.quantitySold,
-      revenue: p.revenue,
-      cost: p.cost,
-      profit: p.revenue - p.cost,
-    }
-  })
-
-  const revenue = productBreakdown.reduce((sum, p) => sum + p.revenue, 0)
-  const cost = productBreakdown.reduce((sum, p) => sum + p.cost, 0)
-  const profit = revenue - cost
-
-  return {
-    revenue,
-    cost,
-    profit,
-    productBreakdown,
-    negativeStockOccurred,
-  }
 }
 
 export async function getProjectMetrics(
@@ -210,8 +58,9 @@ export async function getProjectMetrics(
   const user = await getCurrentUserOrThrow()
   await verifyProjectOwnership(projectId, user.id)
 
-  const start = new Date(startDate)
-  const end = new Date(endDate)
+  const start = parseDateInput(startDate, 'start date')
+  const end = parseDateInput(endDate, 'end date')
+  ensureChronologicalRange(start, end)
 
   // Resolve the sale entry type ID once for filtering.
   const saleType = await db.query.entryTypes.findFirst({
@@ -224,6 +73,7 @@ export async function getProjectMetrics(
       profit: 0,
       totalEntries: 0,
       totalPurchases: 0,
+      negativeStockOccurred: false,
       productBreakdown: [],
     }
   }
@@ -319,6 +169,7 @@ export async function getProjectMetrics(
     profit: computed.profit,
     totalEntries: entries.length,
     totalPurchases: purchasesInPeriod.length,
+    negativeStockOccurred: computed.negativeStockOccurred,
     productBreakdown: computed.productBreakdown,
   }
 }
@@ -353,8 +204,9 @@ export async function getGlobalMetrics(
 ): Promise<ProjectMetrics> {
   const user = await getCurrentUserOrThrow()
 
-  const start = new Date(startDate)
-  const end = new Date(endDate)
+  const start = parseDateInput(startDate, 'start date')
+  const end = parseDateInput(endDate, 'end date')
+  ensureChronologicalRange(start, end)
 
   const saleType = await db.query.entryTypes.findFirst({
     where: eq(entryTypes.key, 'sale'),
@@ -366,6 +218,7 @@ export async function getGlobalMetrics(
       profit: 0,
       totalEntries: 0,
       totalPurchases: 0,
+      negativeStockOccurred: false,
       productBreakdown: [],
     }
   }
@@ -384,6 +237,7 @@ export async function getGlobalMetrics(
       profit: 0,
       totalEntries: 0,
       totalPurchases: 0,
+      negativeStockOccurred: false,
       productBreakdown: [],
     }
   }
@@ -470,6 +324,7 @@ export async function getGlobalMetrics(
     profit: computed.profit,
     totalEntries: entries.length,
     totalPurchases: purchasesInPeriod.length,
+    negativeStockOccurred: computed.negativeStockOccurred,
     productBreakdown: computed.productBreakdown,
   }
 }

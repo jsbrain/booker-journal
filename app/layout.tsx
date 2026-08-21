@@ -1,27 +1,12 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
-import { Geist, Geist_Mono, JetBrains_Mono } from 'next/font/google'
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  variable: '--font-sans',
-})
-
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-})
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-})
+import { TooltipProvider } from '@/components/ui/tooltip'
 
 export const metadata: Metadata = {
   title: 'Booker Journal',
   description:
-    'A simple login and dashboard example with Next.js 16, shadcn-ui, and better-auth',
+    'Private inventory, ledger, and customer sharing application built with Next.js and better-auth',
 }
 
 export default function RootLayout({
@@ -31,14 +16,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} ${jetbrainsMono.variable} antialiased`}>
+      <body className="antialiased">
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
           enableSystem={false}
-          disableTransitionOnChange>
-          {children}
+          disableTransitionOnChange
+        >
+          <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -4,13 +4,14 @@ import crypto from 'crypto'
 
 import { db } from '@/lib/db'
 import { sharedLinks, sharedLinkAccessSessions } from '@/lib/db/schema'
-import { and, eq, gt } from 'drizzle-orm'
+import { and, eq, gt, lte } from 'drizzle-orm'
 
 import { validate } from '@/lib/db/validate'
 import { sharedLinkUnlockInputSchema } from '@/lib/db/validation'
 import { sha256Hex } from '@/lib/utils/crypto/shared-link'
 import { logWarn } from '@/lib/utils/server-log'
 import { getEnvInteger } from '@/lib/utils/env'
+import { UnlockAttemptLimiter } from '@/lib/utils/unlock-attempt-limiter'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,13 +43,12 @@ const ACCESS_TOKEN_TTL_MS = getEnvInteger(
   { min: 30_000 },
 )
 
-type UnlockAttemptState = {
-  count: number
-  windowStart: number
-  lockedUntil: number
-}
-
-const unlockAttemptStore = new Map<string, UnlockAttemptState>()
+const unlockAttemptLimiter = new UnlockAttemptLimiter({
+  windowMs: UNLOCK_WINDOW_MS,
+  lockoutMs: UNLOCK_LOCKOUT_MS,
+  maxAttempts: UNLOCK_MAX_ATTEMPTS,
+  maxTrackedKeys: UNLOCK_STORE_MAX_KEYS,
+})
 
 function getClientIp(req: Request): string {
   return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
@@ -56,75 +56,6 @@ function getClientIp(req: Request): string {
 
 function getAttemptKey(token: string, ipAddress: string): string {
   return `${ipAddress}:${token}`
-}
-
-function cleanupAttemptStore(now: number) {
-  if (unlockAttemptStore.size < UNLOCK_STORE_MAX_KEYS) return
-
-  for (const [key, state] of unlockAttemptStore.entries()) {
-    const staleWindow = now - state.windowStart > UNLOCK_LOCKOUT_MS * 2
-    const unlocked = state.lockedUntil <= now
-    if (staleWindow && unlocked) {
-      unlockAttemptStore.delete(key)
-    }
-  }
-}
-
-function getRetryAfterSeconds(state: UnlockAttemptState, now: number): number {
-  const remainingMs = state.lockedUntil > now ? state.lockedUntil - now : 0
-  return Math.max(1, Math.ceil(remainingMs / 1000))
-}
-
-function isUnlockAllowed(attemptKey: string, now: number) {
-  cleanupAttemptStore(now)
-
-  const current = unlockAttemptStore.get(attemptKey)
-  if (!current) {
-    return { allowed: true as const }
-  }
-
-  if (current.lockedUntil > now) {
-    return {
-      allowed: false as const,
-      retryAfterSeconds: getRetryAfterSeconds(current, now),
-    }
-  }
-
-  if (now - current.windowStart > UNLOCK_WINDOW_MS) {
-    unlockAttemptStore.set(attemptKey, {
-      count: 0,
-      windowStart: now,
-      lockedUntil: 0,
-    })
-  }
-
-  return { allowed: true as const }
-}
-
-function recordUnlockFailure(attemptKey: string, now: number) {
-  const current = unlockAttemptStore.get(attemptKey)
-
-  if (!current || now - current.windowStart > UNLOCK_WINDOW_MS) {
-    unlockAttemptStore.set(attemptKey, {
-      count: 1,
-      windowStart: now,
-      lockedUntil: 0,
-    })
-    return
-  }
-
-  const nextCount = current.count + 1
-  const shouldLock = nextCount >= UNLOCK_MAX_ATTEMPTS
-
-  unlockAttemptStore.set(attemptKey, {
-    count: nextCount,
-    windowStart: current.windowStart,
-    lockedUntil: shouldLock ? now + UNLOCK_LOCKOUT_MS : 0,
-  })
-}
-
-function clearUnlockFailures(attemptKey: string) {
-  unlockAttemptStore.delete(attemptKey)
 }
 
 export async function POST(
@@ -136,7 +67,7 @@ export async function POST(
   const attemptKey = getAttemptKey(token, ipAddress)
   const now = Date.now()
 
-  const rateLimit = isUnlockAllowed(attemptKey, now)
+  const rateLimit = unlockAttemptLimiter.check(attemptKey, now)
   if (!rateLimit.allowed) {
     logWarn('shared-links.unlock rate limited', {
       ipAddress,
@@ -158,10 +89,14 @@ export async function POST(
     password?: unknown
   } | null
 
-  validate(sharedLinkUnlockInputSchema, {
-    token,
-    password: body?.password,
-  })
+  try {
+    validate(sharedLinkUnlockInputSchema, {
+      token,
+      password: body?.password,
+    })
+  } catch {
+    return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
+  }
 
   const link = await db.query.sharedLinks.findFirst({
     where: and(
@@ -170,8 +105,8 @@ export async function POST(
     ),
   })
 
-  if (!link || !link.passwordHash) {
-    recordUnlockFailure(attemptKey, now)
+  if (!link) {
+    unlockAttemptLimiter.recordFailure(attemptKey, now)
     return NextResponse.json(
       { error: 'Invalid or expired link' },
       { status: 404 },
@@ -180,7 +115,7 @@ export async function POST(
 
   const ok = await bcrypt.compare(String(body!.password), link.passwordHash)
   if (!ok) {
-    recordUnlockFailure(attemptKey, now)
+    unlockAttemptLimiter.recordFailure(attemptKey, now)
     logWarn('shared-links.unlock invalid password', {
       sharedLinkId: link.id,
       ipAddress,
@@ -188,7 +123,7 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid password' }, { status: 401 })
   }
 
-  clearUnlockFailures(attemptKey)
+  unlockAttemptLimiter.clear(attemptKey)
 
   const accessToken = crypto.randomBytes(32).toString('hex')
   const accessTokenHash = sha256Hex(accessToken)
@@ -198,12 +133,18 @@ export async function POST(
   const ipAddressForSession = ipAddress === 'unknown' ? null : ipAddress
   const userAgent = req.headers.get('user-agent') || null
 
-  await db.insert(sharedLinkAccessSessions).values({
-    sharedLinkId: link.id,
-    accessTokenHash,
-    expiresAt,
-    ipAddress: ipAddressForSession,
-    userAgent,
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(sharedLinkAccessSessions)
+      .where(lte(sharedLinkAccessSessions.expiresAt, new Date()))
+
+    await tx.insert(sharedLinkAccessSessions).values({
+      sharedLinkId: link.id,
+      accessTokenHash,
+      expiresAt,
+      ipAddress: ipAddressForSession,
+      userAgent,
+    })
   })
 
   const response = NextResponse.json({ accessToken, expiresAt })

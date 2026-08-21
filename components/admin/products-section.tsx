@@ -23,7 +23,7 @@ export function ProductsSection({
 }: ProductsSectionProps) {
   return (
     <>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold">Products</h2>
           <p className="text-sm text-muted-foreground">
@@ -37,17 +37,24 @@ export function ProductsSection({
       </div>
 
       <div className="space-y-2">
+        {products.length === 0 && (
+          <Card>
+            <CardContent className="p-4 text-sm text-muted-foreground">
+              No products yet. Create one before recording sales or inventory.
+            </CardContent>
+          </Card>
+        )}
         {products.map((product) => (
           <Card key={product.id}>
-            <CardContent className="flex items-center justify-between p-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
+            <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{product.name}</span>
                   <span className="text-sm text-muted-foreground">
                     ({product.key})
                   </span>
                 </div>
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
                   <span>Created {formatDate(product.createdAt)}</span>
                   <span>•</span>
                   <span>
@@ -58,7 +65,7 @@ export function ProductsSection({
                   </span>
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button
                   variant="outline"
                   size="sm"

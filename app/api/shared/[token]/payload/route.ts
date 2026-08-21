@@ -1,9 +1,6 @@
 import { NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { sharedLinks } from '@/lib/db/schema'
-import { and, eq, gt } from 'drizzle-orm'
-import { validate } from '@/lib/db/validate'
-import { sharedLinkTokenSchema } from '@/lib/db/validation'
+import { validateSharedLinkRecord } from '@/lib/shared-links'
+import { PublicError } from '@/lib/utils/public-error'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,83 +9,34 @@ export async function GET(
   context: { params: Promise<{ token: string }> },
 ) {
   const { token } = await context.params
-  validate(sharedLinkTokenSchema, { token })
 
-  const link = await db.query.sharedLinks.findFirst({
-    where: and(
-      eq(sharedLinks.token, token),
-      gt(sharedLinks.expiresAt, new Date()),
-    ),
-  })
+  try {
+    const link = await validateSharedLinkRecord(token)
 
-  if (!link) {
-    return NextResponse.json(
-      { error: 'Invalid or expired link' },
-      { status: 404 },
-    )
+    if (!link) {
+      return NextResponse.json(
+        { error: 'Invalid or expired link' },
+        { status: 404 },
+      )
+    }
+
+    const response = NextResponse.json({
+      encrypted: true,
+      live: true,
+      passwordRequired: true,
+      expiresAt: link.expiresAt,
+      startDate: link.startDate,
+      endDate: link.endDate,
+    })
+
+    response.headers.set('Cache-Control', 'no-store')
+    return response
+  } catch (error) {
+    const message =
+      error instanceof PublicError
+        ? error.publicMessage
+        : 'Failed to load shared link'
+
+    return NextResponse.json({ error: message }, { status: 500 })
   }
-
-  const encryptedFieldCandidates = [
-    link.payloadEnc,
-    link.payloadIv,
-    link.payloadAad,
-    link.keyServer,
-    link.keyUserEnc,
-    link.keyUserIv,
-    link.keyUserSalt,
-  ]
-
-  const hasAnyEncryptedField = encryptedFieldCandidates.some(Boolean)
-
-  const hasCompleteEncryptedPayload =
-    Boolean(
-      link.payloadEnc &&
-      link.payloadIv &&
-      link.payloadAad &&
-      link.keyServer &&
-      link.keyUserEnc &&
-      link.keyUserIv &&
-      link.keyUserSalt,
-    ) &&
-    Number.isInteger(link.keyUserIterations) &&
-    Number(link.keyUserIterations) > 0
-
-  if (hasAnyEncryptedField && !hasCompleteEncryptedPayload) {
-    return NextResponse.json(
-      { error: 'Shared link payload is unavailable' },
-      { status: 500 },
-    )
-  }
-
-  const encrypted = hasCompleteEncryptedPayload
-
-  const response = NextResponse.json(
-    encrypted
-      ? {
-          encrypted: true,
-          expiresAt: link.expiresAt,
-          startDate: link.startDate,
-          endDate: link.endDate,
-          payload: {
-            enc: link.payloadEnc,
-            iv: link.payloadIv,
-            aad: link.payloadAad,
-          },
-          keyUser: {
-            enc: link.keyUserEnc,
-            iv: link.keyUserIv,
-            salt: link.keyUserSalt,
-            iterations: link.keyUserIterations,
-          },
-        }
-      : {
-          encrypted: false,
-          expiresAt: link.expiresAt,
-          startDate: link.startDate,
-          endDate: link.endDate,
-        },
-  )
-
-  response.headers.set('Cache-Control', 'no-store')
-  return response
 }

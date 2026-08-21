@@ -1,7 +1,9 @@
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
+import { APIError } from 'better-auth/api'
 import { db } from './db'
 import * as schema from './db/schema'
+import { getRegistrationAccess } from './auth-registration'
 import { config } from 'dotenv'
 import { expand } from 'dotenv-expand'
 
@@ -61,6 +63,72 @@ export const auth = betterAuth({
   }),
   emailAndPassword: {
     enabled: true,
+    disableSignUp: false,
+    autoSignIn: false,
+  },
+  user: {
+    additionalFields: {
+      role: {
+        type: ['user', 'admin'],
+        required: true,
+        defaultValue: 'user',
+        input: false,
+      },
+      approved: {
+        type: 'boolean',
+        required: true,
+        defaultValue: false,
+        input: false,
+      },
+      approvedAt: {
+        type: 'date',
+        required: false,
+        input: false,
+      },
+    },
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        before: async (newUser) => {
+          const registrationAccess = await getRegistrationAccess()
+
+          if (!registrationAccess) {
+            throw new APIError('FORBIDDEN', {
+              message: 'Signup is disabled',
+              code: 'SIGNUP_DISABLED',
+            })
+          }
+
+          return {
+            data: {
+              ...newUser,
+              role: registrationAccess.role,
+              approved: registrationAccess.approved,
+              approvedAt: registrationAccess.approved ? new Date() : null,
+            },
+          }
+        },
+      },
+    },
+    session: {
+      create: {
+        before: async (newSession) => {
+          const accountOwner = await db.query.user.findFirst({
+            where: (users, { eq }) => eq(users.id, newSession.userId),
+          })
+
+          if (!accountOwner?.approved) {
+            throw new APIError('FORBIDDEN', {
+              message: 'Account is awaiting administrator approval',
+              code: 'ACCOUNT_PENDING_APPROVAL',
+            })
+          }
+
+          return { data: newSession }
+        },
+      },
+    },
   },
   secret: process.env.BETTER_AUTH_SECRET || 'dev-only-secret',
   trustedOrigins,

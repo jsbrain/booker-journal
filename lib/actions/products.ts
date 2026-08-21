@@ -2,7 +2,7 @@
 
 import { db } from '@/lib/db'
 import { products } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 import { validate } from '@/lib/db/validate'
 import { requireAdminUser } from '@/lib/authz/admin'
 import { getCurrentUserOrThrow } from '@/lib/authz/session'
@@ -17,13 +17,15 @@ export async function getProducts() {
   // Any authenticated user can view products
   await getCurrentUserOrThrow()
 
-  const allProducts = await db.query.products.findMany()
+  const allProducts = await db.query.products.findMany({
+    orderBy: [asc(products.name)],
+  })
   return allProducts
 }
 
 export async function updateProductName(productId: string, newName: string) {
-  // Validate input
-  validate(updateProductInputSchema, { productId, newName })
+  const normalizedName = newName.trim()
+  validate(updateProductInputSchema, { productId, newName: normalizedName })
 
   // Only admin can update product names
   await requireAdminUser()
@@ -31,7 +33,7 @@ export async function updateProductName(productId: string, newName: string) {
   await db
     .update(products)
     .set({
-      name: newName,
+      name: normalizedName,
       updatedAt: new Date(),
     })
     .where(eq(products.id, productId))
@@ -40,8 +42,12 @@ export async function updateProductName(productId: string, newName: string) {
 }
 
 export async function createProduct(key: string, name: string) {
-  // Validate input
-  validate(createProductInputSchema, { key, name })
+  const normalizedKey = key.trim()
+  const normalizedName = name.trim()
+  validate(createProductInputSchema, {
+    key: normalizedKey,
+    name: normalizedName,
+  })
 
   // Only admin can create new products
   await requireAdminUser()
@@ -49,8 +55,8 @@ export async function createProduct(key: string, name: string) {
   const [product] = await db
     .insert(products)
     .values({
-      key,
-      name,
+      key: normalizedKey,
+      name: normalizedName,
     })
     .returning()
 

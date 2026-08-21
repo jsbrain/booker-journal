@@ -159,6 +159,7 @@ export function ProductDialogs({
                   id="edit-price"
                   type="number"
                   step="0.01"
+                  min="0"
                   placeholder="e.g., 10.50"
                   value={editProductBuyingPrice}
                   onChange={(e) => setEditProductBuyingPrice(e.target.value)}

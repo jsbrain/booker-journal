@@ -36,6 +36,7 @@ import { createEntry, createEntryWithPayment } from '@/lib/actions/entries'
 import { getEntryTypes } from '@/lib/actions/entry-types'
 import { getProducts } from '@/lib/actions/products'
 import { devLogError, getPublicErrorMessage } from '@/lib/utils/public-error'
+import { normalizeEntryPrice } from '@/lib/domain/entries'
 
 interface CreateEntryDialogProps {
   open: boolean
@@ -88,6 +89,9 @@ export function CreateEntryDialog({
       setNote('')
       setPaidImmediately(false)
       setError('')
+      setTypeId('')
+      setProductId('')
+      setSelectedTypeKey('')
     }
   }, [open])
 
@@ -97,8 +101,10 @@ export function CreateEntryDialog({
       setEntryTypes(types)
       setProducts(prods)
       if (types.length > 0) {
-        setTypeId(types[0].id)
-        setSelectedTypeKey(types[0].key)
+        const defaultType =
+          types.find((type) => type.key === 'sale') || types[0]
+        setTypeId(defaultType.id)
+        setSelectedTypeKey(defaultType.key)
       }
       if (prods.length > 0) {
         setProductId(prods[0].id)
@@ -112,7 +118,7 @@ export function CreateEntryDialog({
     e.preventDefault()
 
     // Check if this is a Sale entry with "Paid Immediately" checked
-    const selectedType = entryTypes.find(t => t.id === typeId)
+    const selectedType = entryTypes.find((t) => t.id === typeId)
     const isSaleWithPayment = selectedType?.key === 'sale' && paidImmediately
 
     if (isSaleWithPayment) {
@@ -130,12 +136,32 @@ export function CreateEntryDialog({
 
     try {
       const amountNum = parseFloat(amount)
-      const priceNum = parseFloat(price)
+      const rawPrice = parseFloat(price)
 
-      if (isNaN(amountNum) || isNaN(priceNum)) {
+      if (!Number.isFinite(amountNum) || !Number.isFinite(rawPrice)) {
         setError('Please enter valid numbers')
         return
       }
+
+      if (amountNum <= 0) {
+        setError('Amount must be greater than 0')
+        return
+      }
+
+      if (
+        (selectedTypeKey === 'sale' || selectedTypeKey === 'payment') &&
+        rawPrice <= 0
+      ) {
+        setError('Price must be greater than 0 for sales and payments')
+        return
+      }
+
+      if (selectedTypeKey === 'sale' && !productId) {
+        setError('Select a product for the sale')
+        return
+      }
+
+      const priceNum = normalizeEntryPrice(selectedTypeKey, rawPrice)
 
       // Convert datetime to ISO string
       const timestampISO = timestamp ? timestamp.toISOString() : undefined
@@ -171,7 +197,10 @@ export function CreateEntryDialog({
       setTimestamp(new Date())
       setPaidImmediately(false)
       if (entryTypes.length > 0) {
-        setTypeId(entryTypes[0].id)
+        const defaultType =
+          entryTypes.find((type) => type.key === 'sale') || entryTypes[0]
+        setTypeId(defaultType.id)
+        setSelectedTypeKey(defaultType.key)
       }
       if (products.length > 0) {
         setProductId(products[0].id)
@@ -190,7 +219,7 @@ export function CreateEntryDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-[425px]">
           <form onSubmit={handleSubmit}>
             <DialogHeader>
               <DialogTitle>Create Journal Entry</DialogTitle>
@@ -203,19 +232,23 @@ export function CreateEntryDialog({
                 <Label htmlFor="type">Type</Label>
                 <Select
                   value={typeId}
-                  onValueChange={value => {
+                  onValueChange={(value) => {
                     setTypeId(value)
-                    const type = entryTypes.find(t => t.id === value)
+                    const type = entryTypes.find((t) => t.id === value)
                     if (type) {
                       setSelectedTypeKey(type.key)
+                      if (type.key !== 'sale') {
+                        setPaidImmediately(false)
+                      }
                     }
                   }}
-                  required>
+                  required
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
-                    {entryTypes.map(type => (
+                    {entryTypes.map((type) => (
                       <SelectItem key={type.id} value={type.id}>
                         {type.name}
                       </SelectItem>
@@ -229,12 +262,13 @@ export function CreateEntryDialog({
                   <Select
                     value={productId}
                     onValueChange={setProductId}
-                    required>
+                    required
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select product" />
                     </SelectTrigger>
                     <SelectContent>
-                      {products.map(product => (
+                      {products.map((product) => (
                         <SelectItem key={product.id} value={product.id}>
                           {product.name}
                         </SelectItem>
@@ -252,26 +286,41 @@ export function CreateEntryDialog({
                   id="amount"
                   type="number"
                   step="0.01"
+                  min="0.01"
                   placeholder="e.g., 5"
                   value={amount}
-                  onChange={e => setAmount(e.target.value)}
+                  onChange={(e) => setAmount(e.target.value)}
                   required
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="price">Price (€)</Label>
+                <Label htmlFor="price">
+                  {selectedTypeKey === 'adjustment'
+                    ? 'Signed Value per Unit (€)'
+                    : 'Price per Unit (€)'}
+                </Label>
                 <Input
                   id="price"
                   type="number"
                   step="0.01"
-                  placeholder="e.g., -20"
+                  min={
+                    selectedTypeKey === 'sale' || selectedTypeKey === 'payment'
+                      ? '0.01'
+                      : undefined
+                  }
+                  placeholder={
+                    selectedTypeKey === 'adjustment' ? 'e.g., -20' : 'e.g., 20'
+                  }
                   value={price}
-                  onChange={e => setPrice(e.target.value)}
+                  onChange={(e) => setPrice(e.target.value)}
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  For sales: negative (customer owes). For payments: positive
-                  (customer pays)
+                  {selectedTypeKey === 'sale'
+                    ? 'Enter a positive price. The sale is recorded as money the customer owes.'
+                    : selectedTypeKey === 'payment'
+                      ? 'Enter a positive payment amount. It reduces what the customer owes.'
+                      : 'Use a negative value to increase the amount owed, or a positive value to reduce it.'}
                 </p>
               </div>
               <div className="grid gap-2">
@@ -291,22 +340,23 @@ export function CreateEntryDialog({
                   id="note"
                   placeholder="Add a note..."
                   value={note}
-                  onChange={e => setNote(e.target.value)}
+                  onChange={(e) => setNote(e.target.value)}
                   rows={3}
                 />
               </div>
-              {entryTypes.find(t => t.id === typeId)?.key === 'sale' && (
+              {entryTypes.find((t) => t.id === typeId)?.key === 'sale' && (
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="paidImmediately"
                     checked={paidImmediately}
-                    onCheckedChange={checked =>
+                    onCheckedChange={(checked) =>
                       setPaidImmediately(checked === true)
                     }
                   />
                   <Label
                     htmlFor="paidImmediately"
-                    className="text-sm font-normal cursor-pointer">
+                    className="text-sm font-normal cursor-pointer"
+                  >
                     Paid immediately (creates automatic payment entry)
                   </Label>
                 </div>
@@ -317,7 +367,8 @@ export function CreateEntryDialog({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => onOpenChange(false)}>
+                onClick={() => onOpenChange(false)}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={loading}>
@@ -332,20 +383,23 @@ export function CreateEntryDialog({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Immediate Payment</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will create two entries:
-              <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>A sale entry with the specified amount and price</li>
-                <li>An automatic payment entry to offset the sale</li>
-              </ul>
-              Are you sure you want to proceed?
+            <AlertDialogDescription asChild>
+              <div>
+                This will create two entries:
+                <ul className="mt-2 list-inside list-disc space-y-1">
+                  <li>A sale entry with the specified amount and price</li>
+                  <li>An automatic payment entry to offset the sale</li>
+                </ul>
+                <p className="mt-2">Are you sure you want to proceed?</p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => createEntryInternal(true)}
-              disabled={loading}>
+              disabled={loading}
+            >
               {loading ? 'Creating...' : 'Confirm'}
             </AlertDialogAction>
           </AlertDialogFooter>
